@@ -1,0 +1,885 @@
+## 1 . GDREC_DataGeneration.py ##
+
+# 현재 시간
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+#styymm = (datetime.today()+relativedelta(months=+1)).strftime('%Y%m')
+#cls_yymm = datetime.today().strftime('%Y%m')
+
+
+#st_yymm = input("조회 시작 연월 입력 (ex:202505) : ")
+#end_yymm = input("조회 종료 연월 입력 (ex:202505) : ")
+
+#st_day = datetime.strptime(st_yymm , "%Y%m")
+#end_day =  datetime.strptime(end_yymm , "%Y%m")
+
+#styymm = (datetime.today()+relativedelta(months=+0)).strftime('%Y%m')
+#cls_yymm = (datetime.today()+relativedelta(months=-1)).strftime('%Y%m')
+#cls_yy = datetime.today().strftime('%Y')
+
+# 데이터 생성하기
+# DB연결
+import cx_Oracle as orcl 
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+db = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+
+
+with open('/notebooks/datajeonpart/상품추천시스템_V2/query/가입상품생성쿼리.txt', 'r') as f:
+    sqls = list(map(lambda a: a.strip(), f.read().split(';')))
+    
+    with db.cursor() as cursor:
+        for sql in sqls:
+            ddl = sql.split(' ')[0]
+            if ddl== 'DROP':
+                try:
+                    cursor.execute(sql)
+                    cursor.execute('commit')
+                    print(sql.split(' ')[2], ' 제거')
+                except:
+                    continue
+            if ddl == 'CREATE':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' 생성')
+            if ddl == 'INSERT':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' INSERT')
+                    
+            if ddl == 'GRANT':
+                cursor.execute(sql)
+                cursor.execute('commit')  
+
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+db = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+
+with open('/notebooks/datajeonpart/상품추천시스템_V2/query/필터링조건쿼리.txt', 'r') as f:
+    sqls = list(map(lambda a: a.strip(), f.read().split(';')))
+    
+    with db.cursor() as cursor:
+        for sql in sqls:
+            ddl = sql.split(' ')[0]
+            if ddl== 'DROP':
+                try:
+                    cursor.execute(sql)
+                    cursor.execute('commit')
+                    print(sql.split(' ')[2], ' 제거')
+                except:
+                    continue
+            if ddl == 'CREATE':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' 생성')
+            if ddl == 'INSERT':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' INSERT')
+                    
+            if ddl == 'GRANT':
+                cursor.execute(sql)
+                cursor.execute('commit')  
+
+
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+db = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+
+with open('/notebooks/datajeonpart/상품추천시스템_V2/query/추천상품예측모델_학습데이터생성.txt', 'r') as f:
+    sqls = list(map(lambda a: a.strip(), f.read().split(';')))
+    
+    with db.cursor() as cursor:
+        for sql in sqls:
+            ddl = sql.split(' ')[0]
+            if ddl== 'DROP':
+                try:
+                    cursor.execute(sql)
+                    cursor.execute('commit')
+                    print(sql.split(' ')[2], ' 제거')
+                except:
+                    continue
+            if ddl == 'CREATE':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' 생성')
+            if ddl == 'INSERT':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' INSERT')
+                    
+            if ddl == 'GRANT':
+                cursor.execute(sql)
+                cursor.execute('commit')  
+
+
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+db = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+
+with open('/notebooks/datajeonpart/상품추천시스템_V2/query/상품가입현황통계.txt', 'r') as f:
+    sqls = list(map(lambda a: a.strip(), f.read().split(';')))
+    
+    with db.cursor() as cursor:
+        for sql in sqls:
+            ddl = sql.split(' ')[0]
+            if ddl== 'DROP':
+                try:
+                    cursor.execute(sql)
+                    cursor.execute('commit')
+                    print(sql.split(' ')[2], ' 제거')
+                except:
+                    continue
+            if ddl == 'CREATE':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' 생성')
+            if ddl == 'INSERT':
+                cursor.execute(sql)
+                cursor.execute('commit')
+                print(sql.split(' ')[2], ' INSERT')
+                    
+            if ddl == 'GRANT':
+                cursor.execute(sql)
+                cursor.execute('commit')  
+
+# M_BIZ_RECT_GDINFO_L01
+# M_BIZ_RECT_GDINFO_L03
+# M_BIZ_RECT_GDINFO_SS
+# M_BIZ_RECT_GDINFO_L08
+# M_BIZ_RECT_GDINFO_L11
+
+
+
+## 2. GDREC_GD_filter.py ##
+# gdrec_filters.py
+import pandas as pd
+import re
+import random
+# --- 1) 상품명 클렌징 함수 ---------------------------------
+def clean_product_name(name: str) -> str:
+    if pd.isna(name):
+        return ""
+    name = re.sub(r'\([^)]*\)', '', name)
+    keywords = ['무배당', '무배', '순수보장형',
+                '2504', '2508', '2507', '2510', '2511', '2512','2509'
+                ,'2601','2602','2603','2604','2605','2606','2607','2608','2609','2610','2611','2612']
+    for kw in keywords:
+        name = name.replace(kw, '')
+
+    return name.strip()
+
+# --- 2) 필터용 데이터 로딩 함수 ------------------------------
+def load_filter_data(conn):
+    # FILTER1 : 고지포기, 취소요청, 성별불명 고객
+    sql1 = """
+        SELECT * FROM GDREC_CTM_FILTER_1 WHERE CTMNO IS NOT NULL
+    """
+    df_filter1 = pd.read_sql(sql1, con=conn)
+
+    # FILTER2 : 보장 충족 고객
+    sql2 = """
+    SELECT 
+        A.*
+        , CASE WHEN CV_CNT2 / CV_CNT >= 0.4 THEN 1 ELSE 0 END AS FILTER_YN
+        , CV_CNT2 / CV_CNT RATIO 
+    FROM GDREC_CTM_FILTER_2 A
+    """
+    df_filter2_raw = pd.read_sql(sql2, con=conn)
+
+    # FILTER_YN = 1 : 아예 가입 불가 , FILTER_YN = 0 : 패널티만
+    df_filter2 = df_filter2_raw.loc[df_filter2_raw['FILTER_YN'] == 1, ['CTMNO', 'GDCD']].reset_index(drop=True)
+    df_penalty = df_filter2_raw.loc[df_filter2_raw['FILTER_YN'] == 0, ['CTMNO', 'GDCD', 'RATIO']].reset_index(drop=True)
+
+    # 최종 “가입 불가” 필터 테이블 (FILTER1 + FILTER2=1)
+    df_filter = pd.concat([df_filter1[['CTMNO', 'GDCD']], df_filter2], axis=0, ignore_index=True)
+    # --- 상품 마스터 (판매 종료 상품 제외) --------------------
+    sql3 = """
+    SELECT * FROM GDREC_TMGD_LIST
+    WHERE GDCD IN (SELECT GDCD FROM TB_LNG_BJONG_MASTER WHERE SALE_END_YN = 'Y')
+    """
+    df_GD = pd.read_sql(sql3, con=conn)
+
+    # 상품명 클렌징
+    df_GD['GDNM_CLEAN'] = df_GD['GDNM'].apply(clean_product_name)
+
+    # 타입별 상품코드/상품명 매핑 사전
+    type_to_gdcds = df_GD.groupby('GD_TYPE')['GDCD'].apply(list).to_dict()
+    type_to_names = df_GD.groupby('GD_TYPE')['GDNM_CLEAN'].apply(lambda x: list(set(x))).to_dict()
+
+    # ctno별 “가입불가 상품 리스트” 사전
+    df_filter = df_filter.merge(df_GD[['GDCD','GD_TYPE','GDNM_CLEAN']] , on = 'GDCD' , how = 'left')
+    df_filter = df_filter.rename(columns = {'CTMNO' : 'MN_NRDPS_CTMNO'})
+    df_filter = df_filter.rename(columns = {'GD_TYPE' : 'product'})
+    ctmno_block_dict = df_filter.groupby(['MN_NRDPS_CTMNO', 'product'])['GDNM_CLEAN'].apply(set).to_dict()
+    
+    return {
+        "df_filter": df_filter,
+        "df_penalty": df_penalty,
+        "df_GD": df_GD,
+        "TYPE_TO_GDCDS": type_to_gdcds,
+        "TYPE_TO_NAMES": type_to_names,
+        "CTMNO_BLOCK_DICT": ctmno_block_dict,
+    }
+
+
+def gd_filter_func(product,ctmage,ctmsex,customer):
+    age = ctmage
+    sex = ctmsex
+    
+    if product == 'L01':
+        if age >= 60 and sex == '1.M':
+            return '한화 굿밸런스종합보험'
+        elif age >= 40 and sex == '1.M':
+            return '한화 더건강한 한아름종합보험'
+        elif age < 40 and sex == '1.M':
+            return '한화 더건강한 1040 종합보험'
+        elif age >= 20 and age >= 20 and sex == '2.F':
+            return '한화 시그니처 여성 건강보험4.0'
+        elif age < 20 and sex == '2.F':
+            return '한화 더건강한 1040 종합보험'
+    elif product == 'L04':
+        if age >= 15:
+            return '한화 더건강한 1040 종합보험'
+        else: 
+            return '한화 건강쑥쑥 어린이보험'
+            
+    elif product == 'L03':        
+        return '한화 운전자상해보험'
+            
+    elif product == '유병자':
+        si = customer[['입원청구', '입원고지','중대질환고지', '중대질환청구']]
+        si = si.replace('X' , 99).astype(float)
+        si_min = si.min()
+
+        if int(si_min) == 99:
+            return random.choice(['한화 3N5 더간편건강보험','한화 더 경증 간편건강보험Ⅱ'])
+        elif int(si_min) == 0:
+            return random.choice(['한화 3N5 더간편건강보험','한화 더 경증 간편건강보험Ⅱ'])
+        elif int(si_min) > 0 and int(si_min) < 3:
+            return '한화 311 간편건강보험'
+        elif int(si_min) > 5:
+            return '한화 더 경증 간편건강보험Ⅱ'
+        elif int(si_min) >= 3 and sex == '1.M':
+            return '한화 3N5 더간편건강보험'
+        elif int(si_min) >= 3 and sex == '2.F':
+            return random.choice(['한화 시그니처 여성 간편건강보험4.0'])
+        
+    elif product == 'SS':
+        if age >= 50:
+            return random.choice(['한화간편실손의료보험'])
+        else: 
+            return '한화실손의료보험'        
+    else:
+        if customer['gd_list']:
+            return random.choice(customer['gd_list'])
+        else: None
+            
+
+## 3. GDREC_Insert.py ## 
+import pandas as pd
+from datetime import datetime
+
+def pivot_table(df):
+    wide = df.pivot(
+                index = 'CTMNO'
+                , columns = 'RANK' 
+                , values = ['상품코드','실제상품','확률','이유']
+                )
+    wide.columns = [f'추천{rank}_{col}' for col,rank in wide.columns]
+    return wide.reset_index()
+
+def custid_filter(conn , df):
+    # FILTER : CUSTID가 존재하는 고객만
+    sql = """
+        SELECT 
+            A.CUSTID
+            ,B.CTMNO
+        FROM TB_CUSTOMER A
+        LEFT JOIN CUS_CTM B
+        ON 0=0
+            AND A.CUST_DSCNO = B.CTM_DSCNO
+        WHERE B.CTMNO IN (SELECT DISTINCT CTMNO FROM GDREC_ORIGIN_INS_PRMCNT_PRED)
+    """
+    df_custid = pd.read_sql(sql,con=conn)
+    df = df.merge(df_custid[['CTMNO','CUSTID']] , on = 'CTMNO' , how = 'inner')
+
+    return df
+
+def table_setting(df):
+    df['REC_CD'] = '01'
+    df['AP_SEQ'] = '1'
+    df['AP_STRDT'] = datetime.now()
+    df['AP_NDDT'] = datetime(9999,12,31)
+    df['FIN_YN'] = '1'
+    df1 = df[['CTMNO','REC_CD','AP_SEQ','AP_STRDT','AP_NDDT','추천1_상품코드','추천1_실제상품','추천1_확률','추천1_이유','CUSTID','FIN_YN']]
+    df2 = df[['CTMNO','REC_CD','AP_SEQ','AP_STRDT','AP_NDDT','추천2_상품코드','추천2_실제상품','추천2_확률','추천2_이유','CUSTID','FIN_YN']]
+    df3 = df[['CTMNO','REC_CD','AP_SEQ','AP_STRDT','AP_NDDT','추천3_상품코드','추천3_실제상품','추천3_확률','추천3_이유','CUSTID','FIN_YN']]
+    df1.insert(loc=2, column = 'REC_RANK' , value = 1)
+    df2.insert(loc=2, column = 'REC_RANK' , value = 2)
+    df3.insert(loc=2, column = 'REC_RANK' , value = 3)
+    lst = ['CTMNO','REC_CD','REC_RANK','AP_SEQ','AP_STRDT','AP_NDDT','REC_GDCD','REC_GDNM','REC_POCT','REC_RS1','CUSTID','FIN_YN']
+    df1.columns , df2.columns , df3.columns = lst , lst , lst
+    return pd.concat([df1,df2,df3],axis=0).reset_index(drop=True)
+
+
+## 4. GDREC_MAIN.py ## 
+import os
+import warnings
+import cx_Oracle as orcl 
+import pandas as pd
+import numpy as np
+warnings.filterwarnings(action='ignore')
+
+### 0.생성 데이터 조회 ####
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+conn = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+cursor = conn.cursor()
+cur = conn.cursor()
+sql = """
+    SELECT *
+    FROM
+    (SELECT 
+        A.*
+        , ROW_NUMBER() OVER (PARTITION BY CRT_CTMNO,MN_NRDPS_CTMNO ORDER BY (SELECT 1 FROM DUAL)) AS RN 
+    FROM GDREC_ORIGIN_MAIN_FIN_PRED A
+    WHERE MN_NRDPS_CTMNO IS NOT NULL
+    )
+    WHERE RN = 1
+    """
+df = pd.read_sql(sql,con=conn)
+
+
+
+### 모델 로딩
+
+os.chdir('/notebooks/datajeonpart/상품추천시스템_V2')
+from GDREC_Model_loader import load_predictor_paths , get_predictor, load_models
+predictors  = load_models()
+codes = GDREC_Model_loader.PRODUCT_CODES
+prefixes = GDREC_Model_loader.PREDICTOR_PREFIXES
+
+### 변수정보 세팅
+with open('/notebooks/datajeonpart/상품추천시스템_V2/variables_config.json' , 'r' , encoding = 'utf-8') as f:
+    config = json.load(f)
+
+continuous_vars = config['continuous_vars']
+categorical_vars = config['categorical_vars']
+cvr_vars = config['cvr_var_list']
+ins_vars = config['ins_var_list']
+other_vars = config['other_var_list']
+var_names = config['variable_dict']
+
+predict_data = df[continuous_vars + categorical_vars]
+data_dict = {
+    'predictor' : predict_data[cvr_vars]
+    , 'predictor2' : predict_data[ins_vars]
+    , 'predictor3' : predict_data[other_vars]
+}
+
+### 예측
+
+score_dict = {}
+from GDREC_Model_predict import predict_for_code
+for code in codes:
+    score = predict_for_code(code, predictors, data_dict)
+    score_dict[code] = score
+    
+df_score = pd.DataFrame(score_dict)    
+df_preds = df[['CLS_YYMM','CRT_CTMNO','MN_NRDPS_CTMNO']]
+
+df_score = pd.concat([df_preds,df_score],axis =1)
+
+
+### 필터링 상품
+
+from GDREC_GD_filter import load_filter_data , gd_filter_func
+# --- DB 연결 ---
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+conn = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+# --- 필터 관련 데이터 한 번에 로딩 ---
+filter_objs = load_filter_data(conn)
+
+df_filter      = filter_objs["df_filter"]
+df_penalty     = filter_objs["df_penalty"]
+df_GD          = filter_objs["df_GD"]
+TYPE_TO_GDCDS  = filter_objs["TYPE_TO_GDCDS"]
+TYPE_TO_NAMES  = filter_objs["TYPE_TO_NAMES"]
+CTMNO_BLOCKMAP = filter_objs["CTMNO_BLOCK_DICT"]
+
+
+#  -- 필러팅 상품명 저장--   -> 없앨수 있나?
+with conn.cursor() as cursor:
+    try:
+        cursor.execute('''create table M_CRM_REC_GDNM_TM (GDCD VARCHAR2(100), SL_NDDT DATE, SL_STRDT DATE, INP_USR_ID VARCHAR2(100), INP_DTHMS DATE, MDF_USR_ID VARCHAR2(100),MDF_DTHMS DATE, GD_TYPE VARCHAR2(10), GDNM VARCHAR2(100)
+                                                            , SL_CHNCD VARCHAR2(10), GDNM_CLEAN VARCHAR2(100)) ''')
+    except:
+        cursor.execute('drop table M_CRM_REC_GDNM_TM')
+        cursor.execute('''create table M_CRM_REC_GDNM_TM (GDCD VARCHAR2(100), SL_NDDT DATE, SL_STRDT DATE, INP_USR_ID VARCHAR2(100), INP_DTHMS DATE, MDF_USR_ID VARCHAR2(100),MDF_DTHMS DATE, GD_TYPE VARCHAR2(10), GDNM VARCHAR2(100)
+                                                            , SL_CHNCD VARCHAR2(10), GDNM_CLEAN VARCHAR2(100))''')
+    finally:
+        for row in df_GD.iterrows():
+            cursor.execute('''insert into M_CRM_REC_GDNM_TM values (:GDCD ,:SL_NDDT, :SL_STRDT, :INP_USR_ID, :INP_DTHMS, :MDF_USR_ID , :MDF_DTHMS, :GD_TYPE , :GDNM , :SL_CHNCD , :GDNM_CLEAN)''', row[1])
+        cursor.execute('commit')
+
+cursor = conn.cursor()
+cursor.execute('grant select on sdadam.M_CRM_REC_GDNM_TM to PUBLIC')
+
+
+# ------------------------------
+# 1) 컬럼 처리 및 상품별 데이터 변환 (MN_NRPDS_CTMNO 포함)
+# ------------------------------
+df_score_merge = df_score.drop(['CLS_YYMM'], axis=1).melt(
+    id_vars=['CRT_CTMNO', 'MN_NRDPS_CTMNO'],  # MN_NRPDS_CTMNO 추가
+    var_name='상품',
+    value_name='확률'
+).merge(
+    df[['CRT_CTMNO', 'CTM_AGE', 'CTM_SEX']], 
+    on='CRT_CTMNO', 
+    how='left'
+)
+
+df_score_merge['gd_list'] = df_score_merge['상품'].map(TYPE_TO_NAMES)
+df_score_merge['gd_list'] = df_score_merge.apply(
+    lambda row: [p for p in row['gd_list'] if p not in CTMNO_BLOCKMAP.get((row['MN_NRDPS_CTMNO'], row['상품']), set())],
+    axis=1
+)
+
+df_score_merge = pd.merge(df_score_merge,df[['MN_NRDPS_CTMNO','입원청구', '입원고지','중대질환고지', '중대질환청구']],on = 'MN_NRDPS_CTMNO' , how = 'right')
+df_score_merge['pred_gdnm'] = df_score_merge.apply(
+    lambda row: gd_filter_func(row['상품'], row['CTM_AGE'], row['CTM_SEX'], row),
+    axis=1
+)
+
+df_score_merge = df_score_merge[(df_score_merge['CTM_AGE'].notna()) & (df_score_merge['CTM_SEX'].notna())].reset_index(drop=True)
+df_score_merge['AGE_SEG'] = df_score_merge['CTM_AGE'].apply(
+    lambda x: '60' if x >= 60 else ('20' if x < 30 else str(int(x//10)*10))
+)
+
+df_score_merge['RANK'] = df_score_merge.groupby('CRT_CTMNO')['확률'].rank(method = 'first' , ascending = False).astype(int)
+df_score_merge = df_score_merge[df_score_merge['gd_list'].apply(len) > 0].reset_index(drop=True)
+df_score_merge = df_score_merge.loc[df_score_merge['RANK'] <= 3].reset_index(drop=True)
+
+gdcd_dict = df_GD.groupby('GDNM_CLEAN')['GDCD'].apply(list).to_dict()
+df_score_merge['상품코드'] = df_score_merge['pred_gdnm'].map(
+    lambda prod: random.choice(gdcd_dict.get(prod)))
+
+
+
+import GDREC_Script
+importlib.reload(GDREC_Script)
+from GDREC_Script import load_script_data , cus_script_func   # 새로 만든 모듈 import
+gd_script_dict = load_script_data(conn)
+import random
+df_score_merge['script'] = df_score_merge['pred_gdnm'].apply(lambda x: gd_script_dict.get(x,'사유X'))
+
+
+df_score_merge = pd.merge(df_score_merge,df[['MN_NRDPS_CTMNO','CANCR_DASCS_AMT', 'ISMC_HEART_DSAS_DASCS_AMT','CRLR_DSAS_DASCS_AMT', 'BDIN_CCA_SUAMT_AMT'
+                             ,'LWR_SNRT_CS_AMT' , 'DRV_PNLTY_AMT' , 'DSAS_HSP_RLPMI_AMT' ,'DSAS_OTP_RLPMI_AMT' ,'SERI_DEMEN_AMT' ,'LTRM_RCPR_DGN_RANK4_AMT'
+                             , 'FIRE_PNLTY_AMT' , 'USLLF_LBTRS_AMT']],on = 'MN_NRDPS_CTMNO' , how = 'right')
+df_score_merge['cus_script'] = df_score_merge.apply(
+    lambda row: cus_script_func(row),
+    axis=1
+)
+df_score_merge['fin_script'] = df_score_merge['script'] + ' ' + df_score_merge['cus_script']
+ctm_rec_list = df_score_merge[['MN_NRDPS_CTMNO','상품코드','pred_gdnm','확률','fin_script','RANK']]
+ctm_rec_list= ctm_rec_list.rename(columns = {'MN_NRDPS_CTMNO':'CTMNO','상품코드' : '상품코드' , 'pred_gdnm' : '실제상품' , '확률' : '확률' , 'fin_script' : '이유'})
+ctm_rec_list = ctm_rec_list.drop_duplicates(subset = ['CTMNO','RANK'], keep = 'first')
+ctm_rec_list['RANK'] = ctm_rec_list['RANK'].astype(int)
+ctm_rec_list['RANK'] = ctm_rec_list.groupby('CTMNO')['RANK'].rank(method = 'first' , ascending = True).astype(int)
+
+
+
+import GDREC_Insert
+importlib.reload(GDREC_Insert)
+from GDREC_Insert import pivot_table , custid_filter , table_setting
+df_fin = pivot_table(ctm_rec_list)
+df_fin = table_setting(custid_filter(conn,df_fin)) 
+
+
+df_fin = df_fin.dropna()
+df_fin = df_fin[['CTMNO','REC_CD','REC_RANK','AP_SEQ','AP_STRDT','AP_NDDT','REC_GDCD','REC_GDNM','REC_POCT','REC_RS1','CUSTID','FIN_YN']].reset_index(drop=True)
+
+
+## 5. GDREC_Model_loader.py ##
+import os
+from autogluon.tabular import TabularPredictor
+
+
+BASE_DIR = '/notebooks/datajeonpart/상품추천시스템_V2/AutogluonModels'
+PRODUCT_CODES = ['L01','L03','L04','L06','L08','SS','SI','L11']
+PREDICTOR_PREFIXES =  ['predictor' , 'predictor2' , 'predictor3']
+
+
+
+def load_predictor_paths(base_dir: str = BASE_DIR , prefixes = PREDICTOR_PREFIXES , codes = PRODUCT_CODES):
+    paths  = {}
+    for prefix in prefixes:
+        for code in codes:
+            filename = f'{prefix}_{code}.txt'
+            full_path = os.path.join(base_dir , filename)
+
+            if not os.path.exists(full_path):
+                continue
+            with open(full_path , 'r' , encoding = 'utf-8') as f:
+                paths[(prefix , code)] = f.read().strip()
+    return paths
+
+def load_models():
+    all_paths = load_predictor_paths()
+
+    all_predictors = {}
+    for (prefix , code) , path in all_paths.items():
+        try:
+            all_predictors[(prefix , code)] = TabularPredictor.load(path)
+        except Exception as e:
+            print(f'Error loading model for {prefix}_{code} at {path} : {e}')
+    return all_predictors
+
+def get_predictor(prefix : str , code : str , predictors):
+    return predictors.get((prefix,code))
+
+
+## 6.GDREC_Model_predict.py ## 
+import numpy as np
+from GDREC_Model_loader import load_predictor_paths , get_predictor, load_models
+import pandas as pd
+
+def predict_for_code(code , predictors , data_dict, prefix = 'predictor'):
+    model_1 = get_predictor(prefix ,code ,predictors)
+    model_2 = get_predictor(f'{prefix}2' ,code ,predictors)
+    model_3 = get_predictor(f'{prefix}3' ,code ,predictors)
+
+    test_data_1 = data_dict.get(prefix)
+    test_data_2 = data_dict.get(f'{prefix}2')
+    test_data_3 = data_dict.get(f'{prefix}3')
+
+    prob_1 = model_1.predict_proba(test_data_1)[1]
+    prob_2 = model_2.predict_proba(test_data_2)[1]
+    prob_3 = model_3.predict_proba(test_data_3)[1]
+    
+    avg_prob = np.mean([prob_1,prob_2,prob_3] , axis=0)
+    return avg_prob
+
+
+## 7.GDREC_Script.py ## 
+import pandas as pd
+def load_script_data(conn):
+    # FILTER1 : 고지포기, 취소요청, 성별불명 고객
+    sql = """SELECT * FROM M_BIZ_RECT_GDINFO_L01"""
+    L01_script = pd.read_sql(sql,con=conn)
+    
+    sql = """SELECT * FROM M_BIZ_RECT_GDINFO_L03"""
+    L03_script = pd.read_sql(sql,con=conn)
+    
+    sql = """SELECT * FROM M_BIZ_RECT_GDINFO_SS"""
+    SS_script = pd.read_sql(sql,con=conn)
+    
+    sql = """SELECT * FROM M_BIZ_RECT_GDINFO_L08"""
+    L08_script = pd.read_sql(sql,con=conn)  
+    
+    sql = """SELECT * FROM M_BIZ_RECT_GDINFO_L11"""
+    L11_script = pd.read_sql(sql,con=conn) 
+
+    gd_list_1 = "해당 상품 가입 상위 25% 고객은 화재벌금 2000만원 수준으로 가입하며"
+    gd_list_2 = "해당 상품 가입 상위 25% 고객은 암진단비 450만원 수준으로 가입하며"
+    gd_list_3 = "해당 상품 가입 상위 25% 고객은 암진단비 250만원, 허혈성진단비 100만원, 뇌혈관질환진단비 100만원 수준으로 가입하며"
+    gd_list_4 = "해당 상품 가입 상위 25% 고객은 암진단비 100만원, 허혈성진단비 150만원 수준으로 가입하며"
+    gd_list_5 = "해당 상품 가입 상위 25% 고객은 화재벌금 2000만원, 일상생활배상책임 1억 수준으로 가입하며"
+    gd_list_6 = "해당 상품 가입 상위 25% 고객은 중증치매 25만원, 장기요양진단4급 550만원 수준으로 가입하며"
+    gd_list_7 = "해당 상품 가입 상위 25% 고객은 암진단비 100만원, 허혈성진단비 500만원, 뇌혈관질환진단비 500만원 수준으로 가입하며"
+    gd_list_8 = "해당 상품 가입 상위 25% 고객은 암진단비 132.5만원, 허혈성진단비 62.5만원 수준으로 가입하며"
+    gd_list_9 = "해당 상품 가입 상위 25% 고객은 암진단비 100만원, 허혈성진단비 350만원, 뇌혈관질환진단비 250만원 수준으로 가입하며"
+    gd_list_10 = "해당 상품 가입 상위 25% 고객은 암진단비 100만원, 허혈성진단비 500만원, 뇌혈관질환진단비 500만원 수준으로 가입하며"
+    gd_list_11 = "해당 상품 가입 상위 25% 고객은 암진단비 100만원, 허혈성진단비 500만원, 뇌혈관질환진단비 500만원 수준으로 가입하며"
+    gd_list_12 = "해당 상품 가입 상위 25% 고객은 암진단비 250만원, 허혈성진단비 250만원, 뇌혈관질환진단비 250만원 수준으로 가입하며"
+    gd_list_13 = "해당 상품 가입 상위 25% 고객은 암진단비 100만원, 허혈성진단비 500만원, 뇌혈관질환진단비 500만원 수준으로 가입하며"
+    gd_list_14 = "해당 상품 가입 상위 25% 고객은 암진단비 250만원, 허혈성진단비 1000만원, 뇌혈관질환진단비 500만원 수준으로 가입하며"
+    gd_list_15 = "해당 상품 가입 상위 25% 고객은 대인형사 2억, 변호사선임 5000만원, 운전자벌금 3000만원 수준으로 가입하며"
+    gd_list_16 = "해당 상품 가입 상위 25% 고객은 질병입원실손 5000만원, 질병통원실손 20만원 수준으로 가입하며"
+    gd_list_17 = "해당 상품 가입 상위 25% 고객은 질병입원실손 5000만원, 질병통원실손 20만원 수준으로 가입하며"
+
+    gd_dict =   {
+            '성공하는 Owner 재산종합보험' : gd_list_1
+            , '한화 100세 암치료보장보험' : gd_list_2
+            , '한화 311 간편건강보험' : gd_list_3
+            , '한화 3N5 더간편건강보험' :  gd_list_4
+            , '한화 Big Plus 재산종합보험' :  gd_list_5
+            , '한화 NEW RICH 간병보험' :  gd_list_6
+            , '한화 프리미엄 RICH 간병보험' :  gd_list_6
+            , '한화 치매간병보험' : gd_list_6
+            , '한화 건강쑥쑥 어린이보험' :  gd_list_7
+            , '한화 굿밸런스종합보험' :  gd_list_8
+            , '한화 더 경증 간편건강보험' :  gd_list_9
+            , '한화 더 경증 간편건강보험Ⅱ' :  gd_list_9
+            , '한화 더건강한 1040 종합보험' :  gd_list_10
+            , '한화 더건강한 한아름종합보험' :  gd_list_11
+            , '한화 시그니처 여성 간편건강보험4.0' :  gd_list_12
+            #, '한화 시그니처 여성 3N5 간편건강보험3.0' :  gd_list_13
+            , '한화 시그니처 여성 건강보험4.0' :  gd_list_14
+            , '한화 운전자상해보험' :  gd_list_15
+            , '한화간편실손의료보험' :  gd_list_16
+            , '한화실손의료보험' :  gd_list_17
+    }
+    return  gd_dict
+
+def cus_script_func(customer):
+    product = customer['pred_gdnm']
+    암진단비  = round(customer['CANCR_DASCS_AMT']/10000)
+    허혈성진단비  = round(customer['ISMC_HEART_DSAS_DASCS_AMT']/10000)
+    화재벌금  = round(customer['FIRE_PNLTY_AMT']/10000)
+    뇌혈관질환진단비 = round(customer['CRLR_DSAS_DASCS_AMT']/10000)
+    일상생활배상책임 = int(round(customer['USLLF_LBTRS_AMT'] / 100000000 ,1 ))
+    중증치매   = round(customer['SERI_DEMEN_AMT']/10000)
+    장기요양진단4급 = round(customer['LTRM_RCPR_DGN_RANK4_AMT']/10000)
+    대인형사  = int(round(customer['BDIN_CCA_SUAMT_AMT'] / 100000000 ,1 ))
+    변호사선임 = round(customer['LWR_SNRT_CS_AMT']/10000)
+    운전자벌금 = round(customer['DRV_PNLTY_AMT']/10000)
+    질병입원실손 = round(customer['DSAS_HSP_RLPMI_AMT']/10000)
+    질병통원실손 = round(customer['DSAS_OTP_RLPMI_AMT']   /10000)
+    if product == '성공하는 Owner 재산종합보험':
+         return f'현재 고객은 화재벌금 {화재벌금}만원 가입했습니다.'
+    elif product == '한화 100세 암치료보장보험':
+        return f'현재 고객은 암진단비 {암진단비}만원 가입했습니다.'
+    elif product == '한화 311 간편건강보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 3N5 더간편건강보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원 가입했습니다.'
+    elif product == '한화 Big Plus 재산종합보험':
+        return f'현재 고객은 화재벌금 {화재벌금}만원, 일상생활배상책임 {일상생활배상책임}억원 가입했습니다.'
+    elif product == '한화 NEW RICH 간병보험':
+        return f'현재 고객은 중증치매 {중증치매}만원, 장기요양진단4급 {장기요양진단4급}만원 가입했습니다.'
+    elif product == '한화 프리미엄 RICH 간병보험':
+        return f'현재 고객은 중증치매 {중증치매}만원, 장기요양진단4급 {장기요양진단4급}만원 가입했습니다.'
+    elif product == '한화 치매간병보험':
+        return f'현재 고객은 중증치매 {중증치매}만원, 장기요양진단4급 {장기요양진단4급}만원 가입했습니다.'
+    elif product == '한화 건강쑥쑥 어린이보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 굿밸런스종합보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원 가입했습니다.'
+    elif product == '한화 더 경증 간편건강보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 더 경증 간편건강보험Ⅱ':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 더건강한 1040 종합보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 더건강한 한아름종합보험':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 시그니처 여성 간편건강보험4.0':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    #elif product == '한화 시그니처 여성 3N5 간편건강보험3.0':
+        #return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 시그니처 여성 건강보험4.0':
+        return f'현재 고객은 암진단비 {암진단비}만원, 허혈성진단비 {허혈성진단비}만원, 뇌혈관질환진단비 {뇌혈관질환진단비}만원 가입했습니다.'
+    elif product == '한화 운전자상해보험':
+        return f'현재 고객은 대인형사 {대인형사}억원, 변호사선임 {변호사선임}만원, 운전자벌금 {운전자벌금}만원 가입했습니다.'
+    elif product == '한화간편실손의료보험':
+        return f'현재 고객은 질병입원실손 {질병입원실손}만원, 질병통원실손 {질병통원실손}만원 가입했습니다.'
+    elif product == '한화실손의료보험':
+        return f'현재 고객은 질병입원실손 {질병입원실손}만원, 질병통원실손 {질병통원실손}만원 가입했습니다.'
+
+
+## 8. 최종 실행 코드 ipnyb ##
+import os
+import warnings
+import cx_Oracle as orcl 
+import pandas as pd
+import numpy as np
+import json
+warnings.filterwarnings(action='ignore')
+
+
+%run GDREC_DataGeneration.py
+
+import os
+import warnings
+import cx_Oracle as orcl 
+import pandas as pd
+import numpy as np
+import json
+warnings.filterwarnings(action='ignore')
+import random
+from datetime import datetime 
+
+### 0.생성 데이터 조회 ####
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+conn = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+cursor = conn.cursor()
+cur = conn.cursor()
+sql = """
+    SELECT *
+    FROM
+    (SELECT 
+        A.*
+        , ROW_NUMBER() OVER (PARTITION BY CRT_CTMNO,MN_NRDPS_CTMNO ORDER BY (SELECT 1 FROM DUAL)) AS RN 
+    FROM GDREC_ORIGIN_MAIN_FIN_PRED A
+    WHERE MN_NRDPS_CTMNO IS NOT NULL
+    )
+    WHERE RN = 1
+    """
+df = pd.read_sql(sql,con=conn)
+
+
+
+### 모델 로딩
+
+os.chdir('/notebooks/datajeonpart/상품추천시스템_V2')
+from GDREC_Model_loader import load_predictor_paths , get_predictor, load_models
+import GDREC_Model_loader
+predictors  = load_models()
+codes = GDREC_Model_loader.PRODUCT_CODES
+prefixes = GDREC_Model_loader.PREDICTOR_PREFIXES
+
+### 변수정보 세팅
+with open('/notebooks/datajeonpart/상품추천시스템_V2/variables_config.json' , 'r' , encoding = 'utf-8') as f:
+    config = json.load(f)
+
+continuous_vars = config['continuous_vars']
+categorical_vars = config['categorical_vars']
+cvr_vars = config['cvr_var_list']
+ins_vars = config['ins_var_list']
+other_vars = config['other_var_list']
+var_names = config['variable_dict']
+
+predict_data = df[continuous_vars + categorical_vars]
+data_dict = {
+    'predictor' : predict_data[cvr_vars]
+    , 'predictor2' : predict_data[ins_vars]
+    , 'predictor3' : predict_data[other_vars]
+}
+
+### 예측
+
+score_dict = {}
+from GDREC_Model_predict import predict_for_code
+for code in codes:
+    score = predict_for_code(code, predictors, data_dict)
+    score_dict[code] = score
+score_dict['L03'] = np.zeros_like(score_dict['L03'])    
+df_score = pd.DataFrame(score_dict)    
+df_preds = df[['CLS_YYMM','CRT_CTMNO','MN_NRDPS_CTMNO']]
+
+df_score = pd.concat([df_preds,df_score],axis =1)
+
+
+### 필터링 상품
+
+from GDREC_GD_filter import load_filter_data , gd_filter_func
+# --- DB 연결 ---
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+conn = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+# --- 필터 관련 데이터 한 번에 로딩 ---
+filter_objs = load_filter_data(conn)
+
+df_filter      = filter_objs["df_filter"]
+df_penalty     = filter_objs["df_penalty"]
+df_GD          = filter_objs["df_GD"]
+TYPE_TO_GDCDS  = filter_objs["TYPE_TO_GDCDS"]
+TYPE_TO_NAMES  = filter_objs["TYPE_TO_NAMES"]
+CTMNO_BLOCKMAP = filter_objs["CTMNO_BLOCK_DICT"]
+
+
+#  -- 필러팅 상품명 저장--   -> 없앨수 있나?
+with conn.cursor() as cursor:
+    try:
+        cursor.execute('''create table M_CRM_REC_GDNM_TM (GDCD VARCHAR2(100), SL_NDDT DATE, SL_STRDT DATE, INP_USR_ID VARCHAR2(100), INP_DTHMS DATE, MDF_USR_ID VARCHAR2(100),MDF_DTHMS DATE, GD_TYPE VARCHAR2(10), GDNM VARCHAR2(100)
+                                                            , SL_CHNCD VARCHAR2(10), GDNM_CLEAN VARCHAR2(100)) ''')
+    except:
+        cursor.execute('drop table M_CRM_REC_GDNM_TM')
+        cursor.execute('''create table M_CRM_REC_GDNM_TM (GDCD VARCHAR2(100), SL_NDDT DATE, SL_STRDT DATE, INP_USR_ID VARCHAR2(100), INP_DTHMS DATE, MDF_USR_ID VARCHAR2(100),MDF_DTHMS DATE, GD_TYPE VARCHAR2(10), GDNM VARCHAR2(100)
+                                                            , SL_CHNCD VARCHAR2(10), GDNM_CLEAN VARCHAR2(100))''')
+    finally:
+        for row in df_GD.iterrows():
+            cursor.execute('''insert into M_CRM_REC_GDNM_TM values (:GDCD ,:SL_NDDT, :SL_STRDT, :INP_USR_ID, :INP_DTHMS, :MDF_USR_ID , :MDF_DTHMS, :GD_TYPE , :GDNM , :SL_CHNCD , :GDNM_CLEAN)''', row[1])
+        cursor.execute('commit')
+
+cursor = conn.cursor()
+cursor.execute('grant select on sdadam.M_CRM_REC_GDNM_TM to PUBLIC')
+
+
+# ------------------------------
+# 1) 컬럼 처리 및 상품별 데이터 변환 (MN_NRPDS_CTMNO 포함)
+# ------------------------------
+df_score_merge = df_score.drop(['CLS_YYMM'], axis=1).melt(
+    id_vars=['CRT_CTMNO', 'MN_NRDPS_CTMNO'],  # MN_NRPDS_CTMNO 추가
+    var_name='상품',
+    value_name='확률'
+).merge(
+    df[['CRT_CTMNO', 'CTM_AGE', 'CTM_SEX']], 
+    on='CRT_CTMNO', 
+    how='left'
+)
+
+df_score_merge['gd_list'] = df_score_merge['상품'].map(TYPE_TO_NAMES)
+df_score_merge['gd_list'] = df_score_merge.apply(
+    lambda row: [p for p in row['gd_list'] if p not in CTMNO_BLOCKMAP.get((row['MN_NRDPS_CTMNO'], row['상품']), set())],
+    axis=1
+)
+
+df_score_merge = pd.merge(df_score_merge,df[['MN_NRDPS_CTMNO','입원청구', '입원고지','중대질환고지', '중대질환청구']],on = 'MN_NRDPS_CTMNO' , how = 'right')
+df_score_merge['pred_gdnm'] = df_score_merge.apply(
+    lambda row: gd_filter_func(row['상품'], row['CTM_AGE'], row['CTM_SEX'], row),
+    axis=1
+)
+
+df_score_merge = df_score_merge[(df_score_merge['CTM_AGE'].notna()) & (df_score_merge['CTM_SEX'].notna())].reset_index(drop=True)
+df_score_merge['AGE_SEG'] = df_score_merge['CTM_AGE'].apply(
+    lambda x: '60' if x >= 60 else ('20' if x < 30 else str(int(x//10)*10))
+)
+
+df_score_merge['RANK'] = df_score_merge.groupby('CRT_CTMNO')['확률'].rank(method = 'first' , ascending = False).astype(int)
+df_score_merge = df_score_merge[df_score_merge['gd_list'].apply(len) > 0].reset_index(drop=True)
+df_score_merge = df_score_merge.loc[df_score_merge['RANK'] <= 3].reset_index(drop=True)
+
+gdcd_dict = df_GD.groupby('GDNM_CLEAN')['GDCD'].apply(list).to_dict()
+df_score_merge['상품코드'] = df_score_merge['pred_gdnm'].map(
+    lambda prod: random.choice(gdcd_dict.get(prod)))
+
+
+
+import GDREC_Script
+from GDREC_Script import load_script_data , cus_script_func   # 새로 만든 모듈 import
+gd_script_dict = load_script_data(conn)
+import random
+df_score_merge['script'] = df_score_merge['pred_gdnm'].apply(lambda x: gd_script_dict.get(x,'사유X'))
+
+
+df_score_merge = pd.merge(df_score_merge,df[['MN_NRDPS_CTMNO','CANCR_DASCS_AMT', 'ISMC_HEART_DSAS_DASCS_AMT','CRLR_DSAS_DASCS_AMT', 'BDIN_CCA_SUAMT_AMT'
+                             ,'LWR_SNRT_CS_AMT' , 'DRV_PNLTY_AMT' , 'DSAS_HSP_RLPMI_AMT' ,'DSAS_OTP_RLPMI_AMT' ,'SERI_DEMEN_AMT' ,'LTRM_RCPR_DGN_RANK4_AMT'
+                             , 'FIRE_PNLTY_AMT' , 'USLLF_LBTRS_AMT']],on = 'MN_NRDPS_CTMNO' , how = 'right')
+df_score_merge['cus_script'] = df_score_merge.apply(
+    lambda row: cus_script_func(row),
+    axis=1
+)
+df_score_merge['fin_script'] = df_score_merge['script'] + ' ' + df_score_merge['cus_script']
+ctm_rec_list = df_score_merge[['MN_NRDPS_CTMNO','상품코드','pred_gdnm','확률','fin_script','RANK']]
+ctm_rec_list= ctm_rec_list.rename(columns = {'MN_NRDPS_CTMNO':'CTMNO','상품코드' : '상품코드' , 'pred_gdnm' : '실제상품' , '확률' : '확률' , 'fin_script' : '이유'})
+ctm_rec_list = ctm_rec_list.drop_duplicates(subset = ['CTMNO','RANK'], keep = 'first')
+ctm_rec_list = ctm_rec_list.dropna()
+ctm_rec_list['RANK'] = ctm_rec_list['RANK'].astype(int)
+ctm_rec_list['RANK'] = ctm_rec_list.groupby('CTMNO')['RANK'].rank(method = 'first' , ascending = True).astype(int)
+
+
+
+import GDREC_Insert
+from GDREC_Insert import pivot_table , custid_filter , table_setting
+df_fin = pivot_table(ctm_rec_list)
+df_fin = table_setting(custid_filter(conn,df_fin)) 
+
+
+df_fin = df_fin.dropna()
+df_fin = df_fin[['CTMNO','REC_CD','REC_RANK','AP_SEQ','AP_STRDT','AP_NDDT','REC_GDCD','REC_GDNM','REC_POCT','REC_RS1','CUSTID','FIN_YN']].reset_index(drop=True)
+
+dsn = orcl.makedsn('10.1.4.166',1621 ,sid = 'HWEDWP3')
+conn = orcl.connect('SDADAM','SDADAM!2022',dsn = dsn)
+with conn.cursor() as cursor:
+    try:
+        cursor.execute('''create table M_CRM_REC_RLT_BIZ (CTMNO VARCHAR2(9), REC_CD VARCHAR2(2), REC_RANK VARCHAR2(2),AP_SEQ VARCHAR(2), AP_STRDT DATE, AP_NDDT DATE, REC_GDCD VARCHAR2(10), REC_GDNM VARCHAR2(100)
+                                                            , REC_POCT NUMBER, REC_RS1 VARCHAR2(1000), CUSTID VARCHAR2(10), FIN_YN VARCHAR2(2)) ''')
+    except:
+        cursor.execute('drop table M_CRM_REC_RLT_BIZ')
+        cursor.execute('''create table M_CRM_REC_RLT_BIZ (CTMNO VARCHAR2(9), REC_CD VARCHAR2(2), REC_RANK VARCHAR2(2),AP_SEQ VARCHAR(2), AP_STRDT DATE, AP_NDDT DATE, REC_GDCD VARCHAR2(10), REC_GDNM VARCHAR2(100)
+                                                            , REC_POCT NUMBER, REC_RS1 VARCHAR2(1000), CUSTID VARCHAR2(10), FIN_YN VARCHAR2(2))''')
+    finally:
+        for row in df_fin.iterrows():
+            cursor.execute('''insert into M_CRM_REC_RLT_BIZ values (:CTMNO ,:REC_CD, :REC_RANK,:AP_SEQ , :AP_STRDT, :AP_NDDT , :REC_GDCD, :REC_GDNM , :REC_POCT , :REC_RS1 , :CUSTID , :FIN_YN)''', row[1])
+        cursor.execute('commit')
+
+cursor = conn.cursor()
+cursor.execute('grant select on M_CRM_REC_RLT_BIZ to PUBLIC')
