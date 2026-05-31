@@ -339,11 +339,14 @@ class AgentState(TypedDict):
 2. **CALL_ID 단위** `collection.get(ids=[call_id])` → 존재하면 skip
 3. `Path.stem` → CALL_ID → tbl_call_detail 조회 → CTMNO + 메타데이터
 4. tbl_coverage 조회 → 담보금액 12개
-5. faster-whisper → 원문
-6. Regex 마스킹 (1단계)
-7. Qwen3.6 → JSON (masked_text / sentiment / keywords / summary)
-8. keywords: list → `",".join(keywords)` 변환 후 metadata 저장
-9. nomic-embed-text → 임베딩 → Chroma upsert
+5. **tbl_customer 조회 → CTM_AGE, CTM_SEX** (embedded_text 구성용)
+6. faster-whisper → 원문
+7. Regex 마스킹 (1단계)
+8. Qwen3.6 → JSON (masked_text / sentiment / keywords / summary)
+9. keywords: list → `",".join(keywords)` 변환 후 metadata 저장
+10. **embedded_text 구성**: `f"[고객: {age}세 {sex}, {campaign_nm}] {summary}"`
+    → 신규/미연결 고객 RAG 쿼리(인구통계+담보gap 텍스트)와 동일 시맨틱 공간 확보
+11. nomic-embed-text → embedded_text 임베딩 → Chroma upsert
 
 ### Pipeline B — 문서 인덱싱 (1회성)
 1. docs/ 디렉토리 스캔
@@ -353,11 +356,12 @@ class AgentState(TypedDict):
 5. nomic-embed-text → Chroma upsert
 
 ### Pipeline C — DuckDB 마트 갱신 (매일 cron)
-1. cx_Oracle 접속
-2. 도메인별 Oracle 마트 쿼리 실행 (db/oracle_queries.py)
-3. **mart_new.db** 에 TRUNCATE & INSERT
-4. 완료 후 `mart_new.db` → `mart.db` atomic rename
-5. 갱신 완료 시각 기록
+1. **시작 시 mart_new.db 존재하면 무조건 삭제** (이전 실패 잔존 파일 제거)
+2. cx_Oracle 접속
+3. 도메인별 Oracle 마트 쿼리 실행 (db/oracle_queries.py)
+4. **mart_new.db** 에 TRUNCATE & INSERT
+5. 완료 후 `mart_new.db` → `mart.db` atomic rename
+6. `data/duckdb/last_updated.txt` 에 완료 시각 기록 (UI 갱신 시각 표시용)
 
 ---
 
@@ -402,7 +406,49 @@ Step 4. 결과 출력
 
 ---
 
-## 9. 미확정 항목 (Oracle 접속 후 확인)
+## 9. Tab1 스크립트 방향 결정 로직 (script_angle)
+
+Tab1 모든 분기에서 DuckDB 조회 후 `script_angle`을 결정하고 Qwen3.6 프롬프트에 명시 전달.
+
+```python
+has_contract = len(contract_rows) > 0       # tbl_ds_contract_history
+has_design   = len(design_rows) > 0         # tbl_ds_design_history
+
+if has_contract:
+    script_angle = "complement"   # 이미 가입 → 담보 gap 기반 보완 상품 추천
+elif has_design:
+    script_angle = "followup"     # 설계만 있고 미체결 → 해당 설계 건 팔로업
+else:
+    script_angle = "new_product"  # 이력 없음 → 신상품 연계 공략
+```
+
+- 담보 gap이 이미 "무엇이 필요한지"를 나타내므로 이미 가입한 GDCD 필터 불필요
+- gd_filter_func + tbl_ds_product_master로 eligible 상품 확정 후 LLM 스크립트 생성
+- 이력 고객: 연결성공 있고 체결 없으면 시간 무관하게 같은 각도 유지 (script_angle 로직 그대로)
+
+---
+
+## 10. Chroma RAG 쿼리 전략 (케이스별)
+
+```
+이력 고객 → collection.get(where={"CTMNO": ctmno})
+            CTMNO 직접 조회, 유사도 검색 아님
+            결과 없으면(WAV 없는 고객) 빈 리스트 → 정상 진행
+
+신규/미연결 → collection.query(query_texts=[query_text], where=filter)
+              query_text = f"[고객: {age}세 {sex}, {campaign_nm}] {coverage_gap_summary}"
+              filter = {"RESULT_CD": "연결성공"} (+ CAMPAIGN_NM 있으면 추가)
+              캠페인명 매칭 없으면 filter에서 CAMPAIGN_NM 제거 후 재쿼리
+
+Tab2 모드B  → collection.query(query_texts=[topic_text])
+              topic_text = 사용자 입력에서 추출한 스크립트 주제
+```
+
+Chroma calls 결과는 선택적 컨텍스트 — 없어도 DuckDB 구조화 데이터 + Products RAG로 스크립트 생성 가능.
+
+---
+
+## 11. 미확정 항목 (Oracle 접속 후 확인)
 
 | 항목 | 내용 |
 |------|------|
@@ -416,3 +462,4 @@ Step 4. 결과 출력
 | tbl_new_coverage Oracle 소스 | INS_CR_CVR 계열 정확한 테이블명 + CVR_START_DT 컬럼명 확인 |
 | tbl_campaign_score 생성 주기 | 외부 모델 재학습/스코어링 주기 확정 필요 |
 | 비전 LLM 모델 확정 | Qwen2-VL 계열 경량 — VRAM 요구량 및 모델명 |
+| tbl_ds_product_master Oracle 소스 | GDREC_TMGD_LIST와 동일 마스터 테이블 — 정확한 테이블명 + SALE_END_YN 필터 컬럼명 확인 |

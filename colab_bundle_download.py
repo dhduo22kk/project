@@ -212,7 +212,7 @@ for i, chunk in enumerate(chunks):
 
 # ── Step 8: faster-whisper large-v3 모델 가중치 다운로드 (별도 번들) ──
 # pip 패키지(faster-whisper)는 번들에 있지만 모델 가중치는 별도 반입 필요
-# CTranslate2 포맷, ~3.1GB → 2개 파트
+# CTranslate2 포맷, model.bin ~3.1GB → 바이너리 분할 후 tar.gz 2개 파트
 print("\n[*] faster-whisper large-v3 모델 가중치 다운로드 중... (~3.1GB, 수분 소요)")
 whisper_dir = "/content/whisper_model/faster-whisper-large-v3"
 os.makedirs(whisper_dir, exist_ok=True)
@@ -229,7 +229,36 @@ whisper_size = sum(
 ) / 1024**2
 print(f"[+] 다운로드 완료: {whisper_size:.0f} MB")
 
-# 1.9GB 단위로 분할
+# 2GB 초과 단일 파일을 바이너리 레벨로 분할 (model.bin ~3.1GB 대응)
+def split_large_files(root_dir: str, max_bytes: int) -> list[str]:
+    """root_dir 내 max_bytes 초과 파일을 .part000, .part001 ... 로 분할.
+    원본 파일은 삭제. 분할된 파트 파일 경로 목록 반환."""
+    split_parts = []
+    for dp, _, fnames in os.walk(root_dir):
+        for fname in fnames:
+            fp = os.path.join(dp, fname)
+            if os.path.getsize(fp) <= max_bytes:
+                continue
+            print(f"  [split] {fname} ({os.path.getsize(fp)/1024**2:.0f} MB) → 분할 중...")
+            part_idx = 0
+            with open(fp, "rb") as src:
+                while True:
+                    chunk = src.read(max_bytes)
+                    if not chunk:
+                        break
+                    part_path = f"{fp}.part{part_idx:03d}"
+                    with open(part_path, "wb") as dst:
+                        dst.write(chunk)
+                    split_parts.append(part_path)
+                    print(f"    → {os.path.basename(part_path)}: {len(chunk)/1024**2:.0f} MB")
+                    part_idx += 1
+            os.remove(fp)
+            print(f"    원본 삭제 완료. 서버에서 재조합: cat {fname}.part* > {fname}")
+    return split_parts
+
+split_large_files(whisper_dir, int(MAX_BYTES))
+
+# 1.9GB 단위로 tar.gz 분할
 whisper_files = sorted([
     os.path.join(dp, f)
     for dp, _, fn in os.walk(whisper_dir) for f in fn
@@ -254,7 +283,6 @@ whisper_bundle_paths: list[str] = []
 total_w = len(chunks_w)
 for i, chunk in enumerate(chunks_w):
     part_path = f"/content/whisper_part{i+1:02d}_of{total_w:02d}.tar.gz"
-    # 경로를 /content 기준 상대경로로
     rel_files = [os.path.relpath(f, "/content") for f in chunk]
     files_str = " ".join(f'"{f}"' for f in rel_files)
     os.system(f"cd /content && tar -czf {part_path} {files_str}")
@@ -274,6 +302,9 @@ print("\n  # faster-whisper 모델 (서버 임의 경로에 압축 해제)")
 print("  mkdir -p /opt/models")
 for wp in whisper_bundle_paths:
     print(f"  tar -xzf {os.path.basename(wp)} -C /opt/models/")
+print("  # model.bin 분할 시 재조합 (part 파일이 있을 경우)")
+print("  cd /opt/models/faster-whisper-large-v3")
+print("  cat model.bin.part* > model.bin && rm model.bin.part*")
 print("  # settings.py WHISPER_MODEL_PATH=/opt/models/faster-whisper-large-v3 로 설정")
 print(f"{'='*55}")
 

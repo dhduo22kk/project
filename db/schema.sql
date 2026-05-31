@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS tbl_ds_customer (
     CTMNO            VARCHAR PRIMARY KEY,
     CTM_AGE          INTEGER,
-    CTM_SEX          VARCHAR,   -- 1=남, 2=여
+    CTM_SEX          VARCHAR,   -- Oracle 원본값 그대로 (예: '1.M', '2.F')
     REGION           VARCHAR,
     REG_DT           DATE,
     INFLOW_CAMPAIGN_NM VARCHAR,
@@ -91,4 +91,11 @@ CREATE TABLE IF NOT EXISTS tbl_ds_campaign_score (
     CAMPAIGN_TYPE  VARCHAR,
     SCORE          FLOAT,   -- 추천도 0~1
     SCORE_DT       DATE
+);
+
+CREATE TABLE IF NOT EXISTS tbl_ds_product_master (
+    GDCD        VARCHAR PRIMARY KEY,
+    GD_TYPE     VARCHAR,   -- L01, L03, L04, SS, 유병자 등
+    GDNM        VARCHAR,
+    GDNM_CLEAN  VARCHAR    -- 괄호/연월 제거된 상품명 (gd_filter_func 반환값과 매칭)
 );

@@ -404,6 +404,18 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **비전 LLM**: 인덱싱 시에만 사용 (Qwen3.6 언로드 후 순차), 쿼리 타임에는 불필요 — 모델 미정
 - **문서 포맷**: DOCX/PPTX/PDF만 지원 (HWP 없음)
 - **마트 갱신**: 매일 cron 자동 실행
+- **script_angle 3분기**: 체결이력 있음 → `complement`(담보 gap 기반 보완), 설계이력만 있음 → `followup`(설계 건 팔로업), 이력 없음 → `new_product`(신상품 공략). Qwen3.6 프롬프트에 명시 전달. 시간 무관 — 연결성공+체결없으면 각도 유지
+- **이미 가입 상품 GDCD 필터 불필요**: 담보 gap(tbl_coverage)이 이미 "무엇이 부족한지" 나타냄 → 중복 가입 방향 자연 차단
+- **gd_filter_func 적용 범위**: 신규 고객 한정 아님 — ML 추천 결과가 있어도 eligibility 체크 통과해야 추천. tbl_ds_recommendation + gd_filter_func 항상 조합
+- **tbl_ds_product_master 추가**: GDCD → GD_TYPE → GDNM_CLEAN 매핑 테이블. Oracle 소스: GDREC_TMGD_LIST와 동일 마스터(현재 판매 TM 상품만). gd_filter_func 반환 상품명 → GDCD 역매핑에 사용
+- **CTM_SEX Oracle 코드 원본 적재**: `'1.M'`/`'2.F'` 변환 없이 DuckDB에 그대로 적재. eligibility.py에서도 동일 코드 사용
+- **Chroma embedded_text 포맷 확정**: `f"[고객: {age}세 {sex}, {campaign_nm}] {summary}"` — Pipeline A에서 tbl_customer(CTM_AGE, CTM_SEX) 추가 조회 후 구성. 신규/미연결 RAG 쿼리와 동일 시맨틱 공간
+- **Chroma RAG 케이스별 전략**: 이력 고객 → `collection.get(where={"CTMNO": ctmno})` 직접 조회(유사도 검색 아님). 신규/미연결 → `collection.query(query_texts=[인구통계+담보gap 텍스트])`. Chroma 결과 없어도 DuckDB+products RAG로 정상 생성
+- **LangGraph 그래프 분리**: Tab1 = 별도 그래프, checkpoint 없음(매 요청 fresh). Tab2 = 별도 그래프, checkpoint-sqlite(IP 기반 멀티턴 세션). Tab1↔Tab2 상태 공유 없음
+- **Tab2 모드C 확인 UX**: 단일 채팅 인터페이스 유지 — 버튼 없음. 시스템이 텍스트로 `"이 조건으로 추출할까요? (네/수정할게요)"` 제시, 사용자 텍스트로 확인
+- **Tab2 모드C SQL 생성**: LLM이 SQL 직접 생성 안 함. 자연어 → 구조화 conditions dict 변환 → `build_campaign_query(conditions)` 템플릿 함수로 쿼리 생성
+- **Pipeline C 장애 복구**: 시작 시 mart_new.db 존재하면 무조건 삭제 후 재시작. 부분 복구 없음(Oracle 전체 재적재)
+- **IP 기반 세션 충돌 리스크 인지**: 사내망 고정 IP 보장 없음 → NAT 충돌 시 Tab2 세션 섞일 수 있음. 동시 사용자 ~5명 + 실사용 패턴상 충돌 빈도 낮아 별도 처리 없이 감수
 
 ## 개발 타임라인 (마감: 2026-06-09, 10일)
 
