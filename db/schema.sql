@@ -99,3 +99,16 @@ CREATE TABLE IF NOT EXISTS tbl_ds_product_master (
     GDNM        VARCHAR,
     GDNM_CLEAN  VARCHAR    -- 괄호/연월 제거된 상품명 (gd_filter_func 반환값과 매칭)
 );
+
+CREATE TABLE IF NOT EXISTS tbl_ds_sales_focus (
+    FOCUS_YM    VARCHAR PRIMARY KEY,  -- '2026-06' (월 단위 키)
+    FOCUS_TEXT  VARCHAR,              -- 자유형식 전문 (주력상품/이슈/제외상품 등)
+    UPDATED_AT  TIMESTAMP             -- 마지막 수정 시각
+);
+
+CREATE TABLE IF NOT EXISTS tbl_ds_msg_history (
+    CTMNO       VARCHAR,
+    SEND_DT     TIMESTAMP,  -- 발송일시
+    MSG_CONTENT VARCHAR,    -- 문자 내용 (SMS/LMS 텍스트)
+    MSG_TYPE    VARCHAR     -- 'SMS' | 'LMS' | 'MMS'
+);

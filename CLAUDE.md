@@ -22,11 +22,11 @@ TM/CM 채널 전사 고객 DB(~30만 명)를 통합 활용하여,
 
 ### 핵심 사용 목적
 1. **콜 전 준비 (상담사)** — 고객 조회 → 1차/2차 DB 자동 분기 → 맞춤 스크립트 + 상품 추천 + 과거 통화 요약
-2. **영업지원 Agent (본사 스태프)** — 캠페인 고객 리스트 추출(Excel) + 캠페인 성과 조회 + 녹취 기반 스크립트 생성 + 신상품 정보 조회
+2. **캠페인 추천 대상 생성 Agent (본사 스태프)** — 과거 캠페인 성과 분석 기반 또는 추가가입 가능성 모델 점수 기반으로 캠페인 추천 대상 추출(Excel)
 
 ### 사용자 구분
 - **상담사** → Tab1(콜 전 준비)만 사용
-- **본사 스태프(기획자/운영자)** → Tab2(영업지원 Agent)만 사용
+- **본사 스태프(기획자/운영자)** → Tab2(캠페인 추천 대상 생성)만 사용
 
 ### UI 구현 및 레거시 연동
 - **기본 구현**: Gradio UI (사내망 IP 접근, server_name="0.0.0.0")
@@ -215,7 +215,8 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
     tbl_contract_history  — 계약이력 (고객번호 기준, 체결내역 + 보험료)
                             ※ 보험료 합계는 에이전트가 집계 쿼리로 조회
     tbl_campaign_history  — 캠페인이력 + 배정이력 통합 (고객번호 기준)
-                            ※ 유입 캠페인명 조회, 문자발송이력 포함
+                            ※ 유입 캠페인명 조회 (캠페인 단위 문자발송 여부 MSG_SEND_DT 포함)
+                            ※ 전사 문자발송 내용은 별도 tbl_ds_msg_history로 분리
     tbl_design_history    — 설계이력 (고객번호 기준)
     tbl_customer          — 고객 기본정보 + 유입캠페인명 (인구통계만)
                             ※ Oracle 신규 마트 필요: CUS_CTM + GDREC_ORIGIN_MAIN_FIN_PRED LEFT JOIN
@@ -232,6 +233,14 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
     tbl_recommendation    — 레거시 ML 추천결과 (고객번호, REC_RANK, REC_GDCD, REC_GDNM)
                             ※ Oracle M_CRM_REC_RLT_BIZ에서 적재, REC_RS1(기존 스크립트) 제외
                             ※ 신규 고객은 row 없음 → agent가 eligibility + RAG로 직접 추천
+    tbl_ds_sales_focus    — 월별 영업 포커스 (주력상품/이슈/제외상품)
+                            ※ FOCUS_YM(월, PK) + FOCUS_TEXT(자유형식) + UPDATED_AT
+                            ※ Gradio Tab2 상단 편집 UI로 운영자가 매달 업데이트
+                            ※ Agent가 매 요청 시 현재월 row 읽어 system message에 주입
+    tbl_ds_msg_history    — 전사 문자발송이력 (고객번호 기준, 캠페인 무관)
+                            ※ CTMNO + SEND_DT + MSG_CONTENT(텍스트) + MSG_TYPE(SMS/LMS/MMS)
+                            ※ Tab1 이력 고객: 최근 발송 문자 컨텍스트로 스크립트에 활용
+                            ※ Tab2: "최근 N일 내 문자 발송 고객 제외/포함" 추출 조건으로 사용
     tbl_change_log        — 임팩트 있는 변경 감지 기록 (고객번호, 변경항목, 변경일시)
                             ※ 임팩트 기준: 통화 진행/문자 발송/계약 체결
                             ※ M4에서 구현 (시간 여유 있을 때)
@@ -276,6 +285,7 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
         → DuckDB: tbl_design_history 조회
         → DuckDB: tbl_coverage (현재 담보현황) 조회
         → DuckDB: tbl_recommendation → ML 추천 상품 조회
+        → DuckDB: tbl_ds_msg_history → 최근 전사 발송 문자 조회 (있으면 스크립트 컨텍스트 주입)
         → Chroma: 해당 고객 과거 통화 요약 RAG
         → Qwen3.6 → 재통화 맞춤 스크립트 + 상품 추천 출력
             출력 순서:
@@ -290,43 +300,54 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
     ※ 레거시 연동: Gradio API로 상품 추천 결과(상품명/텍스트)를
       기존 레거시 상담사 UI에 주입 가능 (향후 확장)
 
-[Tab 2: 영업지원 Agent] — 본사 스태프(기획자/운영자) 전용, 대화형 멀티턴
-    단일 채팅 인터페이스, LangGraph가 의도를 파악해 세 가지 모드로 자동 라우팅
+[Tab 2: 캠페인 추천 대상 생성] — 본사 스태프(기획자/운영자) 전용
+    캠페인 리스트 선택 → 폼 Q&A (4단계) → Excel 다운로드
+    ※ 스크립트 생성 기능 제거 — 캠페인 추천 대상 생성에 집중
 
-    ├─ [모드 A: 자유 질의] — 성과 조회, 정보 검색
-    │   주요 용도:
-    │     - 캠페인별 매출/체결율 조회 → DuckDB 집계 (자주 쓰는 지표는 템플릿 쿼리)
-    │     - 신상품/내부 문서 정보 조회 → Chroma products RAG
-    │   → Qwen3.6 → 질의 맞춤 응답 반환
-    │   ※ 복잡한 집계 쿼리는 "AI 생성 결과, 반드시 확인" 경고 표시
-    │
-    ├─ [모드 B: 스크립트 생성] — TM 녹취 기반 봇/캠페인 스크립트 생성
-    │   예시: "마케팅 동의봇 스크립트 만들어줘", "암보험 거절 극복 스크립트"
-    │   → Chroma calls RAG: 체결여부/우호적여부 필터 → 유사 성공/실패 콜 패턴 추출
-    │   → Chroma products RAG: 관련 상품 정보
-    │   → Qwen3.6 → 봇/캠페인용 스크립트 반환
-    │
-    └─ [모드 C: 캠페인 고객 리스트 생성]
-        Step 1. 운영자 입력: 과거 캠페인 목록 선택 OR 직접 설명
-        Step 2. 과거 캠페인 성과 분석 먼저 표시
-            → DuckDB: tbl_campaign_history → 유사 캠페인 체결 건수, 체결율, 세그먼트별 성과
-            → "이 조건에서 과거 체결율이 가장 높았습니다" 인사이트 제공
-        Step 3. AI 추천 조건 제안
-            → 과거 성과 패턴 기반 → "이 조건으로 추출하면 동일 세그먼트 과거 체결율 X%"
-            → tbl_campaign_score (외부 모델 점수) 높은 순으로 정렬
-            → CM 채널: 갱신 가능성 높은 고객 제외
-            → "리스트 받기" 확인 버튼
-        Step 4. 결과 출력
-            ① Excel 다운로드 (CTMNO만)
-            ② 과거 동일 조건 세그먼트 체결율 (ML 예측 아님, 과거 실적 참고치)
-            ③ 접근 전략 요약
+    [캠페인 리스트 패널 (좌측)]
+        → tbl_ds_campaign_history DISTINCT 캠페인명 + 채널(CAMPAIGN_TYPE) 표시
+        → 체결율 표시 없음 — 캠페인명 + 채널 정보만
+        → "신규 캠페인" 항목 별도 제공 (과거 데이터 없는 새 캠페인)
+
+    [폼 Q&A (우측) — 신규/기존 캠페인 동일 플로우]
+
+    [Step 0] 어떤 캠페인인지 (구조화 칩 선택)
+        - 상품 유형: 건강보험 / 암보험 / 운전자보험 / 실손 / 뇌심혈관 / 치매 / 기타 / 선택 안함
+        - 채    널: TM / CM / POM / 선택 안함
+        - 타겟 성별: 여성 / 남성 / 전체 / 선택 안함
+        - 타겟 연령대: 20대 / 30대 / 40대 / 50대 / 60대+ / 선택 안함
+        → 선택값 → conditions dict의 product_type, channel, gender, age_range 필드
+
+    [Step 1] 신규 추천 대상 리스트 여부
+        → [네, 새로 만들게요] / [아니오, 기존 리스트 활용]
+
+    [Step 2] 목표 인원 수 입력
+        → 숫자 입력 (예: 3000) — "전체 고객" 옵션 없음
+        → conditions dict의 target_count 필드
+
+    [Step 3] 추출 방식 선택
+        - 과거 실적 기반 추천: 배정 후 90일 체결 성공 세그먼트 조건 재현 → build_campaign_query
+        - 모델 추천도 기반: tbl_ds_campaign_score SCORE + 고객 활성도 상위 순
+          ※ 고객 활성도 = 최근 6개월 내 연결성공(tbl_ds_call_detail) OR 캠페인 배정(tbl_ds_campaign_history)
+        - 조건 직접 입력: 자유 텍스트 → LLM이 conditions dict로 파싱
+        → "과거 실적 기반이란?" 토글 설명 제공
+
+    [Step 4] 조건 요약 + 추출
+        ① 직전 캠페인 비교 카드 (기존 캠페인 이력 있을 때만 표시)
+           → DuckDB: 직전 동일 캠페인 체결율 조회 → 예상 성과 범위 참고치 표시
+           → "ML 예측 아님, 과거 실적 참고치" 명시
+        ② 조건 요약 확인 → [추출]
+        ③ 결과: Excel 다운로드 (CTMNO만) + 접근 전략 요약
+
+    ※ 성공 기준: 캠페인 배정일(ASSIGN_DT) 기준 +90일 이내 계약 체결 (상수화, 조정 가능)
+    ※ SQL 생성: LLM 직접 생성 안 함 → conditions dict → build_campaign_query() 템플릿 함수
 ```
 
 ## Gradio UI 설계 (확정)
 
-- **탭 구성**: Tab1 콜 전 준비 (상담사) / Tab2 영업지원 Agent (본사 스태프) — 2탭
+- **탭 구성**: Tab1 콜 전 준비 (상담사) / Tab2 캠페인 추천 대상 생성 (본사 스태프) — 2탭
 - **사용자**: 상담사 (Tab1 전용) + 본사 스태프/기획자/운영자 (Tab2 전용)
-- **Tab2 UX**: 단일 채팅 인터페이스 — 라디오 버튼 없음, LangGraph가 의도 자동 라우팅
+- **Tab2 UX**: 캠페인 리스트(캠페인명+채널, 체결율 미표시) 선택 → 폼 Q&A 4단계(어떤 캠페인/신규여부/목표인원/추출방식) → 직전 캠페인 비교(이력 있을 때만) → Excel 출력.
 - **접근 제어**: FastAPI 미들웨어로 허용 IP 목록 검사 (설정 파일로 관리, 2차 방어선)
 - **세션 구분 키**: IP 기반 (사내망 내부 IP, 동시 사용자 ~5명)
 - **LLM**: 단일 Qwen3.6-27B — 멀티 LLM 불필요 (VRAM 40GB, 순차 사용)
@@ -364,10 +385,13 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **Tab1 3분기 자동 분기**: tbl_call_detail row 없음 → 신규 / 전부 결번·무응답 → 미연결 / 실제 통화 1건 이상 → 이력. 상담사 수동 선택 불필요
 - **통화이력 타임라인 표시**: 이력 고객에게 통화일시(TIMESTAMP) + 통화시간(초) 표시. STT 있으면 우호적여부 추가, STT 없으면 사실만 표시 (30초 이상 = "대화 진행됨"). 반응 좋음/나쁨 주관적 판단 없음 — 상담사가 직접 해석
 - **통화 평가 탭 제거**: 상담사가 콜 후 별도 탭 조회 가능성 낮음 → 과거 통화 요약을 Tab1 2차 DB 플로우에 통합
-- **Tab2 영업지원 Agent**: 단일 채팅 인터페이스, 모드A(자유 질의) + 모드B(스크립트 생성) + 모드C(캠페인 리스트 생성) 자동 라우팅
-- **Tab2 의도 분류 오류 복구**: 분류 결과를 응답 첫 줄에 명시 + "다른 작업이라면 말씀해 주세요" 안내 → 오분류 즉시 수정 가능, 별도 UI 버튼 불필요
-- **Tab2 스크립트 생성 (모드B)**: 본사 스태프가 봇/캠페인용 스크립트 제작 시 활용 — Chroma calls(TM 녹취 패턴) + products RAG → Qwen3.6 생성 (상담사용 개인화 스크립트인 Tab1과 구분)
-- **캠페인 리스트 생성 (모드C)**: 운영자가 캠페인 방향만 제공 → 시스템이 유사 과거 캠페인 패턴으로 추출 조건 제안 → 확인/수정 후 DuckDB 조회 → Excel(CTMNO만) 다운로드
+- **Tab2 캠페인 추천 대상 생성**: 스크립트 생성 제거, 캠페인 추천 대상 추출에 집중. 캠페인 리스트 선택 → 폼 Q&A → Excel. 의도 라우터 불필요 — 사용자가 직접 캠페인 선택
+- **캠페인 추출 3전략**: 과거 실적 기반(성공 세그먼트 재현) / 모델 추천도(campaign_score + 활성도) / 조건 직접 입력(LLM 파싱). 신규/기존 캠페인 동일 플로우
+- **캠페인 성공 기준**: ASSIGN_DT + 90일 이내 계약 체결. settings.py에 CAMPAIGN_SUCCESS_DAYS = 90 상수화
+- **고객 활성도 정의**: 별도 테이블 없음 — 최근 6개월 내 tbl_ds_call_detail 연결성공 OR tbl_ds_campaign_history 배정이력 → binary 필터로 런타임 파생
+- **tbl_ds_msg_history 추가**: 전사 문자발송이력 (캠페인 무관). Tab1 이력 고객 스크립트에 "최근 발송 문자" 컨텍스트 주입, Tab2 추출 조건("최근 N일 내 문자 발송 고객 제외/포함")에 활용. 문자 내용은 DuckDB 텍스트 컬럼 저장으로 충분 — Chroma 임베딩 불필요. oracle_queries.py에 QUERY_MSG_HISTORY 추가 예정(쿼리 수령 후)
+- **tbl_ds_sales_focus**: 월별 영업 포커스 테이블 (FOCUS_YM PK + FOCUS_TEXT 자유형식). Gradio Tab2 편집 UI로 매달 운영자 업데이트, Agent 매 요청 시 주입
+- **캠페인 리스트 생성**: 캠페인명+채널 선택(체결율 미표시) → 어떤 캠페인인지(상품/채널/성별/연령 칩) → 신규여부 → 목표인원수(숫자) → 추출방식 → 직전 캠페인 비교(이력 있을 때만) → 조건 확인 → DuckDB 조회 → Excel(CTMNO만)
 - **캠페인 리스트 출력 형식**: CTMNO만 포함한 Excel — 기존 콜링/문자 발송 시스템에 업로드하는 용도
 - **예상 효율 산출 방식**: ML 예측 모델 아님 — 과거 유사 캠페인 실제 체결율 DuckDB 집계 기반 참고치 (정직한 방법)
 - **CM 채널 마케팅 비용 절감**: 갱신 가능성 높은 고객을 리스트에서 제외 → 불필요 접촉 감소
@@ -379,7 +403,7 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **tbl_new_coverage 추가**: 3개월 이내 신규 가입 담보 테이블 — Tab1 계약 현황 섹션 + 스크립트에서 "최근 가입하신 [담보명]과 연계하여" 활용. Oracle INS_CR_CVR 계열에서 CVR_START_DT 기준 필터
 - **tbl_campaign_score 추가**: 외부에서 만든 캠페인 추천도 모델 결과 적재 (레거시 상품추천시스템과 동일 방식) — CTMNO + SCORE + CAMPAIGN_TYPE. Tab2 모드C 고객 정렬에 활용
 - **Tab1 출력 순서 확정**: 계약 현황(가입 상품 수, 월 납입 보험료, 최근 가입 시점, 3개월 내 신규 담보, 통화 추천/피해야 할 시간) → 현재 보장 현황 → 추천 상품 → 스크립트
-- **Tab2 캠페인 시뮬레이터 UX**: 과거 캠페인 성과 분석 먼저 표시 → 체결 패턴 인사이트 → AI 추천 조건 제안 → 리스트 받기 확인. "예상 체결율"이 아닌 "과거 동일 조건 세그먼트 체결율"로 명시 (ML 예측 아님)
+- **Tab2 캠페인 Q&A UX**: Step0(상품/채널/성별/연령 칩) → Step1(신규여부) → Step2(목표인원 숫자입력) → Step3(추출방식 3선택지+과거실적 설명 토글) → Step4(직전 캠페인 비교 카드 — 기존 캠페인 이력 있을 때만 표시, ML 예측 아님 명시) → 추출 → Excel. 캠페인 리스트에 체결율 미표시
 - **Pipeline B MVP 복귀**: 상품 설명서 PDF가 Tab1 스크립트에 필수 — 비갱신형/납입기간/특약 등 상품 특징을 스크립트에 반영하려면 products RAG 필요. 이월 취소
 - **gd_filter_func 재사용**: 기존 `GDREC_GD_filter.py` 코드 그대로 `utils/eligibility.py`에 포팅 — L01/L04/L03/SS는 나이+성별 분기, 유병자는 병력 4개 컬럼(입원청구/입원고지/중대질환고지/중대질환청구) min값 기반 분기
 - **병력 컬럼 DuckDB 적재**: 유병자 판단용 4개 컬럼을 tbl_customer에 포함 — 컴플라이언스 승인 완료, GDREC_ORIGIN_MAIN_FIN_PRED에서 가져옴
@@ -412,8 +436,8 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **Chroma embedded_text 포맷 확정**: `f"[고객: {age}세 {sex}, {campaign_nm}] {summary}"` — Pipeline A에서 tbl_customer(CTM_AGE, CTM_SEX) 추가 조회 후 구성. 신규/미연결 RAG 쿼리와 동일 시맨틱 공간
 - **Chroma RAG 케이스별 전략**: 이력 고객 → `collection.get(where={"CTMNO": ctmno})` 직접 조회(유사도 검색 아님). 신규/미연결 → `collection.query(query_texts=[인구통계+담보gap 텍스트])`. Chroma 결과 없어도 DuckDB+products RAG로 정상 생성
 - **LangGraph 그래프 분리**: Tab1 = 별도 그래프, checkpoint 없음(매 요청 fresh). Tab2 = 별도 그래프, checkpoint-sqlite(IP 기반 멀티턴 세션). Tab1↔Tab2 상태 공유 없음
-- **Tab2 모드C 확인 UX**: 단일 채팅 인터페이스 유지 — 버튼 없음. 시스템이 텍스트로 `"이 조건으로 추출할까요? (네/수정할게요)"` 제시, 사용자 텍스트로 확인
-- **Tab2 모드C SQL 생성**: LLM이 SQL 직접 생성 안 함. 자연어 → 구조화 conditions dict 변환 → `build_campaign_query(conditions)` 템플릿 함수로 쿼리 생성
+- **Tab2 폼 Q&A 확인**: 직전 캠페인 비교 카드(이력 있을 때만) 표시 후 [추출] 버튼으로 확인. 조건 수정은 이전 단계로 돌아가서 재선택
+- **Tab2 SQL 생성**: LLM이 SQL 직접 생성 안 함. 폼 Q&A 응답 → conditions dict(product_type/channel/gender/age_range/target_count/strategy/custom_cond) → `build_campaign_query(conditions)` 템플릿 함수로 쿼리 생성
 - **Pipeline C 장애 복구**: 시작 시 mart_new.db 존재하면 무조건 삭제 후 재시작. 부분 복구 없음(Oracle 전체 재적재)
 - **IP 기반 세션 충돌 리스크 인지**: 사내망 고정 IP 보장 없음 → NAT 충돌 시 Tab2 세션 섞일 수 있음. 동시 사용자 ~5명 + 실사용 패턴상 충돌 빈도 낮아 별도 처리 없이 감수
 
@@ -421,11 +445,10 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 
 ### MVP 범위 (10일 내 완성)
 - Tab1 콜 전 준비 전체 (상담사 핵심)
-- Tab2 모드C 캠페인 리스트 생성 (임원 데모 핵심)
+- Tab2 캠페인 추천 대상 생성 (임원 데모 핵심) — 캠페인 선택 → 폼 Q&A → Excel
 - Gradio 2탭 기본 UI
 
 ### 이월 (다음 버전)
-- Tab2 모드A 자유 질의 → 템플릿 쿼리 몇 개로 우선 대체
 - tbl_coverage_detail / tbl_cvr_group_map
 - tbl_change_log
 
@@ -439,9 +462,9 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 | Day 4 | 6/3 | agent/state.py + agent/tools/duckdb_tools.py + agent/tools/chroma_tools.py |
 | Day 5 | 6/4 | agent/nodes/router.py (3분기) + Tab1 신규/미연결 플로우 |
 | Day 6 | 6/5 | Tab1 이력 플로우 (Chroma RAG + 통화이력 타임라인) + agent/graph.py Tab1 완성 |
-| Day 7 | 6/6 | Tab2 의도 라우터 + 모드C 캠페인 리스트 생성 4단계 + Excel 출력 |
+| Day 7 | 6/6 | Tab2 캠페인 선택 리스트 + 폼 Q&A LangGraph + build_campaign_query + Excel 출력 |
 | Day 8 | 6/7 | ui/app.py (2탭) + ui/middleware.py + Tab1 E2E 연동 |
-| Day 9 | 6/8 | Tab2 채팅 UI + E2E 연동 + DuckDB 갱신 버튼 + 버그 수정 |
+| Day 9 | 6/8 | Tab2 폼 UI + E2E 연동 + DuckDB 갱신 버튼 + tbl_ds_sales_focus 편집 UI + 버그 수정 |
 | Day 10 | 6/9 | 폐쇄망 배포 패키지 점검 + 시나리오 E2E 테스트 |
 
 ### 리스크

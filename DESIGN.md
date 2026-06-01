@@ -247,6 +247,35 @@ data/                        # 서버 로컬 (git 제외)
 
 ---
 
+### tbl_ds_msg_history
+전사 문자발송이력. 캠페인 무관 전사 발송 시스템에서 적재.
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| CTMNO | VARCHAR | 고객번호 |
+| SEND_DT | TIMESTAMP | 발송일시 |
+| MSG_CONTENT | VARCHAR | 문자 내용 (SMS/LMS 텍스트) |
+| MSG_TYPE | VARCHAR | 'SMS' \| 'LMS' \| 'MMS' |
+
+> Tab1 이력 고객: 최근 2~3건 조회 → LLM 컨텍스트 주입 ("지난주에 보내드린 XX 안내 문자 보셨나요?" 활용)
+> Tab2: 추출 조건 필터 ("최근 N일 내 문자 발송 고객 제외/포함")
+> Oracle 소스: 전사 문자발송 시스템 테이블 (쿼리 수령 예정)
+
+---
+
+### tbl_ds_sales_focus
+월별 영업 포커스. Gradio Tab2 편집 UI로 운영자가 매달 업데이트.
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| FOCUS_YM | VARCHAR | 연월 키 (PK, e.g. '2026-06') |
+| FOCUS_TEXT | VARCHAR | 자유형식 전문 (주력상품/이슈/제외상품) |
+| UPDATED_AT | TIMESTAMP | 마지막 수정 시각 |
+
+> Agent가 매 요청 시 `WHERE FOCUS_YM = strftime('%Y-%m', current_date)` 조회 → system message에 주입
+
+---
+
 ### tbl_change_log
 M4에서 구현. 임팩트 있는 변경 감지.
 
@@ -276,59 +305,97 @@ M4에서 구현. 임팩트 있는 변경 감지.
 
 ```python
 class AgentState(TypedDict):
-    messages: list              # 대화 히스토리 (멀티턴)
+    messages: list              # 대화 히스토리 (멀티턴, Tab2 전용)
     active_tab: str             # "tab1" | "tab2"
-    tab2_mode: str | None       # "query" | "script" | "list" (Tab2 전용)
-    ctmno: str | None           # Tab1: 조회 고객번호
-    call_id: str | None         # Tab1: 통화ID (미사용, 향후 확장용)
-    db_tier: str | None         # Tab1: "신규" | "미연결" | "이력"
+    # Tab1 전용
+    ctmno: str | None           # 조회 고객번호
+    db_tier: str | None         # "신규" | "미연결" | "이력"
     customer_data: dict         # DuckDB 조회 캐시
     rag_results: list           # Chroma 조회 캐시
-    campaign_conditions: dict   # Tab2 모드C: 수집된 캠페인 조건
+    # Tab2 전용
+    selected_campaign_nm: str | None  # 선택한 캠페인명
+    campaign_step: int          # 폼 Q&A 진행 단계 (0~4)
+    campaign_conditions: dict   # 수집된 조건 dict → build_campaign_query() 입력
+                                # 필드: product_type / channel / gender / age_range /
+                                #       want_new / target_count / strategy / custom_cond
+    extraction_strategy: str | None  # "history" | "model" | "custom"
     final_answer: str | None
 ```
 
-- 탭 전환 시 ctmno / customer_data 유지 가능 (향후 Tab1 → Tab2 컨텍스트 연계)
+- Tab1: checkpoint 없음 (매 요청 fresh), Tab2: checkpoint-sqlite (IP 기반 멀티턴 세션)
 - 세션 키: 사내망 IP (동시 사용자 ~5명)
-- 영속성: langgraph-checkpoint-sqlite
 
 ---
 
-## 5. Tab2 의도 라우팅
+## 5. Tab2 캠페인 선택 및 폼 Q&A 흐름
 
-단일 채팅 인터페이스에서 LangGraph가 세 가지 모드로 자동 분기.
+의도 분류 라우터 없음 — 사용자가 캠페인 리스트에서 직접 선택.
 
 ```
-사용자 입력
-    ↓
-[의도 분류 노드] Qwen3.6 → tab2_mode 결정
-    ↓
-[확인 메시지 출력] — 오분류 복구 포인트
-    예: "캠페인 고객 리스트 생성으로 이해했습니다.
-         조건을 같이 정해볼까요? (아니라면 원하는 작업을 다시 말씀해 주세요)"
-    ↓
-사용자가 확인 or 수정
-    ├─ "query"  → 모드A: 자유 질의 (캠페인 매출, 신상품 정보 등)
-    ├─ "script" → 모드B: 스크립트 생성 (TM 녹취 기반)
-    └─ "list"   → 모드C: 캠페인 고객 리스트 생성 → Excel 출력
+[캠페인 선택 화면 (좌측 패널)]
+    tbl_ds_campaign_history DISTINCT 캠페인명 + CAMPAIGN_TYPE → 리스트 표시
+    체결율 표시 없음 — 캠페인명 + 채널만
+    + "신규 캠페인" 항목
+         ↓ 선택
+[폼 Q&A — LangGraph 단계별 진행] (신규/기존 동일 플로우)
+
+  campaign_step=0: 어떤 캠페인인지 (구조화 칩 선택)
+                   - 상품 유형: 건강/암/운전자/실손/뇌심혈관/치매/기타/선택안함
+                   - 채    널: TM / CM / POM / 선택안함
+                   - 타겟 성별: 여성/남성/전체/선택안함
+                   - 타겟 연령대: 20대/30대/40대/50대/60대+/선택안함
+                   → conditions['product_type'], ['channel'], ['gender'], ['age_range']
+         ↓
+  campaign_step=1: 신규 리스트 여부
+                   [네, 새로 만들게요] / [아니오, 기존 리스트 활용]
+                   → conditions['want_new']
+         ↓
+  campaign_step=2: 목표 인원 수 (숫자 입력)
+                   → conditions['target_count']
+         ↓
+  campaign_step=3: 추출 방식 선택
+                   [과거 실적 기반] → 배정+90일 체결 성공 세그먼트 재현
+                   [모델 추천도]    → campaign_score + 고객 활성도 상위
+                   [조건 직접 입력] → 자유 텍스트 → LLM 파싱
+                   ※ "과거 실적 기반이란?" 토글 설명 제공
+                   → conditions['strategy'], conditions['custom_cond']
+         ↓
+  campaign_step=4: 직전 캠페인 비교 (기존 캠페인 이력 있을 때만)
+                   → tbl_ds_campaign_history 직전 동일 캠패인 체결율 조회
+                   → "ML 예측 아님, 과거 실적 참고치" 명시
+                   → 조건 요약 확인 → [추출] 버튼
+                   → DuckDB 조회 → Excel 생성 → 다운로드 링크
 ```
 
-**확인 메시지 템플릿:**
-| 분류 결과 | 확인 메시지 |
-|----------|------------|
-| query | "성과/정보 조회로 이해했습니다. 바로 찾아드릴게요. (다른 작업이라면 말씀해 주세요)" |
-| script | "스크립트 생성으로 이해했습니다. 어떤 상황의 스크립트가 필요하신가요? (다른 작업이라면 말씀해 주세요)" |
-| list | "캠페인 고객 리스트 생성으로 이해했습니다. 조건을 같이 정해볼까요? (다른 작업이라면 말씀해 주세요)" |
+**룰 베이스 조건 추출 로직:**
+```python
+# 과거 캠페인 성공 고객 프로파일 추출
+SELECT c.CTM_AGE, c.CTM_SEX,
+       COUNT(*) FILTER (WHERE ct.CTMNO IS NOT NULL) * 1.0 / COUNT(*) AS success_rate
+FROM tbl_ds_campaign_history ch
+JOIN tbl_ds_customer c ON ch.CTMNO = c.CTMNO
+LEFT JOIN tbl_ds_contract_history ct
+       ON ch.CTMNO = ct.CTMNO
+      AND ct.INS_ST BETWEEN ch.ASSIGN_DT AND ch.ASSIGN_DT + 90
+WHERE ch.CAMPAIGN_NM = :campaign_nm
+GROUP BY c.CTM_AGE / 10, c.CTM_SEX   -- 10세 단위 집계
+ORDER BY success_rate DESC
+LIMIT 3  -- 상위 세그먼트 조건 추출
+```
 
-**분류 기준 예시:**
-| 입력 | 모드 |
-|------|------|
-| "이번 달 TM 캠페인 체결율 어때?" | query |
-| "암보험 캠페인 매출 보여줘" | query |
-| "마케팅 동의봇 스크립트 만들어줘" | script |
-| "50대 거절 극복 스크립트" | script |
-| "신상품 내용 알려줘" | query |
-| "마케팅 동의 문자 발송 캠페인 고객 뽑아줘" | list |
+**모델 추천도 조건:**
+```python
+# 활성도 = 최근 6개월 내 연결성공 OR 배정이력
+active_ctmno = """
+  SELECT DISTINCT CTMNO FROM tbl_ds_call_detail
+  WHERE RESULT_CD = '연결성공'
+    AND CALL_DT >= CURRENT_DATE - INTERVAL 6 MONTH
+  UNION
+  SELECT DISTINCT CTMNO FROM tbl_ds_campaign_history
+  WHERE ASSIGN_DT >= CURRENT_DATE - INTERVAL 6 MONTH
+"""
+# campaign_score 상위 + 활성 고객 교집합 → 정렬
+```
 
 ---
 
@@ -381,27 +448,45 @@ class AgentState(TypedDict):
 
 ---
 
-## 8. Tab2 모드C — 캠페인 고객 리스트 생성 플로우
+## 8. Tab2 — 캠페인 추천 대상 생성 상세 플로우
 
 ```
-Step 1. 운영자 입력: 캠페인 방향 설명
-    예: "마케팅 동의 문자 발송 캠페인"
+[캠페인 선택 리스트 쿼리]
+    SELECT DISTINCT CAMPAIGN_NM, CAMPAIGN_TYPE
+    FROM tbl_ds_campaign_history
+    ORDER BY CAMPAIGN_NM
+    -- 체결율 집계 없음 (리스트에 미표시)
 
-Step 2. 유사 과거 캠페인 탐색
-    → DuckDB: tbl_campaign_history WHERE CAMPAIGN_NM LIKE '%마케팅동의%'
-    ├─ [유사 있음] 과거 타겟 세그먼트 + 체결율 요약 → 조건 제안
-    └─ [신규] Agent가 조건 추가 질의
-        → 조건 없으면: 고객 활성도 기반 / 랜덤 추출 중 안내
+[직전 캠페인 비교 쿼리] — Step 4, 기존 캠페인 이력 있을 때만
+    SELECT COUNT(*) FILTER (WHERE ct.CTMNO IS NOT NULL) * 1.0 / COUNT(*) AS prev_rate
+    FROM tbl_ds_campaign_history ch
+    LEFT JOIN tbl_ds_contract_history ct
+           ON ch.CTMNO = ct.CTMNO
+          AND ct.INS_ST BETWEEN ch.ASSIGN_DT AND ch.ASSIGN_DT + 90
+    WHERE ch.CAMPAIGN_NM = :prev_campaign_nm  -- 직전 동일 캠페인명
 
-Step 3. 고객 리스트 생성
-    → DuckDB: tbl_customer + tbl_coverage + tbl_contract_history
-              + tbl_recommendation → 조건 매칭 + 우선순위 정렬
-    → CM 채널: 갱신 가능성 높은 고객 제외
+폼 Q&A Step 0 (신규/기존 동일):
+    → 구조화 칩 선택 (상품유형/채널/성별/연령대), 확인 버튼
+    → conditions['product_type'], ['channel'], ['gender'], ['age_range']
 
-Step 4. 결과 출력
-    ① Excel 다운로드 (CTMNO 컬럼만)  ← pandas.to_excel() + openpyxl
-    ② 예상 효율 참고치 (과거 유사 캠페인 체결율 기반)
-    ③ 채널별 접근 전략 요약 텍스트
+폼 Q&A Step 1:
+    → "신규 추천 대상 리스트를 새로 만들까요?"
+    → conditions['want_new'] = True | False
+
+폼 Q&A Step 2:
+    → "추출할 목표 인원 수를 입력해주세요." (숫자 입력)
+    → conditions['target_count']
+
+폼 Q&A Step 3:
+    → 추출 방식: [과거 실적 기반] [모델 추천도] [조건 직접 입력]
+    → conditions['strategy'] = 'history' | 'model' | 'custom'
+    → strategy='custom': 자유 텍스트 → conditions['custom_cond']
+
+폼 Q&A Step 4:
+    → 직전 캠페인 비교 카드 (기존 캠페인 이력 있을 때만, ML 예측 아님 명시)
+    → 조건 요약 표시 → [추출] 버튼
+    → build_campaign_query(conditions) → DuckDB 실행
+    → Excel (CTMNO만) + 접근 전략 요약 (Qwen3.6)
 ```
 
 ---
