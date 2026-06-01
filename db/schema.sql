@@ -86,12 +86,8 @@ CREATE TABLE IF NOT EXISTS tbl_ds_recommendation (
     REC_POCT   FLOAT    -- 구매확률 0~1
 );
 
-CREATE TABLE IF NOT EXISTS tbl_ds_campaign_score (
-    CTMNO          VARCHAR,
-    CAMPAIGN_TYPE  VARCHAR,
-    SCORE          FLOAT,   -- 추천도 0~1
-    SCORE_DT       DATE
-);
+-- tbl_ds_campaign_score 제거: ML 점수 테이블 MVP 스코프 제외
+-- 활성도 기반 DuckDB 집계로 대체 (tbl_ds_call_detail + tbl_ds_campaign_history)
 
 CREATE TABLE IF NOT EXISTS tbl_ds_product_master (
     GDCD        VARCHAR PRIMARY KEY,

@@ -326,10 +326,11 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
         → conditions dict의 target_count 필드
 
     [Step 3] 추출 방식 선택
-        - 과거 실적 기반 추천: 배정 후 90일 체결 성공 세그먼트 조건 재현 → build_campaign_query
-        - 모델 추천도 기반: tbl_ds_campaign_score SCORE + 고객 활성도 상위 순
-          ※ 고객 활성도 = 최근 6개월 내 연결성공(tbl_ds_call_detail) OR 캠페인 배정(tbl_ds_campaign_history)
-        - 조건 직접 입력: 자유 텍스트 → LLM이 conditions dict로 파싱
+        - 과거 실적 기반: 배정 후 90일 체결 성공 세그먼트 조건 재현 → build_campaign_query
+          ※ 신규 캠페인(과거 이력 없음)이면 이 선택지 비활성화
+        - 활성도 기반: 최근 6개월 연결성공 OR 캠페인 배정이력 + Step 0 조건 필터 → DuckDB 집계 정렬
+          ※ tbl_ds_call_detail / tbl_ds_campaign_history 데이터 없으면 비활성화
+          ※ ML 점수 테이블 불필요 — DuckDB 집계로 직접 산출
         → "과거 실적 기반이란?" 토글 설명 제공
 
     [Step 4] 조건 요약 + 추출
@@ -348,8 +349,8 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **탭 구성**: Tab1 콜 전 준비 (상담사) / Tab2 캠페인 추천 대상 생성 (본사 스태프) — 2탭
 - **사용자**: 상담사 (Tab1 전용) + 본사 스태프/기획자/운영자 (Tab2 전용)
 - **Tab2 UX**: 캠페인 리스트(캠페인명+채널, 체결율 미표시) 선택 → 폼 Q&A 4단계(어떤 캠페인/신규여부/목표인원/추출방식) → 직전 캠페인 비교(이력 있을 때만) → Excel 출력.
-- **접근 제어**: FastAPI 미들웨어로 허용 IP 목록 검사 (설정 파일로 관리, 2차 방어선)
-- **세션 구분 키**: IP 기반 (사내망 내부 IP, 동시 사용자 ~5명)
+- **접근 제어**: 네트워크 레벨 통제(정보보호 파트) — 애플리케이션 IP 필터 없음. `demo.launch(server_name="0.0.0.0")`으로 직접 실행
+- **Tab2 상태 관리**: LangGraph 없음 — Gradio `gr.State`로 conditions dict 누적, 버튼 클릭마다 업데이트
 - **LLM**: 단일 Qwen3.6-27B — 멀티 LLM 불필요 (VRAM 40GB, 순차 사용)
 - **레거시 연동**: Gradio API를 통해 레거시 상담사 UI에 추천 결과 주입 가능 (향후 확장)
 - DuckDB 수동 갱신 버튼 + 마지막 갱신 시각 표시 필요
@@ -386,11 +387,11 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **통화이력 타임라인 표시**: 이력 고객에게 통화일시(TIMESTAMP) + 통화시간(초) 표시. STT 있으면 우호적여부 추가, STT 없으면 사실만 표시 (30초 이상 = "대화 진행됨"). 반응 좋음/나쁨 주관적 판단 없음 — 상담사가 직접 해석
 - **통화 평가 탭 제거**: 상담사가 콜 후 별도 탭 조회 가능성 낮음 → 과거 통화 요약을 Tab1 2차 DB 플로우에 통합
 - **Tab2 캠페인 추천 대상 생성**: 스크립트 생성 제거, 캠페인 추천 대상 추출에 집중. 캠페인 리스트 선택 → 폼 Q&A → Excel. 의도 라우터 불필요 — 사용자가 직접 캠페인 선택
-- **캠페인 추출 3전략**: 과거 실적 기반(성공 세그먼트 재현) / 모델 추천도(campaign_score + 활성도) / 조건 직접 입력(LLM 파싱). 신규/기존 캠페인 동일 플로우
+- **캠페인 추출 2전략**: 과거 실적 기반(성공 세그먼트 재현) / 활성도 기반(DuckDB 집계: 최근 6개월 연결성공 OR 배정이력 + Step 0 조건 필터). ML 점수 테이블 불필요. 신규/기존 캠페인 동일 플로우. 데이터 없는 전략은 UI 비활성화
 - **캠페인 성공 기준**: ASSIGN_DT + 90일 이내 계약 체결. settings.py에 CAMPAIGN_SUCCESS_DAYS = 90 상수화
 - **고객 활성도 정의**: 별도 테이블 없음 — 최근 6개월 내 tbl_ds_call_detail 연결성공 OR tbl_ds_campaign_history 배정이력 → binary 필터로 런타임 파생
-- **tbl_ds_msg_history 추가**: 전사 문자발송이력 (캠페인 무관). Tab1 이력 고객 스크립트에 "최근 발송 문자" 컨텍스트 주입, Tab2 추출 조건("최근 N일 내 문자 발송 고객 제외/포함")에 활용. 문자 내용은 DuckDB 텍스트 컬럼 저장으로 충분 — Chroma 임베딩 불필요. oracle_queries.py에 QUERY_MSG_HISTORY 추가 예정(쿼리 수령 후)
-- **tbl_ds_sales_focus**: 월별 영업 포커스 테이블 (FOCUS_YM PK + FOCUS_TEXT 자유형식). Gradio Tab2 편집 UI로 매달 운영자 업데이트, Agent 매 요청 시 주입
+- **tbl_ds_msg_history**: 전사 문자발송이력. 대부분 계약 관리 수준 문자라 Tab1 스크립트 주입 불필요. Tab2 추출 조건("최근 N일 내 문자 발송 고객 제외/포함") 용도로만 유지. Chroma 임베딩 불필요
+- **tbl_ds_sales_focus**: 월별 영업 포커스 테이블 (FOCUS_YM PK + FOCUS_TEXT 자유형식). Gradio 편집 UI 없음 — 운영자가 직접 INSERT로 관리. Agent 매 요청 시 주입
 - **캠페인 리스트 생성**: 캠페인명+채널 선택(체결율 미표시) → 어떤 캠페인인지(상품/채널/성별/연령 칩) → 신규여부 → 목표인원수(숫자) → 추출방식 → 직전 캠페인 비교(이력 있을 때만) → 조건 확인 → DuckDB 조회 → Excel(CTMNO만)
 - **캠페인 리스트 출력 형식**: CTMNO만 포함한 Excel — 기존 콜링/문자 발송 시스템에 업로드하는 용도
 - **예상 효율 산출 방식**: ML 예측 모델 아님 — 과거 유사 캠페인 실제 체결율 DuckDB 집계 기반 참고치 (정직한 방법)
@@ -401,9 +402,9 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **신규 고객 추천**: tbl_recommendation row 없으면 gd_filter_func(eligibility) + 유입경로 + Chroma RAG → agent가 직접 판단
 - **Tab1 콜 전략 설계**: go/no-go 판단이 아님. 시간 경과 + 이전 터치 이력 → "지금 이 각도가 유효한가" 해석. 2차 DB는 동일 상담사 재연락 아님(캠페인 변경/POM 유입 구조) — 기본은 새 고객처럼 접근, 이전 이력은 전략 힌트
 - **tbl_new_coverage 추가**: 3개월 이내 신규 가입 담보 테이블 — Tab1 계약 현황 섹션 + 스크립트에서 "최근 가입하신 [담보명]과 연계하여" 활용. Oracle INS_CR_CVR 계열에서 CVR_START_DT 기준 필터
-- **tbl_campaign_score 추가**: 외부에서 만든 캠페인 추천도 모델 결과 적재 (레거시 상품추천시스템과 동일 방식) — CTMNO + SCORE + CAMPAIGN_TYPE. Tab2 모드C 고객 정렬에 활용
+- **tbl_ds_campaign_score 제거**: ML 점수 테이블 MVP 스코프 제외. 활성도 기반 DuckDB 집계로 대체 (tbl_ds_call_detail + tbl_ds_campaign_history). schema.sql에서도 제거
 - **Tab1 출력 순서 확정**: 계약 현황(가입 상품 수, 월 납입 보험료, 최근 가입 시점, 3개월 내 신규 담보, 통화 추천/피해야 할 시간) → 현재 보장 현황 → 추천 상품 → 스크립트
-- **Tab2 캠페인 Q&A UX**: Step0(상품/채널/성별/연령 칩) → Step1(신규여부) → Step2(목표인원 숫자입력) → Step3(추출방식 3선택지+과거실적 설명 토글) → Step4(직전 캠페인 비교 카드 — 기존 캠페인 이력 있을 때만 표시, ML 예측 아님 명시) → 추출 → Excel. 캠페인 리스트에 체결율 미표시
+- **Tab2 캠페인 Q&A UX**: Step0(상품/채널/성별/연령 칩) → Step1(신규여부) → Step2(목표인원 숫자입력) → Step3(추출방식 2선택지: 과거실적/활성도기반, 데이터 없으면 비활성화) → Step4(직전 캠페인 비교 카드 — 기존 캠페인 이력 있을 때만 표시, ML 예측 아님 명시) → 추출 → Excel. 캠페인 리스트에 체결율 미표시
 - **Pipeline B MVP 복귀**: 상품 설명서 PDF가 Tab1 스크립트에 필수 — 비갱신형/납입기간/특약 등 상품 특징을 스크립트에 반영하려면 products RAG 필요. 이월 취소
 - **gd_filter_func 재사용**: 기존 `GDREC_GD_filter.py` 코드 그대로 `utils/eligibility.py`에 포팅 — L01/L04/L03/SS는 나이+성별 분기, 유병자는 병력 4개 컬럼(입원청구/입원고지/중대질환고지/중대질환청구) min값 기반 분기
 - **병력 컬럼 DuckDB 적재**: 유병자 판단용 4개 컬럼을 tbl_customer에 포함 — 컴플라이언스 승인 완료, GDREC_ORIGIN_MAIN_FIN_PRED에서 가져옴
@@ -414,7 +415,7 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **담보 구조 분리**: tbl_coverage(대분류 wide 12컬럼, 스크립트용) + tbl_coverage_detail(담보코드 long, LIKE 검색용) + tbl_cvr_group_map(커스텀 그룹명 매핑, LLM 초안+검수)
 - **tbl_customer Oracle 소스**: 신규 마트 필요 — CUS_CTM(전체 30만) LEFT JOIN GDREC_ORIGIN_MAIN_FIN_PRED(기존 계약 고객), 담보금액/계약/설계 컬럼 제외
 - **개인정보**: 청구/보상이력 등 민감 데이터 DuckDB 제외, 컴플라이언스 승인 범위 내 컬럼만 적재
-- **접근 제어**: FastAPI 미들웨어 IP 필터 (허용 목록 설정 파일) + 정보보호 파트 네트워크 레벨 2중 제어
+- **접근 제어**: 정보보호 파트 네트워크 레벨 통제만으로 충분. 애플리케이션 레벨 IP 필터 없음 — `demo.launch(server_name="0.0.0.0")` 직접 실행, `ui/middleware.py` 불필요
 - **온디맨드 생성**: 30만 건 사전 생성 아님 — 상담사 요청 시 단건 생성. DuckDB 조회(<1초) + LLM 스트리밍(10~30초). 사전 생성 불필요
 - **Tab1 출력 2단계 분리**: ①DuckDB 결과(계약현황/보장현황) 즉시 표시 → ②LLM 스크립트 스트리밍. 상담사가 ①읽는 동안 ②생성 완료 — 체감 대기 없음
 - **Tab1 스트리밍**: Gradio gr.Markdown(즉시) + gr.Textbox 스트리밍 조합. langchain-ollama 네이티브 스트리밍 지원
@@ -428,18 +429,18 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **비전 LLM**: 인덱싱 시에만 사용 (Qwen3.6 언로드 후 순차), 쿼리 타임에는 불필요 — 모델 미정
 - **문서 포맷**: DOCX/PPTX/PDF만 지원 (HWP 없음)
 - **마트 갱신**: 매일 cron 자동 실행
-- **script_angle 3분기**: 체결이력 있음 → `complement`(담보 gap 기반 보완), 설계이력만 있음 → `followup`(설계 건 팔로업), 이력 없음 → `new_product`(신상품 공략). Qwen3.6 프롬프트에 명시 전달. 시간 무관 — 연결성공+체결없으면 각도 유지
+- **script_angle 3분기**: 체결이력 있음(설계이력 유무 무관) → `complement`(담보 gap 기반 보완), 체결이력 없음+설계이력만 있음 → `followup`(설계 건 팔로업), 둘 다 없음 → `new_product`(신상품 공략). 우선순위: complement > followup > new_product. 설계이력은 타 상담사 진행 가능성 높으므로 체결이력이 있으면 complement 우선. Qwen3.6 프롬프트에 명시 전달
 - **이미 가입 상품 GDCD 필터 불필요**: 담보 gap(tbl_coverage)이 이미 "무엇이 부족한지" 나타냄 → 중복 가입 방향 자연 차단
 - **gd_filter_func 적용 범위**: 신규 고객 한정 아님 — ML 추천 결과가 있어도 eligibility 체크 통과해야 추천. tbl_ds_recommendation + gd_filter_func 항상 조합
 - **tbl_ds_product_master 추가**: GDCD → GD_TYPE → GDNM_CLEAN 매핑 테이블. Oracle 소스: GDREC_TMGD_LIST와 동일 마스터(현재 판매 TM 상품만). gd_filter_func 반환 상품명 → GDCD 역매핑에 사용
 - **CTM_SEX Oracle 코드 원본 적재**: `'1.M'`/`'2.F'` 변환 없이 DuckDB에 그대로 적재. eligibility.py에서도 동일 코드 사용
 - **Chroma embedded_text 포맷 확정**: `f"[고객: {age}세 {sex}, {campaign_nm}] {summary}"` — Pipeline A에서 tbl_customer(CTM_AGE, CTM_SEX) 추가 조회 후 구성. 신규/미연결 RAG 쿼리와 동일 시맨틱 공간
 - **Chroma RAG 케이스별 전략**: 이력 고객 → `collection.get(where={"CTMNO": ctmno})` 직접 조회(유사도 검색 아님). 신규/미연결 → `collection.query(query_texts=[인구통계+담보gap 텍스트])`. Chroma 결과 없어도 DuckDB+products RAG로 정상 생성
-- **LangGraph 그래프 분리**: Tab1 = 별도 그래프, checkpoint 없음(매 요청 fresh). Tab2 = 별도 그래프, checkpoint-sqlite(IP 기반 멀티턴 세션). Tab1↔Tab2 상태 공유 없음
+- **LangGraph 사용 범위**: Tab1만 사용 — 별도 그래프, checkpoint 없음(매 요청 fresh). Tab2는 LangGraph 불필요 — Gradio `gr.State`로 conditions dict 누적, `build_campaign_query()` + DuckDB 직접 호출. Tab1↔Tab2 상태 공유 없음
 - **Tab2 폼 Q&A 확인**: 직전 캠페인 비교 카드(이력 있을 때만) 표시 후 [추출] 버튼으로 확인. 조건 수정은 이전 단계로 돌아가서 재선택
-- **Tab2 SQL 생성**: LLM이 SQL 직접 생성 안 함. 폼 Q&A 응답 → conditions dict(product_type/channel/gender/age_range/target_count/strategy/custom_cond) → `build_campaign_query(conditions)` 템플릿 함수로 쿼리 생성
+- **Tab2 SQL 생성**: LLM이 SQL 직접 생성 안 함. 폼 Q&A 응답 → conditions dict(product_type/channel/gender/age_range/target_count/strategy) → `build_campaign_query(conditions)` 템플릿 함수로 쿼리 생성. custom_cond 없음 — 모든 조건은 Step 0 칩으로 구조화
 - **Pipeline C 장애 복구**: 시작 시 mart_new.db 존재하면 무조건 삭제 후 재시작. 부분 복구 없음(Oracle 전체 재적재)
-- **IP 기반 세션 충돌 리스크 인지**: 사내망 고정 IP 보장 없음 → NAT 충돌 시 Tab2 세션 섞일 수 있음. 동시 사용자 ~5명 + 실사용 패턴상 충돌 빈도 낮아 별도 처리 없이 감수
+- **campaign_nm None 처리**: Chroma embedded_text 구성 시 campaign_nm이 None이면 `"캠페인미확인"` fallback. Pipeline A + Tab1 RAG 쿼리 모두 동일 적용
 
 ## 개발 타임라인 (마감: 2026-06-09, 10일)
 
@@ -462,9 +463,9 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 | Day 4 | 6/3 | agent/state.py + agent/tools/duckdb_tools.py + agent/tools/chroma_tools.py |
 | Day 5 | 6/4 | agent/nodes/router.py (3분기) + Tab1 신규/미연결 플로우 |
 | Day 6 | 6/5 | Tab1 이력 플로우 (Chroma RAG + 통화이력 타임라인) + agent/graph.py Tab1 완성 |
-| Day 7 | 6/6 | Tab2 캠페인 선택 리스트 + 폼 Q&A LangGraph + build_campaign_query + Excel 출력 |
-| Day 8 | 6/7 | ui/app.py (2탭) + ui/middleware.py + Tab1 E2E 연동 |
-| Day 9 | 6/8 | Tab2 폼 UI + E2E 연동 + DuckDB 갱신 버튼 + tbl_ds_sales_focus 편집 UI + 버그 수정 |
+| Day 7 | 6/6 | Tab2 캠페인 선택 리스트 + 폼 Q&A (gr.State) + build_campaign_query + Excel 출력 |
+| Day 8 | 6/7 | ui/app.py (2탭) + Tab1 E2E 연동 |
+| Day 9 | 6/8 | Tab2 폼 UI + E2E 연동 + DuckDB 갱신 버튼 + 버그 수정 |
 | Day 10 | 6/9 | 폐쇄망 배포 패키지 점검 + 시나리오 E2E 테스트 |
 
 ### 리스크
