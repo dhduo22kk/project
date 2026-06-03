@@ -1,12 +1,13 @@
 """
-Oracle → DuckDB ETL 쿼리
-- 7개 완성: customer / coverage / contract / design / new_coverage / recommendation / product_master
-- 4개 TODO: call_detail / campaign_history / campaign_score / msg_history (별도 수령 예정)
+Oracle → DuckDB ETL 쿼리 매핑
 
-_DS_ 패턴 적용: Oracle 테이블명 앞 세그먼트 뒤에 _DS_ 삽입
-  예) CUS_CTM → CUS_DS_CTM, M_CRM_REC_RLT_BIZ → M_DS_CRM_REC_RLT_BIZ
+실행 순서:
+  1. (Oracle) 상품추천쿼리_리팩토링.sql  → GDREC_DS_ORIGIN_MAIN_FIN_PRED 갱신
+  2. (Oracle) db/oracle_queries.sql      → AI_* 추출 테이블 생성
+  3. (Python) pipeline_c_duckdb.py       → AI_* 테이블 SELECT * → DuckDB 적재
 
-DuckDB 적재 순서: pipeline_c_duckdb.py가 QUERIES 딕셔너리를 순서대로 실행
+복잡한 추출 로직은 oracle_queries.sql 에서 관리.
+여기서는 DuckDB 테이블명 ↔ Oracle AI_* 테이블명 매핑만 관리.
 """
 
 # 공통 기준: 전월 YYYYMM (Oracle 마트 D-1 데이터 기준)
@@ -35,7 +36,7 @@ _GD_TYPE_CASE = """\
 
 # ──────────────────────────────────────────────────────────────────────────────
 # [1] 고객 기본정보 → tbl_ds_customer
-#     소스: CUS_DS_CTM (전체 ~30만) LEFT JOIN GDREC_DS_ORIGIN_MAIN_FIN_PRED (유병자 4컬럼)
+#     소스: CUS_CTM (전체 ~30만) LEFT JOIN GDREC_DS_ORIGIN_MAIN_FIN_PRED (유병자 4컬럼)
 #     검증: REGION 컬럼명, INFLOW_CAMPAIGN_NM은 캠페인 쿼리 수령 후 채움
 # ──────────────────────────────────────────────────────────────────────────────
 QUERY_CUSTOMER = f"""
@@ -60,7 +61,7 @@ SELECT
     B.HOSP_NOTI,
     B.MAJOR_DSAS_NOTI,
     B.MAJOR_DSAS_CLAIM
-FROM CUS_DS_CTM A
+FROM CUS_CTM A
 LEFT JOIN (
     -- 유병자 판단 4컬럼: 동일 MN_NRDPS_CTMNO가 복수 행이면 MIN(최근 발생 기준)
     SELECT
@@ -104,7 +105,7 @@ GROUP BY MN_NRDPS_CTMNO
 
 # ──────────────────────────────────────────────────────────────────────────────
 # [3] 계약이력 → tbl_ds_contract_history
-#     소스: M_DS_CRM_MTHY_PS_CR (직전월 스냅샷, 전채널 장기LA)
+#     소스: M_CRM_MTHY_PS_CR (직전월 스냅샷, 전채널 장기LA)
 #     검증: LTRM_MPY_CV_PRM 컬럼명 (월납환산보험료)
 # ──────────────────────────────────────────────────────────────────────────────
 QUERY_CONTRACT_HISTORY = f"""
@@ -117,8 +118,8 @@ SELECT
     A.INS_CLSTR,
     A.LTRM_MPY_CV_PRM           AS AP_PRM,  -- 검증: 월납환산보험료 컬럼명
     A.CR_STCD
-FROM M_DS_CRM_MTHY_PS_CR A
-INNER JOIN INS_DS_CR_RELPC R
+FROM M_CRM_MTHY_PS_CR A
+INNER JOIN INS_CR_RELPC R
     ON  A.PLYNO              = R.PLYNO
     AND R.IKD_GRPCD          = 'LA'
     AND R.RELPC_TPCD         = '01'         -- 계약자
@@ -134,7 +135,7 @@ WHERE A.CLS_YYMM  = {_PREV_YYMM}
 
 # ──────────────────────────────────────────────────────────────────────────────
 # [4] 설계이력 → tbl_ds_design_history
-#     소스: INS_DS_INS_PL + INS_DS_PL_RELPC (계약자 기준)
+#     소스: INS_INS_PL + INS_PL_RELPC (계약자 기준)
 #     검증: DESIGN_PRM 소스 컬럼 (설계보험료, NULL 스텁)
 # ──────────────────────────────────────────────────────────────────────────────
 QUERY_DESIGN_HISTORY = """
@@ -148,13 +149,13 @@ SELECT
         WHEN A.PL_STCD IN ('03','04','05','06','07','08','09') THEN '체결'
         ELSE '미체결'
     END                                                       AS RESULT_CD
-FROM INS_DS_INS_PL A
-INNER JOIN INS_DS_PL_RELPC R
+FROM INS_INS_PL A
+INNER JOIN INS_PL_RELPC R
     ON  A.PLNO          = R.PLNO
     AND A.CGAF_CH_SEQNO = R.CGAF_CH_SEQNO
     AND R.IKD_GRPCD     = 'LA'
     AND R.RELPC_TPCD    = '01'  -- 계약자
-LEFT JOIN M_DS_CRM_GD_CSF_INFO G ON A.GDCD = G.GDCD
+LEFT JOIN M_CRM_GD_CSF_INFO G ON A.GDCD = G.GDCD
 WHERE A.PL_FLGCD   = '01'   -- 일반 설계
   AND A.IKD_GRPCD  = 'LA'
   AND A.VALD_PL_YN = '1'
@@ -163,7 +164,7 @@ WHERE A.PL_FLGCD   = '01'   -- 일반 설계
 
 # ──────────────────────────────────────────────────────────────────────────────
 # [5] 신규 담보 (3개월 이내) → tbl_ds_new_coverage
-#     소스: INS_DS_CR_CVR (담보 단위) JOIN INS_DS_CR_RELPC (피보험자)
+#     소스: INS_CR_CVR (담보 단위) JOIN INS_CR_RELPC (피보험자)
 # ──────────────────────────────────────────────────────────────────────────────
 QUERY_NEW_COVERAGE = f"""
 SELECT
@@ -172,8 +173,8 @@ SELECT
     NVL(G.CVR_PRSNM, C.CVRCD)  AS CVR_NM,
     C.INS_ST                    AS CVR_START_DT,
     C.ISAMT
-FROM INS_DS_CR_CVR C
-INNER JOIN INS_DS_CR_RELPC R
+FROM INS_CR_CVR C
+INNER JOIN INS_CR_RELPC R
     ON  C.PLYNO             = R.PLYNO
     AND R.IKD_GRPCD         = 'LA'
     AND R.RELPC_TPCD        = '02'          -- 피보험자
@@ -181,7 +182,7 @@ INNER JOIN INS_DS_CR_RELPC R
     AND R.NDS_AP_STR_DTHMS <= SYSDATE
     AND R.NDS_AP_ND_DTHMS   > SYSDATE
     AND R.VALD_NDS_YN       = '1'
-LEFT JOIN IGD_DS_GD_CVR G
+LEFT JOIN IGD_GD_CVR G
     ON  C.CVRCD     = G.CVRCD
     AND C.GDCD      = G.GDCD
     AND G.AP_STRDT <= SYSDATE
@@ -214,8 +215,8 @@ WHERE REC_RANK <= 3
 
 # ──────────────────────────────────────────────────────────────────────────────
 # [7] 판매중 TM 상품 마스터 → tbl_ds_product_master
-#     소스: IGD_DS_GD_SL_TRM (판매기간) + M_DS_CRM_GD_CSF_INFO (상품명/GD_TYPE)
-#     검증: TB_DS_LNG_BJONG_MASTER 테이블명, SALE_END_YN 컬럼
+#     소스: IGD_GD_SL_TRM (판매기간) + M_CRM_GD_CSF_INFO (상품명/GD_TYPE)
+#     검증: TB_LNG_BJONG_MASTER 테이블명, SALE_END_YN 컬럼
 # ──────────────────────────────────────────────────────────────────────────────
 QUERY_PRODUCT_MASTER = f"""
 SELECT DISTINCT
@@ -224,16 +225,16 @@ SELECT DISTINCT
                             AS GD_TYPE,
     B.GDNM,
     NVL(C.GDNM_CLEAN, B.GDNM) AS GDNM_CLEAN
-FROM IGD_DS_GD_SL_TRM A
-LEFT JOIN M_DS_CRM_GD_CSF_INFO  B ON A.GDCD     = B.GDCD
+FROM IGD_GD_SL_TRM A
+LEFT JOIN M_CRM_GD_CSF_INFO  B ON A.GDCD     = B.GDCD
 LEFT JOIN M_DS_CRM_REC_GDNM_TM  C ON A.GDCD     = C.GDCD
-LEFT JOIN IGD_DS_GD_SL_CHN_REL  D ON A.GDCD     = D.GDCD
-LEFT JOIN SL_DS_CHNCD            E ON D.SL_CHNCD = E.SL_CHNCD
+LEFT JOIN IGD_GD_SL_CHN_REL  D ON A.GDCD     = D.GDCD
+LEFT JOIN SL_CHNCD            E ON D.SL_CHNCD = E.SL_CHNCD
 WHERE A.SL_NDDT  >= SYSDATE
   AND A.GDCD     LIKE '%LA%'
   AND E.DTCNM    = 'TM'
   AND A.GDCD     IN (
-      SELECT GDCD FROM TB_DS_LNG_BJONG_MASTER WHERE SALE_END_YN = 'Y'
+      SELECT GDCD FROM TB_LNG_BJONG_MASTER WHERE SALE_END_YN = 'Y'
   )
 """
 
@@ -249,19 +250,20 @@ QUERY_MSG_HISTORY      = None  # TODO: 전사 문자발송이력 소스 테이�
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# pipeline_c_duckdb.py 실행 순서
-# None인 항목은 자동 skip (쿼리 수령 후 주석 해제)
+# DuckDB 테이블명 ↔ Oracle AI_* 테이블명 매핑
+# oracle_queries.sql 실행 후 AI_* 테이블이 존재해야 함
+# None인 항목은 pipeline_c_duckdb.py가 자동 skip
 # ──────────────────────────────────────────────────────────────────────────────
 QUERIES: dict[str, str | None] = {
-    "tbl_ds_customer":         QUERY_CUSTOMER,
-    "tbl_ds_coverage":         QUERY_COVERAGE,
-    "tbl_ds_contract_history": QUERY_CONTRACT_HISTORY,
-    "tbl_ds_design_history":   QUERY_DESIGN_HISTORY,
-    "tbl_ds_new_coverage":     QUERY_NEW_COVERAGE,
-    "tbl_ds_recommendation":   QUERY_RECOMMENDATION,
-    "tbl_ds_product_master":   QUERY_PRODUCT_MASTER,
-    "tbl_ds_call_detail":      QUERY_CALL_DETAIL,       # None → skip
-    "tbl_ds_campaign_history": QUERY_CAMPAIGN_HISTORY,  # None → skip
-    "tbl_ds_campaign_score":   QUERY_CAMPAIGN_SCORE,    # None → skip
-    "tbl_ds_msg_history":      QUERY_MSG_HISTORY,       # None → skip
+    "tbl_ds_customer":         "SELECT * FROM AI_CUSTOMER",
+    "tbl_ds_coverage":         "SELECT * FROM AI_COVERAGE",
+    "tbl_ds_contract_history": "SELECT * FROM AI_CONTRACT",
+    "tbl_ds_design_history":   "SELECT * FROM AI_DESIGN",
+    "tbl_ds_new_coverage":     "SELECT * FROM AI_NEW_CVR",
+    "tbl_ds_recommendation":   "SELECT * FROM AI_RECOMM",
+    "tbl_ds_product_master":   "SELECT * FROM AI_PRODUCT",
+    "tbl_ds_call_detail":      None,   # TODO: AI_CALL_DETAIL 생성 후 "SELECT * FROM AI_CALL_DETAIL"
+    "tbl_ds_campaign_history": None,   # TODO: AI_CAMPAIGN 생성 후 "SELECT * FROM AI_CAMPAIGN"
+    "tbl_ds_campaign_score":   None,   # TODO: AI_CAMP_SCORE 생성 후 "SELECT * FROM AI_CAMP_SCORE"
+    "tbl_ds_msg_history":      None,   # TODO: AI_MSG_HISTORY 생성 후 "SELECT * FROM AI_MSG_HISTORY"
 }

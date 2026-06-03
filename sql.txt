@@ -1,0 +1,4232 @@
+/* 기준연월 SETTING */
+DROP TABLE TBL_DS_YYMM;
+CREATE TABLE TBL_DS_YYMM AS (
+            SELECT
+                YYMM AS CLS_YYMM
+                ,F_ADD_MONTHS_A(F_LAST_DAY(YYMM),-6) AS CLS_YYMM_6MB
+                ,F_ADD_MONTHS_A(F_LAST_DAY(YYMM),-2) AS CLS_YYMM_2MB
+                ,F_ADD_MONTHS_A(F_LAST_DAY(YYMM),-1) AS CLS_YYMM_1MB
+                ,FIRST_DAY(YYMM) AS CLS_STRDT
+                ,LEAST(SYSDATE, YYMM_NDDT) AS CLS_NDDT
+                ,LEAST(SYSDATE, TO_DATE(TO_CHAR(YYMM_NDDT, 'YYYY-MM-DD') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) AS CLS_NDDT_TS
+                ,LEAST(CAST(F_LAST_DAY(YYMM) AS DATE), SYSDATE) AS CLS_NDDT_LD
+            FROM M_COD_YYMM
+            WHERE YYMM = TO_CHAR(SYSDATE,'YYYYMM')
+            );
+
+/*1-1. 장기 TM 대상자 보유 고객 추출 쿼리 - 장기 TM의 계약을 보유한 고객이면 대상 */
+DROP TABLE TBL_DS_CRLIST PURGE;
+CREATE TABLE TBL_DS_CRLIST NOLOGGING AS(
+SELECT
+  	LCA.CLS_YYMM
+  	, 'LA'			AS IKD_GRPCD
+  	, LCA.PLYNO
+  	, LCA.CNRDT
+  	, LCA.CRT_CTMNO	AS CTMNO
+  	, LCA.DH_STFNO
+  FROM HWMRT.M_LCR_MTHY_LTINS_CR LCA
+  INNER JOIN SDADAM.TBL_DS_YYMM T ON T.CLS_YYMM = LCA.CLS_YYMM
+  INNER JOIN M_BIZ_MTHY_PS_CR PCA
+  ON 0=0
+    AND 	LCA.CLS_YYMM	= PCA.CLS_YYMM
+    AND 	LCA.PLYNO		= PCA.PLYNO
+  WHERE 1=1
+  	AND LCA.DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02'));
+
+
+DROP TABLE TBL_DS_CUSLIST PURGE;
+CREATE TABLE TBL_DS_CUSLIST NOLOGGING AS(
+SELECT
+DISTINCT 
+    LCB.CLS_YYMM
+    , LCB.IKD_GRPCD
+    , LCB.PLYNO
+    , LCB.CNRDT
+    , LCB.CTMNO
+    , LCB.DH_STFNO
+    , LPA.CMS_CTMNO
+    , MCA.PRS_TM_CTMNO  
+	  , MCA.FNL_MKTG_AGRYN										-- 최종마케팅동의여부
+	  , MCA.MKTG_TL_RCV_YN										-- 마케팅전화수신여부
+	  , MCA.FNL_MKTG_AGRE_NDDT                -- 마케팅동의종료일자
+FROM TBL_DS_CRLIST LCB
+LEFT JOIN HWMRT.M_CMS_LGSYS_CTM_CMS_MPP LPA
+ON 0=0
+  AND  LCB.CTMNO = LPA.CTMNO
+LEFT JOIN HWMRT.M_CMS_CTM_CLS MCA
+ON 0=0
+	AND LCB.CLS_YYMM = MCA.CLS_YYMM
+	AND LPA.CMS_CTMNO = MCA.CMS_CTMNO
+WHERE 1=1
+  AND LPA.CMS_CTMNO IS NOT NULL
+  AND PCA.PLYNO IS NOT NULL)
+;
+
+/*1-2. 장기 TM 대상자 가망 고객 추출 쿼리 - TM 마동 고객이거나 1년내 캠페인 배정 이력 있으면 가망고객  */
+DROP TABLE TBL_DS_PSSLIST PURGE;
+CREATE TABLE TBL_DS_PSSLIST NOLOGGING AS (
+SELECT DISTINCT *
+FROM
+    (
+         SELECT                                   -- 2. 마케팅동의(전화)가 유효하고, TB_CUSTOMER 등록 가망고객
+           B.CLS_YYMM
+           , B.INP_DTHMS
+           , A.CMS_CTMNO
+           , A.PRS_CTMNO AS CTMNO
+           , A.PRS_TM_CTMNO TM_CUSTID
+           , B.INP_USR_ID  
+           , '비대면등록_CUSTID' AS INP_SEG
+      	   , A.FNL_MKTG_AGRYN										-- 최종마케팅동의여부
+      	   , A.MKTG_TL_RCV_YN										-- 마케팅전화수신여부
+      	   , A.FNL_MKTG_AGRE_NDDT                -- 마케팅동의종료일자
+        FROM HWMRT.M_CMS_CTMCS A
+        INNER JOIN 
+        	(SELECT	
+        		T.CLS_YYMM
+        		, A.*
+        	FROM SDADAM.TBL_DS_YYMM T
+        	INNER JOIN TB_CUSTOMER A
+        	ON 0=0
+        		AND A.INP_DTHMS <= T.CLS_NDDT_TS
+        	WHERE INP_USR_ID IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012')
+        		) B
+        ON 1=1
+        	AND A.PRS_TM_CTMNO = B.CUSTID        
+    	    AND A.FNL_MKTG_AGRYN = 1
+    	    AND A.MKTG_TL_RCV_YN = 1
+    
+    UNION ALL                               
+
+        SELECT                                   -- 3. 마케팅동의(전화)가 유효하고, 직전1년이내 캠페인으로 배정
+        	DISTINCT                           
+        	  T.CLS_YYMM
+        	  , X2.ASDT AS INP_DTHMS
+        	  , X2.CMS_CTMNO
+            , X2.PRS_CTMNO AS CTMNO
+            , X2.PRS_TM_CTMNO TM_CUSTID
+            , CMPG_ALLCT_STFNO AS INP_USR_ID
+        	  , '캠페인배정' AS INP_SEG
+      	    , X3.FNL_MKTG_AGRYN										-- 최종마케팅동의여부
+      	    , X3.MKTG_TL_RCV_YN										-- 마케팅전화수신여부
+      	    , X3.FNL_MKTG_AGRE_NDDT                -- 마케팅동의종료일자
+        FROM SDADAM.TBL_DS_YYMM T
+        INNER JOIN HWMRT.M_CMS_CTM_CLS X1 /*CMS고객마감*/
+        ON T.CLS_YYMM = X1.CLS_YYMM
+        INNER JOIN HWMRT.M_CMS_INR_CHN_CMPG_DB_CLS X2 /*CMS캠페인DB현황*/
+        ON X1.CMS_CTMNO = X2.CMS_CTMNO /*CMS고객번호*/
+        AND X1.CLS_YYMM = X2.CLS_YYMM
+        AND X2.ASDT >= CLS_NDDT_TS - INTERVAL '1' YEAR 
+        INNER JOIN HWMRT.M_CMS_CTMCS X3
+        ON X1.CMS_CTMNO = X3.CMS_CTMNO
+        AND X3.FNL_MKTG_AGRYN = 1
+        AND X3.MKTG_TL_RCV_YN = 1
+        WHERE CMPG_LCLCD IN ('C')
+        )
+    WHERE CMS_CTMNO NOT IN (SELECT DISTINCT CMS_CTMNO FROM SDADAM.TBL_DS_CUSLIST)
+);
+
+/* 대상자 종합 */
+DROP TABLE TBL_DS_CTM_LIST;
+CREATE TABLE TBL_DS_CTM_LIST AS 
+SELECT 
+  DISTINCT  
+    CLS_YYMM 
+    , CTMNO
+    , DH_STFNO
+    , CMS_CTMNO
+    , PRS_TM_CTMNO 
+    , FNL_MKTG_AGRYN
+    , MKTG_TL_RCV_YN
+    , FNL_MKTG_AGRE_NDDT 
+    , '보유고객' AS INP_SEG 
+  FROM TBL_DS_CUSLIST
+UNION ALL
+SELECT 
+  DISTINCT 
+    CLS_YYMM 
+    , CTMNO
+    , INP_USR_ID AS DH_STFNO 
+    , CMS_CTMNO
+    , TM_CUSTID 
+    , FNL_MKTG_AGRYN 
+    , MKTG_TL_RCV_YN
+    , FNL_MKTG_AGRE_NDDT 
+    , INP_SEG  
+  FROM TBL_DS_PSSLIST;
+
+
+-- 고객 정보
+
+
+-- 보장분석 대분류 담보가입 금액
+
+
+-- 캠페인 이력  // CMPG_NM 붙어야함
+CREATE TABLE TBL_DS_CMPG_LIST AS 
+SELECT
+              	DISTINCT 
+              	CMS_CMPG_ID
+              	, CMS_CMPG_NM
+              	, LIST_NO
+              	, LIST_SEQNO
+              	, TASK_NO
+              	, LIST_GPNO
+               FROM M_CMS_INR_CHN_CMPG_DB_CLS;
+
+CREATE TABLE TBL_DS_CMPG AS 
+SELECT
+    	DISTINCT
+    	 B.TASKID 
+    	, B3.TASKNAME 
+    	, B.LISTGROUPID 
+    	, B4.LISTNAME     리스트그룹
+    	, B.LISTID  
+    	, B5.LISTNAME     리스트
+    	, B.SPONSORCODE
+    	, B.REGISTDATE 
+    	, B.ALLOCDATE  
+    	, B.ALLOCCHARGERID
+    	, B.CUSTID
+    	, B2.CTMNO
+    	, C.CMS_CMPG_ID
+    	, C.CMS_CMPG_NM
+    FROM TB_LIST B
+    LEFT JOIN  TB_CUSTOMER B1 ON B.CUSTID = B1.CUSTID
+    LEFT JOIN  CUS_CTM B2 ON B1.CUST_DSCNO = B2.CTM_DSCNO
+    LEFT JOIN  TB_TASK B3  ON B.TASKID = B3.TASKID
+    LEFT JOIN  TB_LIST_GROUP B4 ON B.LISTGROUPID = B4.LISTGROUPID
+    LEFT JOIN  TB_LIST_CAT B5 ON B.LISTID = B5.LISTID
+    LEFT JOIN  TBL_DS_CMPG_LIST C
+    ON C.LIST_NO = B.LISTID
+      AND C.TASK_NO = B.TASKID
+      AND C.LIST_GPNO = B.LISTGROUPID
+    WHERE 1=1
+      AND NVL(B.DELYN,'N')        <> 'Y'
+      AND B.ALLOCCHARGERID IS NOT NULL
+      AND B.CUSTID IN (SELECT DISTINCT PRS_TM_CTMNO FROM TBL_DS_CTM_LIST);
+
+
+-- 통화이력
+CREATE TABLE TBL_DS_CALL AS 
+SELECT 
+    T101.CLS_YYMM
+    , T101.ASYYMM
+    , T101.LIST_NO
+    , T101.LIST_SEQNO
+    , T101.CMPG_LCLCD
+    , T101.CMPG_MDCCD
+    , T101.CMPG_SMCCD
+    , T101.CMPG_DTLCD
+    , T101.CMS_CMPG_NM
+    , T101.CMS_CTMNO
+    , T101.TM_CTMNO
+    , T101.CMS_CMPG_ID
+    , T101.CMPG_STRDT
+    , T101.CMPG_NDDT
+    , T101.ALDT
+    , T101.CMPG_ALLCT_STFNO
+    , T101.ASDT_MOTNH
+    , T101.ASDT
+    , T101.ALLOCATE_YN
+    , MAX(CASE WHEN TO_DATE(T102.INDATE) IS NOT NULL THEN 1 ELSE 0 END) AS CALL_YN
+    , MAX(TO_DATE(T102.INDATE)) AS CMPG_CNV_DTHMS 
+FROM 
+M_DABRD_CMPG  T101
+INNER JOIN TB_CALL_LOG        T102 --TB_CALL_LOG
+ON  T101.LIST_NO   =T102.LISTID    --리스트ID
+AND T101.LIST_SEQNO=T102.LISTSEQID --리스트순번
+AND T102.CALLGB IN ('01','02','03')     --콜구분(02:OUT-PD,03:OUT-PV)
+AND T101.TM_CTMNO = T102.CUSTID
+AND T101.CMPG_ALLCT_STFNO = T102.USERID
+AND T101.CMPG_LCLCD != 'E'
+AND F_LAST_DAY(T101.CLS_YYMM) >= TO_DATE(T102.INDATE)  -- 현시점이상으로는 안됨
+AND T101.ASDT <= TO_DATE(T102.INDATE)                  -- 할당이후 통화
+GROUP BY 
+    T101.CLS_YYMM
+    , T101.ASYYMM
+    , T101.LIST_NO
+    , T101.LIST_SEQNO
+    , T101.CMPG_LCLCD
+    , T101.CMPG_MDCCD
+    , T101.CMPG_SMCCD
+    , T101.CMPG_DTLCD
+    , T101.CMS_CMPG_NM
+    , T101.CMS_CTMNO
+    , T101.TM_CTMNO
+    , T101.CMS_CMPG_ID
+    , T101.CMPG_STRDT
+    , T101.CMPG_NDDT
+    , T101.ALDT
+    , T101.CMPG_ALLCT_STFNO
+    
+    , T101.ASDT_MOTNH
+    , T101.ASDT
+    , T101.ALLOCATE_YN
+
+UNION ALL
+
+SELECT 
+    T101.CLS_YYMM
+    , T101.ASYYMM
+    , T101.LIST_NO
+    , T101.LIST_SEQNO
+    , T101.CMPG_LCLCD
+    , T101.CMPG_MDCCD
+    , T101.CMPG_SMCCD
+    , T101.CMPG_DTLCD
+    , T101.CMS_CMPG_NM
+    , T101.CMS_CTMNO
+    , T101.TM_CTMNO
+    , T101.CMS_CMPG_ID
+    , T101.CMPG_STRDT
+    , T101.CMPG_NDDT
+    , T101.ALDT
+    , T101.CMPG_ALLCT_STFNO
+    , T101.ASDT_MOTNH
+    , T101.ASDT
+    , T101.ALLOCATE_YN
+    , MAX(CASE WHEN TO_DATE(T102.INDATE) IS NOT NULL THEN 1 ELSE 0 END) AS CALL_YN
+    , MAX(TO_DATE(T102.INDATE)) AS CMPG_CNV_DTHMS 
+FROM 
+M_DABRD_CMPG  T101
+INNER JOIN TB_CALL_LOG        T102 --TB_CALL_LOG
+ON  1=1
+AND T102.CALLGB IN ('01','02','03')     --콜구분(02:OUT-PD,03:OUT-PV)
+AND T101.TM_CTMNO = T102.CUSTID
+AND T101.CMPG_ALLCT_STFNO = T102.USERID
+AND T101.CMPG_LCLCD != 'E'
+AND F_LAST_DAY(T101.CLS_YYMM) >= TO_DATE(T102.INDATE)
+AND T101.ASDT <= TO_DATE(T102.INDATE)
+GROUP BY 
+    T101.CLS_YYMM
+    , T101.ASYYMM
+    , T101.LIST_NO
+    , T101.LIST_SEQNO
+    , T101.CMPG_LCLCD
+    , T101.CMPG_MDCCD
+    , T101.CMPG_SMCCD
+    , T101.CMPG_DTLCD
+    , T101.CMS_CMPG_NM
+    , T101.CMS_CTMNO
+    , T101.TM_CTMNO
+    , T101.CMS_CMPG_ID
+    , T101.CMPG_STRDT
+    , T101.CMPG_NDDT
+    , T101.ALDT
+    , T101.CMPG_ALLCT_STFNO
+    , T101.ASDT_MOTNH
+    , T101.ASDT
+    , T101.ALLOCATE_YN
+
+-- 계약 이력
+
+-- 설계 이력
+
+-- 가입담보 + 3개월내 신규 여부 
+
+
+-- 상품추천 결과
+
+-- 추가해야하는 조건 (두낫콜)
+LEFT OUTER JOIN CUS_PSN_CRDIF_UTAGR_CRR T3             /** 개인신용정보활용동의이력 **/
+ON   T1.CRT_CTMNO            = T3.CTMNO
+AND  T3.CRDIF_UTL_AGRE_FLGCD = '14'          /*  두낫콜          */
+AND  T3.AP_ND_DTHMS          = '99991231'    /*  최종(현재) 상태 */
+
+/***************************************************************************/
+/* 제외. 리스크고객등급 고객(Red고객/Yellow고객)                           */
+/***************************************************************************/
+--EXEC P_DROP_TABLE ('E_TM_LTRM_POM_EXTR_KDH_T03_3');
+DROP TABLE E_TM_LTRM_POM_EXTR_KDH_T03_3;
+CREATE TABLE  E_TM_LTRM_POM_EXTR_KDH_T03_3
+AS
+SELECT A1.CTM_DSCNO
+      ,CASE WHEN A1.CTM_DSCNO IS NOT NULL THEN '1' END AS RISK_CTM_GRDYN /* 리스크고객등급여부 */
+FROM CUS_RISK_CTM A1   /** 리스크고객 **/
+INNER JOIN (
+  SELECT DISTINCT CTM_DSCNO
+  FROM E_TM_LTRM_POM_EXTR_KDH_T01
+) B1
+ON A1.CTM_DSCNO = B1.CTM_DSCNO
+;
+
+/********************************************************************/
+/* 전화임시거절                                                     */
+/* email은 전화가 아님 제거 태동일c                                 */
+/********************************************************************/
+    UNION ALL --임시
+
+    SELECT  DISTINCT A1.CTM_DSCNO  ,'전화임시거절' , '05' as FLD01_cd
+    FROM M_TM_CR_POM_CTM_LIST_T01 A1
+    INNER JOIN (
+                 SELECT B1.CUST_DSCNO AS CUST_CODE
+                       ,TEMP_CANCEL_END_DATE
+                       ,CANCEL_DATE
+                       ,CALL_CANCEL_DATE
+                       ,EMAIL_CANCEL_DATE
+                       ,ATC33_CANCEL_DATE
+                 FROM TB_INFOAGREE A1
+                 LEFT OUTER JOIN TB_CUSTOMER B1
+                 ON A1.CUSTID = B1.CUSTID
+                 ) B1
+    ON  A1.CTM_DSCNO = B1.CUST_CODE
+    AND (    B1.TEMP_CANCEL_END_DATE >= TO_CHAR(CURRENT_DATE, 'YYYYMMDD')
+          OR B1.CANCEL_DATE         IS NOT NULL
+          OR B1.CALL_CANCEL_DATE    IS NOT NULL
+          OR B1.ATC33_CANCEL_DATE   IS NOT NULL
+           )
+
+/***************************************************************************/
+/* TM 접촉고객 결번코드 확인                                               */
+/***************************************************************************/
+--EXEC P_DROP_TABLE ('E_TM_LTRM_POM_EXTR_KDH_T11');
+DROP TABLE E_TM_LTRM_POM_EXTR_KDH_T11;
+CREATE  TABLE E_TM_LTRM_POM_EXTR_KDH_T11
+AS
+SELECT *
+FROM (
+      SELECT A.CUST_DSCNO AS CUSTID
+            ,A.CONTACTMINORCD
+            ,A.INDATE
+            ,A.INTIME
+            ,ROW_NUMBER() OVER (PARTITION BY A.CUSTID ORDER BY A.INDATE DESC, A.INTIME DESC) AS RN    /*최종상담이력*/
+            
+      FROM TB_CONTACT A
+      INNER JOIN TB_USERMAST_CMT B
+      ON A.USERID = B.USERID
+      
+      WHERE 1=1
+      AND B.CENTERCD  IN ('1300286','1303016', '1303199') /* 20260421 장기TM직할영업단(1303199) 추가*/
+      AND A.INDATE >= '20150101'
+) X
+WHERE X.RN=1
+AND X.CONTACTMINORCD IN ('020206', '030202')  /* 결번코드 */
+;
+
+/***************************************************************************/
+/* 전화안내방법동의여부 (상품소개동의)                                     */
+/* 추출 출처 : 태동일C, 자동차POM_DB                                       */
+/***************************************************************************/
+--EXEC P_DROP_TABLE ('E_TM_LTRM_POM_EXTR_KDH_T12');
+DROP TABLE E_TM_LTRM_POM_EXTR_KDH_T12;
+CREATE TABLE E_TM_LTRM_POM_EXTR_KDH_T12
+AS
+SELECT  A2.CTM_DSCNO                                     /* 고객식별번호   */
+      , A2.TL_NTC_MTD_AGRYN                              /* 전화안내방법동의여부 */
+      , TRUNC(A2.AP_STR_DTHMS)  AS TL_NTC_MTD_AGR_STR_DT /* 전화안내방법도의시작일자 */
+      , TRUNC(A2.AP_ND_DTHMS)   AS TL_NTC_MTD_AGR_ND_DT  /* 전화안내방법도의종료일자 */
+FROM (
+       SELECT  B2.CTM_DSCNO          AS CTM_DSCNO              /* 고객식별번호   */
+             , CASE WHEN A1.INP_DTHMS    >=  TRUNC(F_ADD_MONTHS_GP(CURRENT_DATE, -24))                        /* 금감원기준 2년까지만 상품소개동의가능 */
+                    AND  A1.AP_ND_DTHMS  >   TRUNC(CURRENT_DATE)                                              /* 적용종료일시 */
+                    AND  A1.AP_STR_DTHMS <=  CAST(TO_CHAR(CURRENT_DATE,'YYYYMMDD')||'235959' AS TIMESTAMP(0)) /* 적용시작일시 */
+               THEN '1'
+               ELSE '0'
+               END                   AS TL_NTC_MTD_AGRYN     /* 전화안내방법동의여부 */
+             , A1.AP_STR_DTHMS       AS AP_STR_DTHMS         /* 적용시작일시         */
+             , A1.AP_ND_DTHMS        AS AP_ND_DTHMS          /* 적용종료일시         */
+             , ROW_NUMBER() OVER (PARTITION BY B2.CTM_DSCNO
+                                  ORDER BY     CASE WHEN  A1.INP_DTHMS           >=  TRUNC(F_ADD_MONTHS_GP(CURRENT_DATE, -24))                                     /* 금감원기준 2년까지만 상품소개동의가능 */
+                                                    AND   A1.AP_ND_DTHMS         >   TRUNC(CURRENT_DATE)                                                           /* 적용종료일시 */
+                                                    AND   A1.AP_STR_DTHMS        <=  CAST(TO_CHAR(CURRENT_DATE,'YYYYMMDD')||'235959' AS TIMESTAMP(0))     /* 적용시작일시 */
+                                               THEN '1'
+                                               ELSE '0'
+                                               END             DESC  /* 전화안내방법동의여부 */
+                                             , A1.AP_ND_DTHMS DESC
+                                             , A1.AP_STR_DTHMS DESC)   AS RN
+       FROM (
+             SELECT  DISTINCT
+                     B1.CTM_DSCNO
+                   , C1.CUSTID
+             FROM  E_TM_LTRM_POM_EXTR_KDH_T01 B1
+             INNER JOIN TB_CUSTOMER C1              /** 고객마스터 **/
+             ON    C1.CUST_DSCNO = B1.CTM_DSCNO
+            ) B2
+       INNER JOIN TB_CTM_CRDIU_AGRE A1              /** 고객신용정보활용동의 **/
+       ON    A1.CUSTID              = B2.CUSTID
+       WHERE 1=1
+       AND   A1.CRDIU_AGRE_FLGCD     = '03'               /* 신용정보활용동의구분코드  03:상품소개 */
+       AND   A1.CRDIU_AGRE_DTL_FLGCD IN( '01','02','03')  /* 신용정보활용동의세부구분코드 01:처리이용,02:조회이용,03:제공이용 */
+     ) A2
+WHERE RN = 1
+;
+
+/*캠페인 팀별 구분 */
+SELECT * 
+FROM
+(SELECT 
+	A.CLS_YYMM 
+	, CASE WHEN TMNM LIKE '%POM%' THEN '[C02]POM'
+		WHEN TMNM LIKE '%웹인%' THEN '[C01]웹인'
+		WHEN TMNM LIKE '%미디어%' THEN '[C14]미디어'
+		WHEN TMNM LIKE '%O/B%' THEN '[C07]O/B'
+		WHEN TMNM LIKE '%혼합%' THEN '[C16]혼합'
+		WHEN TMNM LIKE '%직인%' THEN '[C03]직인'
+		WHEN TMNM LIKE '%호전환%' THEN '[C09]호전환'
+		WHEN TMNM LIKE '%채팅%' THEN '[C08]채팅'
+		WHEN TMNM LIKE '%인콜%' THEN '[C18]인콜'
+		ELSE NULL END CMPG_MDCCD
+	, SUM(CASE WHEN CMPG_LCLCD = 'B' THEN CR_CRCC_RNPRM
+			ELSE  LTRM_CRCC_MPY_CVPRM END) AS CR_PRM
+FROM SDADAM.M_DABRD_CMPG_CR_CLS  A
+LEFT JOIN M_CMS_BZORG_CLS B
+ON A.CLS_YYMM = B.CLS_YYMM AND A.CE_STFNO = B.STFNO
+WHERE CMPG_MDCCD NOT IN ('B01','B02','B03','B04','B05','B06','B07',
+						'D01','D02',
+						'E01','E02','E04','E05')
+GROUP BY A.CLS_YYMM, CASE WHEN TMNM LIKE '%POM%' THEN '[C02]POM'
+		WHEN TMNM LIKE '%웹인%' THEN '[C01]웹인'
+		WHEN TMNM LIKE '%미디어%' THEN '[C14]미디어'
+		WHEN TMNM LIKE '%O/B%' THEN '[C07]O/B'
+		WHEN TMNM LIKE '%혼합%' THEN '[C16]혼합'
+		WHEN TMNM LIKE '%직인%' THEN '[C03]직인'
+		WHEN TMNM LIKE '%호전환%' THEN '[C09]호전환'
+		WHEN TMNM LIKE '%채팅%' THEN '[C08]채팅'
+		WHEN TMNM LIKE '%인콜%' THEN '[C18]인콜'
+		ELSE NULL END)
+WHERE CMPG_MDCCD IS NOT NULL
+ORDER BY CLS_YYMM , CMPG_MDCCD
+;
+
+
+
+/********************************************************************/
+/* 인수유의자 */
+/********************************************************************/
+    UNION ALL
+
+    SELECT DISTINCT A1.CTM_DSCNO  ,'인수유의자'     , '07' as FLD01_cd
+    FROM M_TM_CR_POM_CTM_LIST_T01          A1
+    INNER JOIN INS_UTATP   B1                           /* 인수유의자 */
+    ON         A1.CTM_DSCNO      = B1.UTATP_DSCNO
+    AND        B1.RGT_RS_IKDCD   in ('01','02','03')          /* 등록사유보종코드 : 장기 */
+    AND        B1.UTATP_FNL_STCD = '01'                       /* 상태 : 정상 */
+
+
+
+/* ========================================================================= */
+/* 콜센터 감사콜 결과-결번 제거할 것  (쿼리 수정할 것)                       */
+/* ========================================================================= */
+
+EXEC P_DROP_TABLE ('M_TM_CR_POM_CTM_LIST_T04');
+
+CREATE TABLE M_TM_CR_POM_CTM_LIST_T04
+AS(
+
+SELECT  SUBSTR(T1.ADD_INFO,13,13)    AS CTM_DSCNO
+       ,T2.REACT_ID
+       ,T3.REANM
+FROM OCC_CONTRACT_NEW    T1
+
+LEFT OUTER JOIN OCC_CAMP_RESULT_NEW   T2
+ON   T1.CMPG_ID = T2.CMPG_ID                   /* 캠페인ID           */
+AND  T1.CELL_ID = T2.CELL_ID                   /* 셀ID               */
+AND  T1.OFFR_ID = T2.OFFR_ID                   /* 오퍼ID             */
+AND  T1.CHN_ID  = T2.CHN_ID                    /* 채널ID             */
+AND  T1.BJ_ID   = T2.BJ_ID                     /* 대상ID             */
+AND  T1.EXTDT   = T2.EXTDT                     /* 추출일자           */
+
+
+LEFT OUTER JOIN CAM_CMPG_REACT  T3
+ON   T2.REACT_ID = T3.REACT_ID
+
+WHERE T1.CMPG_ID = 'CAMP201100000001'
+AND   T1.EXTDT >= TO_CHAR(FIRST_DAY(TO_CHAR(F_ADD_MONTHS_GP('$FROM_DATE',-1),'YYYYMMDD')),'YYYYMMDD')
+
+)
+
+;
+
+    AND     NOT EXISTS (				     /* 스케줄 예약건 제외(정상주번) - 예약,취소 등 상태는 체크 안함 */
+              SELECT 1
+    				  FROM TB_SCHEDULER X1
+    				  WHERE X1.CUSTID IN ( SELECT CUSTID FROM TB_CUSTOMER XX1 WHERE XX1.CUSTID = B.CUSTID)               
+    				        AND X1.EVENTDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')       -- 스케줄 추출일자 이후로 등록
+    				       )
+    AND     NOT EXISTS (				    /* 스케줄 예약건 제외 - 예약,취소 등 상태는 체크 안함 */
+              SELECT 1
+    				  FROM TB_SCHEDULER X1
+    				  WHERE X1.CUSTID =B.CUSTID    
+    				        AND X1.EVENTDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')       -- 스케줄 추출일자 이후로 등록
+
+AND NOT EXISTS (SELECT 1 FROM TB_CONTACT X3              /* 상담이력 제한  통화결과 오번호, 거부 제외 / 상담세분류 기타(단순거절등),장기소개확인필요,상담거절,결번 제외 */
+                WHERE 1=1
+                  AND X3.CHANNELGB = '02'                           -- 업무구분 장기
+				          --AND X3.USERID = A.ALLOCCHARGERID                  -- 배정자 상담이력 저장
+				          AND X3.INDATE BETWEEN A.ALLOCDATE AND TO_CHAR(TO_DATE(A.ALLOCDATE, 'YYYYMMDD') + 90, 'YYYYMMDD') -- 배정후 90일 이내  
+				          AND ( 
+				               X3.DIALRESULTCD IN ('08')   -- 통화결과 : 08 오번호, 13 거부
+				               OR
+				               X3.CONTACTMINORCD IN ('030202')   -- 상담세분류 : 030405 기타(단순거절등), 030111 장기소개확인필요, 030401 상담거절, 030202 결번
+				               )
+				          AND X3.CUSTID = A.CUSTID 
+				            )
+     
+/* 통화결과 타인통화 제외 */
+AND NOT EXISTS (SELECT 1 FROM TB_CONTACT X6
+				         WHERE X6.CHANNELGB = '02'                           -- 업무구분 장기
+				           --AND X6.USERID = A.ALLOCCHARGERID                  -- 배정자 상담이력 저장
+				           AND X6.INDATE BETWEEN A.ALLOCDATE AND TO_CHAR(TO_DATE(A.ALLOCDATE, 'YYYYMMDD') + 90, 'YYYYMMDD') -- 배정후 90일 이내  
+				           AND X6.DIALRESULTCD = '02'    -- 통화결과 : 02 타인통화
+				           AND X6.CUSTID = A.CUSTID
+				           )
+				           
+				          
+				          
+				          
+/* 캠페인을 통한 설계 , 체결 쿼리 */				          
+
+
+DROP TABLE M_DABRD_CMPG_PL01;
+CREATE TABLE M_DABRD_CMPG_PL01 AS 
+SELECT 
+	DISTINCT
+    T.CLS_YYMM
+    , CMS_CTMNO
+    , A.PLNO
+    , STFNO
+    , LIST_NO
+    , LIST_SEQNO
+    , CMS_CMPG_ID
+    , CMPG_LCLCD
+    , CMPG_MDCCD
+    , CMPG_SMCCD
+    , CMPG_DTLCD
+    , ALDT
+    , A.PLDT
+FROM M_DABRD_CMPG_YYMM T
+INNER JOIN M_CMS_CMPG_CMN_PL_CLS A
+ON T.CLS_YYMM = TO_CHAR(A.PLDT,'YYYYMM')
+  AND SPL_PL_YN = 0
+  AND CMS_CTMNO IS NOT NULL;
+  
+DROP TABLE M_DABRD_CMPG_PL02;
+CREATE TABLE M_DABRD_CMPG_PL02 AS 
+SELECT 
+  DISTINCT
+  T.CLS_YYMM
+  , A.STFNO
+  , B.CMS_CTMNO  
+  , A.PLDT
+  , A.PLNO
+ FROM M_DABRD_CMPG_YYMM T
+INNER JOIN M_CMS_CMPG_CMN_PL_CLS A
+ON T.CLS_YYMM = TO_CHAR(A.PLDT,'YYYYMM')
+  AND A.SPL_PL_YN = 0
+  AND A.CMS_CTMNO IS NULL
+INNER JOIN HWMRT.M_CMS_LGSYS_CTM_CMS_MPP B
+ON 0=0
+	AND A.CTMNO = B.CTMNO
+INNER JOIN M_CMS_INR_CHN_CMPG_DB_CLS X
+ON 0=0
+  AND X.CLS_YYMM = (SELECT MAX(CLS_YYMM) FROM M_DABRD_CMPG_YYMM)
+  AND B.CMS_CTMNO = X.CMS_CTMNO
+  AND A.STFNO = X.CMPG_ALLCT_STFNO;
+    
+  
+DROP TABLE M_DABRD_CMPG_CR01;
+CREATE TABLE M_DABRD_CMPG_CR01 AS   
+SELECT 
+	DISTINCT
+    T.CLS_YYMM
+    , CMS_CTMNO
+    , PLYNO
+    , CE_STFNO
+    , LIST_NO
+    , LIST_SEQNO
+    , CMS_CMPG_ID
+    , CMPG_LCLCD
+    , CMPG_MDCCD
+    , CMPG_SMCCD
+    , CMPG_DTLCD
+    , FR_CMPG_ALDT AS ALDT
+    , PPDT
+    , CR_CC_CT
+    , CR_CRCC_RNPRM
+    , LTRM_CRCC_MPY_CVPRM
+FROM M_DABRD_CMPG_YYMM T
+INNER JOIN M_CMS_CMPG_CMN_CR_AV_CLS A
+ON T.CLS_YYMM = A.CLS_YYMM
+  AND CMS_CTMNO IS NOT NULL;
+  
+DROP TABLE M_DABRD_CMPG_CR02;
+CREATE TABLE M_DABRD_CMPG_CR02 AS   
+SELECT 
+  T.CLS_YYMM
+  , CE_STFNO
+  , B.CMS_CTMNO
+  , PPDT
+  , CR_CC_CT
+  , CR_CRCC_RNPRM
+  , LTRM_CRCC_MPY_CVPRM
+  , PLYNO
+FROM M_DABRD_YYMM T
+INNER JOIN M_CMS_CMPG_CMN_CR_AV_CLS A
+ON T.CLS_YYMM = A.CLS_YYMM
+  AND A.CMS_CTMNO IS NULL
+INNER JOIN HWMRT.M_CMS_LGSYS_CTM_CMS_MPP B
+ON 0=0
+	AND A.CTMNO = B.CTMNO
+INNER JOIN M_CMS_INR_CHN_CMPG_DB_CLS X
+ON 0=0
+  AND X.CLS_YYMM = (SELECT MAX(CLS_YYMM) FROM M_DABRD_CMPG_YYMM)
+  AND B.CMS_CTMNO = X.CMS_CTMNO
+  AND A.CE_STFNO = X.CMPG_ALLCT_STFNO;  
+  
+--INSERT INTO M_DABRD_CMPG_PL_CLS AS 
+DROP TABLE M_DABRD_CMPG_PL_CLS;
+CREATE TABLE M_DABRD_CMPG_PL_CLS AS (
+SELECT * FROM M_DABRD_CMPG_PL01 
+UNION ALL
+SELECT 
+	A.CLS_YYMM
+	, A.CMS_CTMNO
+	, B.PLNO
+	, A.STFNO
+	, A.LIST_NO
+	, A.LIST_SEQNO
+	, A.CMS_CMPG_ID
+	, A.CMPG_LCLCD
+	, A.CMPG_MDCCD
+	, A.CMPG_SMCCD
+	, A.CMPG_DTLCD
+	, A.ALDT
+	, B.PLDT
+FROM M_DABRD_CMPG_PL01 A
+LEFT JOIN M_DABRD_CMPG_PL02 B
+ON 0=0
+	AND A.CLS_YYMM = B.CLS_YYMM
+	AND A.STFNO = B.STFNO
+	AND A.CMS_CTMNO = B.CMS_CTMNO
+WHERE B.PLNO IS NOT NULL);
+
+--INSERT INTO M_DABRD_CMPG_CR_CLS  
+DROP TABLE M_DABRD_CMPG_CR_CLS;
+CREATE TABLE M_DABRD_CMPG_CR_CLS AS (
+SELECT * FROM M_DABRD_CMPG_CR01 
+UNION ALL
+SELECT 
+	A.CLS_YYMM
+	, A.CMS_CTMNO
+	, B.PLYNO
+	, A.CE_STFNO
+	, A.LIST_NO
+	, A.LIST_SEQNO
+	, A.CMS_CMPG_ID
+	, A.CMPG_LCLCD
+	, A.CMPG_MDCCD
+	, A.CMPG_SMCCD
+	, A.CMPG_DTLCD
+	, A.ALDT
+	, B.PPDT
+	, B.CR_CC_CT
+	, B.CR_CRCC_RNPRM
+	, B.LTRM_CRCC_MPY_CVPRM
+FROM M_DABRD_CMPG_CR01 A
+LEFT JOIN M_DABRD_CMPG_CR02 B
+ON 0=0
+	AND A.CLS_YYMM = B.CLS_YYMM
+	AND A.CE_STFNO = B.CE_STFNO
+	AND A.CMS_CTMNO = B.CMS_CTMNO
+WHERE B.PLYNO IS NOT NULL);
+  
+				           
+
+
+/* 장기 TM 실적 조회 쿼리 */
+
+
+
+DROP TABLE LTM_SUPERSET_CTM_INFO_INSERT;
+CREATE TABLE LTM_SUPERSET_CTM_INFO_INSERT AS 
+SELECT 
+	DISTINCT
+	TO_CHAR(PPDT,'YYYYMM') AS 기준년월
+	, A.PLYNO  AS 증권번호
+	, E.CTMNO AS 계약자고객번호
+  , F.HNGL_RELNM  AS 피보험자
+  , SUBSTR(F_BIRTH_DAY_DEC(F.CTM_DSCNO),1,4) AS 피보험자출생년도
+  , SUBSTR(F_BIRTH_DAY_DEC(F.CTM_DSCNO),5,4) AS 피보험자생일
+  , F_SEX_DEC(F.CTM_DSCNO)                   AS 피보험자성별
+    , CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(F.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(F_BIRTH_DAY_DEC(F.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END AS 피보험자연령
+  , F.JBCD	 AS 피보험자직업코드
+  , F1.JBNM  AS 피보험자직업
+  , F2.SD||' '||F2.SGNG  AS 피보험자지역
+  , E.HNGL_RELNM   AS 계약자
+  , SUBSTR(F_BIRTH_DAY_DEC(E.CTM_DSCNO),1,4)  AS 계약자출생년도
+  , SUBSTR(F_BIRTH_DAY_DEC(E.CTM_DSCNO),5,4)  AS 계약자생일
+  , F_SEX_DEC(E.CTM_DSCNO)                    AS 계약자성별 
+  , CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(E.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(F_BIRTH_DAY_DEC(E.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END AS 계약자연령
+  , E.JBCD	 AS 계약자직업코드
+  , E1.JBNM	 AS 계약자직업
+  , E2.SD||' '||E2.SGNG AS 계약자지역
+  , G.DTCNM    AS 피보험자관계
+  , CASE WHEN E.CTMNO != F.CTMNO THEN 1 ELSE 0 END AS 계피상이여부
+  , CASE WHEN H.증권번호 IS NOT NULL THEN 1 ELSE 0 END AS 연고여부
+  , H.연고관계
+FROM INS_INCM_PRM A
+LEFT JOIN INS_CR_RELPC E  -- 계약자
+ON 0=0
+	AND E.PLYNO = A.PLYNO
+	AND E.AP_STRDT           <=   PPDT
+  AND E.AP_NDDT            >=   PPDT
+  AND E.RELPC_TPCD         =   '01'
+  AND E.PRS_RELPC_YN       =   '1'
+LEFT JOIN INS_CR_RELPC F
+ON 0=0
+  AND F.PLYNO              =   A.PLYNO
+	AND F.AP_STRDT           <=   PPDT
+  AND F.AP_NDDT            >=   PPDT
+  AND F.RELPC_TPCD         =   '02'
+  AND F.PRS_RELPC_YN       =   '1'
+LEFT JOIN CUS_JB E1 ON E.JBCD = E1.JBCD AND E.JB_CH_SEQNO = E1.JB_CH_SEQNO
+LEFT JOIN CUS_JB F1 ON F.JBCD = F1.JBCD AND F.JB_CH_SEQNO = F1.JB_CH_SEQNO
+LEFT JOIN CUS_CTM_ADR_CRR E2
+ON 0=0
+  AND E.CTMNO = E2.CTMNO                 
+  AND E2.AP_STR_DTHMS       <=   PPDT
+  AND E2.AP_ND_DTHMS        >=   PPDT
+  AND E2.ADR_FLGCD IN ('100')    
+LEFT JOIN CUS_CTM_ADR_CRR F2
+ON 0=0
+  AND F.CTMNO = F2.CTMNO             
+  AND F2.AP_STR_DTHMS       <=   PPDT
+  AND F2.AP_ND_DTHMS        >=   PPDT
+  AND F2.ADR_FLGCD IN ('100') 
+LEFT JOIN 
+  (SELECT 
+    	A.PLYNO
+    	, B.DTCNM
+    FROM ins_cr_relpc_rel A
+    INNER JOIN RELCD B
+    ON A.RELPC_RELCD = B.RELCD
+    WHERE 1=1
+    	AND ST_RELPC_TPCD = '02'
+    	AND CNFT_RELPC_TPCD = '01'
+    	AND NDS_AP_ND_DTHMS  >= TO_DATE('99991231', 'YYYYMMDD')
+    	AND PLYNO LIKE '%LA%') G
+ON  A.PLYNO = G.PLYNO
+LEFT JOIN LTM_SUPERSET_RELN_CRT H ON  A.PLYNO = H.증권번호
+WHERE 1=1
+	AND A.DP_CASCD           =   '01'           /*입금원인코드:신계약*/
+	AND NVL(A.RTN_FLGCD,'XX') <> '01'
+	AND A.PPDT BETWEEN CASE WHEN TRUNC(SYSDATE) = TRUNC(SYSDATE ,'MM')
+	                          THEN TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')
+	                          ELSE TRUNC(SYSDATE,'MM') END
+	                   AND SYSDATE
+	AND A.DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02')
+	AND A.IKD_GRPCD = 'LA';
+   
+
+DROP TABLE LTM_SUPERSET_STF_INFO_INSERT;
+CREATE TABLE LTM_SUPERSET_STF_INFO_INSERT AS 
+SELECT 
+	DISTINCT 
+	TO_CHAR(A.PPDT,'YYYYMM') AS 기준년월
+  , A.DH_STFNO AS 상담사코드
+  , D.STFNM AS 상담사
+  , B.채널 AS 채널
+  , D.BZP_NM AS 사업단
+  , B.센터 AS 센터
+  , B.영업실   AS 영업실
+  , D.NTRDT  AS 입사년월일
+  , D.APO_STB_MMTHR   AS 활동차월
+  --, CASE WHEN D.NTRDT != E.CRNT_PST_APODT THEN CEIL(MONTHS_BETWEEN(SYSDATE,E.CRNT_PST_APODT)) ELSE D.APO_STB_MMTHR END AS 활동차월2
+  , D.RAPO_YN AS 재위촉여부
+  , C.도입경로  AS 도입경로
+  , E.CRNT_PST_APODT  AS 현소속발령일자
+  , CASE WHEN D.STF_BZ_STCD = '01' AND SUM(F.MPY_CV_PRM) OVER (PARTITION BY A.DH_STFNO) >10000 THEN 1 ELSE 0 END AS 가동여부
+  , CASE WHEN D.APO_STB_MMTHR = 1 THEN 1 ELSE 0 END AS 당월위촉여부
+  , DD.DTCNM AS 현월상태
+  , CASE WHEN D.APO_STB_MMTHR = 1 AND DD2.DTCNM IS NULL THEN '당월위촉' ELSE DD2.DTCNM END AS 전월상태
+FROM INS_INCM_PRM A
+  , LTM_SUPERSET_ORGCODE B
+  , LTM_SUPERSET_INTR_STF C
+  , M_ORG_MTHY_BZ_ORGN D 
+  , M_ORG_MTHY_BZ_ORGN D2 
+  , STF_BZ_STCD DD
+  , STF_BZ_STCD DD2
+  , SAM_STF E
+  , M_LCR_LTRM_NWCR_LIST F
+WHERE 1=1
+	AND A.DP_CASCD           =   '01'           /*입금원인코드:신계약*/
+	AND NVL(A.RTN_FLGCD,'XX') <> '01'
+	AND A.PPDT BETWEEN CASE WHEN TRUNC(SYSDATE) = TRUNC(SYSDATE ,'MM')
+	                          THEN TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')
+	                          ELSE TRUNC(SYSDATE,'MM') END
+	                   AND SYSDATE
+	AND A.DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02')
+	AND A.IKD_GRPCD = 'LA'
+	AND A.DH_STFNO = C.상담사코드(+)
+	AND D.TM_ORGCD = B.영업실코드(+)
+	AND A.DH_STFNO = D.STFNO(+)
+	AND TO_CHAR(A.PPDT,'YYYYMM') = D.CLS_YYMM(+)
+	AND A.DH_STFNO = D2.STFNO(+)
+	AND F_PREV_MONTH(TO_CHAR(A.PPDT,'YYYYMM'),'1') = D2.CLS_YYMM(+)
+	AND D.STF_BZ_STCD = DD.STF_BZ_STCD(+)
+	AND D2.STF_BZ_STCD = DD2.STF_BZ_STCD(+)
+	AND A.DH_STFNO = E.STFNO
+  AND TO_CHAR(A.PPDT,'YYYYMM') = F.ST_YYMM(+)
+  AND A.PLYNO = F.PLYNO(+)
+  AND A.INCM_PRM_CR_SEQNO = F.INCM_PRM_CR_SEQNO(+)
+
+UNION ALL
+  
+SELECT   
+  A.CLS_YYMM AS 기준년월
+  , A.STFNO  AS 상담사코드
+  , A.STFNM AS 상담사
+  , B.채널 AS 채널
+  , A.BZP_NM AS 사업단
+  , B.센터 AS 센터
+  , B.영업실   AS 영업실
+  , A.NTRDT  AS 입사년월일
+  , A.APO_STB_MMTHR   AS 활동차월
+  , A.RAPO_YN AS 재위촉여부
+  , C.도입경로  AS 도입경로
+  , E.CRNT_PST_APODT  AS 현소속발령일자
+  , 0 AS 가동여부
+  , CASE WHEN A.APO_STB_MMTHR = 1 THEN 1 ELSE 0 END AS 당월위촉여부
+  , DD.DTCNM AS 현월상태
+  , CASE WHEN A.APO_STB_MMTHR = 1 AND DD2.DTCNM IS NULL THEN '당월위촉' ELSE DD2.DTCNM END AS 전월상태
+FROM   
+  (SELECT 
+  	*
+  FROM M_ORG_MTHY_BZ_ORGN 
+  WHERE 1=1
+  	AND CLS_YYMM >= '202401' AND HDQT_ORGCD = '1300012' AND STF_BZ_STCD = '01' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02' AND CLS_YYMM = TO_CHAR(SYSDATE,'YYYYMM')) A
+LEFT JOIN 
+    (SELECT 
+        TO_CHAR(A0.PPDT,'YYYYMM') AS 기준년월  
+      	, A0.DH_STFNO
+      	, A0.PLYNO
+    FROM  INS_INCM_PRM A0
+    WHERE 1=1
+        AND A0.DP_CASCD           =   '01'           /*입금원인코드:신계약*/
+        AND NVL(A0.RTN_FLGCD,'XX') <> '01'
+      	AND A0.PPDT BETWEEN CASE WHEN TRUNC(SYSDATE) = TRUNC(SYSDATE ,'MM')
+      	                          THEN TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')
+      	                          ELSE TRUNC(SYSDATE,'MM') END
+      	                   AND SYSDATE
+        AND A0.DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02')
+        AND A0.IKD_GRPCD = 'LA') A0 
+ON 1=1 
+  AND A.CLS_YYMM = A0.기준년월 
+  AND A.STFNO = A0.DH_STFNO
+LEFT JOIN LTM_SUPERSET_ORGCODE B ON A.TM_ORGCD = B.영업실코드
+LEFT JOIN LTM_SUPERSET_INTR_STF C ON A.STFNO = C.상담사코드
+LEFT JOIN M_ORG_MTHY_BZ_ORGN D ON A.STFNO = D.STFNO AND F_PREV_MONTH(A.CLS_YYMM,'1') = D.CLS_YYMM
+LEFT JOIN STF_BZ_STCD DD ON A.STF_BZ_STCD = DD.STF_BZ_STCD
+LEFT JOIN STF_BZ_STCD DD2 ON D.STF_BZ_STCD = DD2.STF_BZ_STCD
+LEFT JOIN SAM_STF E ON A.STFNO = E.STFNO
+WHERE A0.PLYNO IS NULL;
+
+
+DROP TABLE LTM_SUPERSET_CMPG_INFO_INSERT; 
+CREATE TABLE LTM_SUPERSET_CMPG_INFO_INSERT AS 
+SELECT 
+  AA.기준년월
+  , AA.PLYNO 증권번호
+	, BB.TASKID AS 캠페인ID
+	, BB.TASKNAME AS 캠페인
+	, BB.LISTGROUPID AS 리스트그룹ID
+	, BB.리스트그룹
+	, BB.LISTID AS 리스트ID
+	, BB.리스트
+	, BB.SPONSORCODE AS 제휴사코드
+	, BB.REGISTDATE AS 등록일자
+	, BB.ALLOCDATE   AS 배정일자
+	--, A.ALLOCCHARGERID AS 할당사번
+	, BB.CUSTID     AS TM고객번호
+	, BB.CTMNO      AS 고객번호
+	, ROW_NUMBER() OVER (PARTITION BY AA.PLYNO ORDER BY BB.ALLOCDATE DESC) AS RN
+FROM
+    (SELECT 
+        A0.기준년월  
+      	, A0.DH_STFNO
+      	, A0.PLYNO
+      	, A1.CTMNO
+      	, A2.INS_ST
+    FROM
+    (SELECT 
+        TO_CHAR(A0.PPDT,'YYYYMM') AS 기준년월  
+      	, A0.DH_STFNO
+      	, A0.PLYNO
+    FROM  INS_INCM_PRM A0
+    WHERE 1=1
+        AND A0.DP_CASCD           =   '01'           /*입금원인코드:신계약*/
+        AND NVL(A0.RTN_FLGCD,'XX') <> '01'
+      	AND A0.PPDT BETWEEN CASE WHEN TRUNC(SYSDATE) = TRUNC(SYSDATE ,'MM')
+      	                          THEN TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')
+      	                          ELSE TRUNC(SYSDATE,'MM') END
+      	                   AND SYSDATE
+        AND A0.DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02')
+        AND A0.IKD_GRPCD = 'LA') A0
+    LEFT JOIN INS_CR_RELPC A1
+    ON 1=1
+        AND A1.PLYNO = A0.PLYNO
+        AND A1.AP_NDDT            =   TO_DATE('99991231', 'YYYYMMDD')
+        AND A1.RELPC_TPCD         =   '01'
+        AND A1.PRS_RELPC_YN       =   '1'
+    LEFT JOIN INS_INS_CR A2
+    ON 1=1
+        AND A2.PLYNO              =   A0.PLYNO 
+        AND A2.AP_NDDT            =   TO_DATE('99991231', 'YYYYMMDD')
+        AND A2.PLY_LVL_FLGCD      =   '01'      /*증권레벨구분코드*/
+        AND A2.IKD_GRPCD          =   'LA') AA
+LEFT JOIN 
+    (SELECT
+    	DISTINCT
+    	 B.TASKID 
+    	, B3.TASKNAME 
+    	, B.LISTGROUPID 
+    	, B4.LISTNAME     리스트그룹
+    	, B.LISTID  
+    	, B5.LISTNAME     리스트
+    	, B.SPONSORCODE
+    	, B.REGISTDATE 
+    	, B.ALLOCDATE  
+    	, B.ALLOCCHARGERID
+    	, B.CUSTID
+    	, B2.CTMNO
+    FROM TB_LIST B
+    LEFT JOIN  TB_CUSTOMER B1 ON B.CUSTID = B1.CUSTID
+    LEFT JOIN  CUS_CTM B2 ON B1.CUST_DSCNO = B2.CTM_DSCNO
+    LEFT JOIN  TB_TASK B3  ON B.TASKID = B3.TASKID
+    LEFT JOIN  TB_LIST_GROUP B4 ON B.LISTGROUPID = B4.LISTGROUPID
+    LEFT JOIN  TB_LIST_CAT B5 ON B.LISTID = B5.LISTID
+    WHERE 1=1
+      AND NVL(B.DELYN,'N')        <> 'Y'
+      AND B.ALLOCCHARGERID IS NOT NULL) BB
+ON 1=1
+  AND BB.CTMNO = AA.CTMNO
+  AND AA.DH_STFNO =  BB.ALLOCCHARGERID
+  AND AA.INS_ST >= TO_DATE(BB.ALLOCDATE,'YYYYMMDD')
+  ;
+
+
+DROP TABLE LTM_SUPERSET_CRT_INFO_INSERT;
+CREATE TABLE LTM_SUPERSET_CRT_INFO_INSERT AS 
+SELECT 
+  DISTINCT
+    TO_CHAR(A0.PPDT,'YYYYMM') 기준년월
+	, A0.PLYNO   AS 증권번호
+	, A0.INCM_PRM_CR_SEQNO AS 수입보험료발생순번
+	, A1.DTCNM  AS  계약상태
+	, A4.GD_SLNM  AS 상품
+	, A4.GDCD     AS 상품코드
+	, A4.INS_IMCD  AS 보종코드
+	, A5.INS_IMNM AS 보종명
+	, NVL(A31.상품군대분류 , A32.상품군대분류) AS 상품군대분류
+	, NVL(A31.상품군중분류 , A32.상품군중분류)       AS  상품군중분류
+	--, A.RP_PRM                            AS 월납영수보험료
+	, (A0.BA_CVR_PRM + A0.TRT_PRM + A0.FLPY_CVR_TRT_PRM)  AS 월납보장보험료
+	, A0.CU_PRM                            AS 월납적립보험료
+	, TO_CHAR(A0.PPDT,'YYYYMM') AS 청약월        
+	, TO_DATE(A0.PPDT)   청약일자
+	, TO_CHAR(A0.PPDT , 'DY' , 'NLS_DATE_LANGUAGE = KOREAN') AS 청약요일
+	, A2.INS_ST                        AS 보험시기
+	, A2.PYM_TRM                       AS 납기
+	--, (SELECT SF_MET_DTCNM('01405', B.PYM_TRMCD) FROM DUAL) pym_trmnm         /*납입기간명*/
+	--, (SELECT SF_MET_DTCNM('00173', B.PYM_CYCCD) FROM DUAL) pym_cycnm         /*납입주기명*/
+	, A2.ND                            AS 만기
+	, (SELECT BB2.DTCNM 
+    	FROM  ND_FLGCD BB2
+    	WHERE BB2.ND_FLGCD = A2.ND_FLGCD) AS 만기종류구분           /*만기구분명*/
+	, CASE WHEN cc_xcpt_dlcd ='04' then '무해지' ELSE '일반' END AS 무저해지구분	
+	, NVL(A31.핵심전략여부 , A32.핵심전략여부)       AS 핵심전략상품여부
+	,  SUBSTR(TO_CHAR(A0.INP_DTHMS, 'YYYYMMDD'),7,2) AS 이체일
+	, (SELECT FF.DTCNM       --수금방법코드
+       FROM INS_CM_MTD   F   --수금방법
+            , CM_MTDCD FF
+       WHERE F.PLYNO      = A0.PLYNO
+       AND F.AP_NDDT    = TO_DATE('99991231', 'YYYYMMDD')
+       AND F.CM_MTDCD = FF.CM_MTDCD) AS 수금방법   /*수금방법코드*/
+	, (SELECT FF2.DTCNM 
+    	FROM  SIGN_MTDCD FF2
+    	WHERE FF2.SIGN_MTDCD = AA2.SIGN_MTDCD) AS 서명방법
+  , CASE WHEN A8.증권번호 IS NOT NULL THEN 1 ELSE 0 END AS 승환여부 
+  , CASE WHEN A2.INS_ST > A8.INS_ST THEN '해지후승환'
+          WHEN A2.INS_ST <= A8.INS_ST THEN '해지후승환'
+          ELSE '승환미대상' END AS 승환유형
+  , MONTHS_BETWEEN(TRUNC(A2.INS_ST, 'MM') ,TRUNC(A8.FNL_CR_ST_CHDT, 'MM')) AS 승환차월
+  , A55.PLNM AS 플랜명
+  , A6.CSM_VL AS 재무CSM
+  , A7.LTRM_MPY_CV_PRM AS 월납환산보험료
+  , A6.CSM_VL / A7.LTRM_MPY_CV_PRM AS 재무CSM가치배수
+FROM
+	(SELECT * FROM INS_INCM_PRM 
+	WHERE 1=1
+		AND DP_CASCD           =   '01'           /*입금원인코드:신계약*/
+		AND NVL(RTN_FLGCD,'XX') <> '01'
+  	AND PPDT BETWEEN CASE WHEN TRUNC(SYSDATE) = TRUNC(SYSDATE ,'MM')
+  	                          THEN TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')
+  	                          ELSE TRUNC(SYSDATE,'MM') END
+  	                   AND SYSDATE
+		AND DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02')
+		AND IKD_GRPCD = 'LA'
+		) A0
+LEFT JOIN  DP_DT_CASCD A1				ON A0.DP_DT_CASCD = A1.DP_DT_CASCD
+LEFT JOIN INS_INS_CR A2
+ON 1=1
+  AND A2.PLYNO              =   A0.PLYNO
+  AND A2.INS_IMCD       NOT IN  ('LA00376', 'LA10295', 'LA00640')   --카메리트 제외	-- 카메리트 상품코드 2010.10.13 Day2 김병철   
+  AND A2.AP_NDDT            =   TO_DATE('99991231', 'YYYYMMDD')
+  AND A2.PLY_LVL_FLGCD      =   '01'      /*증권레벨구분코드*/
+  AND A2.IKD_GRPCD          =   'LA'
+  AND A2.RV_CCLDT           IS  NULL	
+LEFT JOIN INS_INS_CR AA2
+ON 1=1
+  AND AA2.PLYNO              =   A0.PLYNO
+  AND AA2.SIGN_MTDCD IS NOT NULL
+  AND AA2.NDSNO = '0000'
+LEFT JOIN LTM_SUPERSET_GDCD A31 		ON A2.GDCD = A31.상품코드	
+LEFT JOIN LTM_SUPERSET_GDCD A32 		ON A2.INS_IMCD = A32.상품코드
+LEFT JOIN IGD_GD A4 					ON A2.GDCD = A4.GDCD
+LEFT JOIN M_BIZ_GD_CSF_INFO A5			ON A4.GDCD = A5.GDCD
+LEFT JOIN M_BIZ_MTHY_PS_CR A55      ON A0.PLYNO = A55.PLYNO AND TO_CHAR(A0.PPDT,'YYYYMM') = A55.CLS_YYMM
+LEFT JOIN DCL_LTINS_FIME_GOC A6 		ON TO_CHAR(A0.PPDT,'YYYYMM') = A6.CLS_YYMM AND A0.PLYNO = A6.PLYNO
+LEFT JOIN M_SAM_LNWCR_LIST A7			ON A0.PLYNO = A7.PLYNO AND A0.INCM_PRM_CR_SEQNO = A7.INCM_PRM_CR_SEQNO
+LEFT JOIN 
+	(SELECT 
+		DISTINCT 
+	A.증권번호
+	, A.해약증번
+	, B.FNL_CR_ST_CHDT
+	, B.INS_ST
+	FROM LTM_SUPERSET_RDCH A
+	, INS_INS_CR B
+	, INS_CR_ST_CRR C
+	WHERE 1=1
+	    AND A.해약증번 = B.PLYNO									
+	    AND B.IKD_GRPCD = 'LA'									
+	    AND B.INS_IMCD NOT IN ('LA00640')									
+		AND B.AP_NDDT = TO_DATE('99991231', 'YYYYMMDD')									
+		AND B.FNL_CR_STCD = '08'		
+		AND B.PLYNO = C.PLYNO									
+		AND C.AP_NDDT <> TO_DATE('99991231', 'YYYYMMDD')								
+		AND C.CR_STCD <> '08') A8
+ON A0.PLYNO = A8.증권번호;
+
+DROP TABLE LTM_SUPERSET_MAIN_INSERT;
+CREATE TABLE LTM_SUPERSET_MAIN_INSERT AS 
+SELECT 
+  DISTINCT
+	A0.기준년월 기준년월
+    , A.PLYNO 증권번호
+	, A0.상담사코드
+	, A0.상담사
+	, A0.현월상태 AS 영업상태
+	, CASE WHEN A0.가동여부 = 1 THEN 'Y' 
+	        WHEN A0.가동여부 = 0 THEN 'N'
+	        ELSE NULL END AS 가동여부
+	, CASE WHEN A0.당월위촉여부 = 1 THEN 'Y' 
+	        WHEN A0.당월위촉여부 = 0 THEN 'N'
+	        ELSE NULL END AS 당월위촉여부
+	, A0.사업단
+	, A0.채널
+	, A0.센터
+	, A0.영업실
+	, A0.입사년월일
+	, A0.활동차월
+	, CASE WHEN A0.재위촉여부 = 1 THEN 'Y' 
+	        WHEN A0.재위촉여부 = 0 THEN 'N'
+	        ELSE NULL END AS 재위촉여부
+	, A0.도입경로
+
+	, D.TM고객번호
+	, D.캠페인ID
+	, D.캠페인
+	, D.리스트그룹ID
+	, D.리스트그룹
+	, D.리스트ID
+	, D.리스트
+	, D.배정일자
+	
+	, C.피보험자
+	, C.피보험자출생년도
+	, C.피보험자생일
+	, C.피보험자연령
+	, C.피보험자성별
+	, C.피보험자직업
+	, C.피보험자직업코드
+	, C.피보험자지역
+	, C.계약자
+	, C.계약자출생년도
+	, C.계약자생일
+	, C.계약자연령
+	, C.계약자성별
+	, C.계약자직업
+	, C.계약자직업코드
+	, C.계약자지역
+	, C.피보험자관계
+	, CASE WHEN C.계피상이여부 = 1 THEN 'Y' 
+	        WHEN C.계피상이여부 = 0 THEN 'N'
+	        ELSE NULL END AS 계피상이여부
+	, CASE WHEN C.연고여부 = 1 THEN 'Y' 
+	        WHEN C.연고여부 = 0 THEN 'N'
+	        ELSE NULL END AS 연고여부
+	, C.연고관계
+	, E.수입보험료발생순번
+	, E.계약상태
+	, E.상품
+	, E.플랜명
+	, E.상품코드
+	, E.보종명 AS 보종
+	, E.보종코드
+	, E.상품군대분류
+	, E.상품군중분류
+	, CASE WHEN E.핵심전략상품여부 = 1 THEN 'Y' 
+	        WHEN E.핵심전략상품여부 = 0 THEN 'N'
+	        ELSE NULL END AS 핵심전략상품여부
+	, E.월납보장보험료
+	, E.월납적립보험료
+	, E.월납환산보험료
+	, E.청약월 
+	, E.청약일자 
+	, TO_CHAR(청약일자,'MM/DD') AS 청약일
+	, E.청약요일 
+	, 보험시기 - TO_DATE(배정일자) 청약소요일
+	, E.보험시기
+	, E.납기
+	, E.만기
+	, E.만기종류구분
+	, E.무저해지구분
+	, TO_NUMBER(E.이체일) 이체일
+	, E.수금방법
+	, E.서명방법
+	, CASE WHEN E.승환여부 = 1 THEN 'Y' 
+	        WHEN E.승환여부 = 0 THEN 'N'
+	        ELSE NULL END AS 승환여부
+	, E.승환유형
+	, E.승환차월
+	, E.재무CSM
+	, E.재무CSM가치배수
+	, F.목표 AS 영업실목표
+FROM LTM_SUPERSET_STF_INFO_INSERT A0
+LEFT JOIN 
+  (SELECT 
+    PLYNO
+    , DH_STFNO
+    , PPDT
+    , IKD_GRPCD
+    , INCM_PRM_CR_SEQNO
+  FROM
+  INS_INCM_PRM	 A
+  WHERE 1=1
+  	AND A.DP_CASCD           =   '01'           /*입금원인코드:신계약*/
+  	AND NVL(A.RTN_FLGCD,'XX') <> '01'
+  	AND A.PPDT BETWEEN CASE WHEN TRUNC(SYSDATE) = TRUNC(SYSDATE ,'MM')
+      	                          THEN TRUNC(ADD_MONTHS(SYSDATE,-1),'MM')
+      	                          ELSE TRUNC(SYSDATE,'MM') END
+      	                   AND SYSDATE
+  	AND A.DH_STFNO IN (SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012')
+  	AND A.IKD_GRPCD = 'LA') A
+ON A.DH_STFNO = A0.상담사코드 AND TO_CHAR(A.PPDT,'YYYYMM') = A0.기준년월
+LEFT JOIN SDADAM.LTM_SUPERSET_CTM_INFO_INSERT C ON A.PLYNO = C.증권번호 AND TO_CHAR(A.PPDT,'YYYYMM') = C.기준년월
+LEFT JOIN SDADAM.LTM_SUPERSET_CMPG_INFO_INSERT D ON A.PLYNO = D.증권번호 AND D.RN = 1 AND TO_CHAR(A.PPDT,'YYYYMM') = D.기준년월
+LEFT JOIN SDADAM.LTM_SUPERSET_CRT_INFO_INSERT E ON A.PLYNO = E.증권번호 AND A.INCM_PRM_CR_SEQNO = E.수입보험료발생순번 AND TO_CHAR(A.PPDT,'YYYYMM') = E.기준년월
+LEFT JOIN SDADAM.LTM_SUPERSET_TADJ F ON F.영업실 = A0.영업실 AND F.기준년월 = A0.기준년월
+;
+
+INSERT INTO LTM_SUPERSET_MAIN_T SELECT * FROM LTM_SUPERSET_MAIN_INSERT;
+
+DELETE FROM LTM_SUPERSET_MAIN_T;
+
+
+
+/* 미래가치 추출 쿼리*/
+
+
+DROP TABLE DATABIZ_FUTVAL_ALL_CR_TEMP_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_ALL_CR_TEMP_PRED AS
+SELECT 
+	A.*
+	  ,CASE WHEN B.STFNO = '8901911'                       THEN '61'
+	          WHEN B.STFNO = '6009607' THEN '11' /* 이관고객 전속으로 포함 */
+            WHEN B.BZ_ATRCD IN ('30', '31')                THEN '62' /* LIFE WITH */
+            WHEN B.BRNM LIKE '%LIFE%'                      THEN '62' /*LIFE WITH*/
+            WHEN B.TMNM LIKE '%교차%'            THEN '12'  /* 생보형GA이외 교차는 교차로 배정 */
+            WHEN B.BR_ORGCD IN ('1301406','1301908','1302142') THEN '12'
+            WHEN B.TMNM LIKE '%한생GA팀%'                    THEN '20' /* 한생GA적용 */
+            WHEN B.BZ_FML_QUFCD IN ('G01')                 THEN '20' /* 생보형GA(한생+미래에셋 GA) 적용 */
+            WHEN B.BZ_ATRCD IN ('15','16','18','97','27')  THEN '12' /* ATCH_CRO_FLGCD 오류 보정 */
+            WHEN B.BZ_FML_QUFCD IN ('39','47','56')        THEN '12' /* 교차사업소장, 교차매니저, 교차육성팀장  */
+            WHEN B.BZ_PART_FLGCD = '06'
+	            AND  COALESCE(B.BZ_ATRCD, '00') NOT IN ('15','16','18','97','27')
+	            AND BRNM NOT LIKE '%TM%' THEN  '11'                  /*(24.11) TM이면 다이렉트로 배정 */
+            WHEN B.BZ_PART_FLGCD = '06'
+	            AND  B.BZ_FML_QUFCD IS NULL
+	            AND BRNM NOT LIKE '%TM%'THEN  '11'                   /*(24.11) TM이면 다이렉트로 배정 */
+            WHEN B.BRNM LIKE '%지역단%' THEN  '11'
+            WHEN B.BRNM LIKE '%GA사업단%' THEN '20'
+            WHEN B.BRNM LIKE '%HF%' THEN  '20'
+            WHEN (B.HDQT_ORGCD IN ('1300011', '1302011','1303011'))               /* GA영업본부 */
+            OR   (B.HDQT_ORGCD='1301318' AND B.BR_ORGCD='1301321')  /* 대구GA: 13.10~14.06 */
+            OR   (B.HDQT_ORGCD='1300007' AND B.BR_ORGCD='1301040')  /* 중부GA: 13.10~14.06 */
+            OR   (B.HDQT_ORGCD='1300008' AND B.BR_ORGCD='1301322')  /* 부산GA: 13.10~14.06 */
+            OR   (B.BR_ORGCD = '1301409')                           /* 호남GA: 14.07~14.12 */
+            OR   (B.BR_ORGCD = '1300163' AND B.BZP_ORGCD='1301383') /* 제주GA(가상): 14.02~ */
+            OR   (B.BR_ORGCD = '1301040' AND B.BZP_ORGCD='1301396') /* 호남GA 영업 소파트 */
+            OR   (B.BR_ORGCD = '1300090' AND B.BZP_ORGCD='1301384') /* 속초가상지점: 14.02 ~ 14.07 */  THEN '20'
+            WHEN B.STFNO = '8066063'
+            AND  B.BZP_ORGCD = '1301581'                                                          THEN '31' /* 20이후 사실상 폐쇄 */
+            WHEN B.STFNO IN ('8066063', '8066059', '6010186', '3449868')                          THEN '32'
+            WHEN B.HDQT_ORGCD IN ('1300013', '1300287','1300288')                                  THEN '40' /* 방카영업1-2부, 방카영업부: 18.12~ */
+            WHEN B.HDQT_ORGCD IN ('1300012', '1301363','1303053') THEN '31'      /* 장기TM 영업부, 업무지원센터 */
+            WHEN B.BR_ORGCD IN ('1300280', '1301363', '1303054', '1303055')    THEN '31'        /* 장기TM 영업부, 업무지원센터 */
+            WHEN B.BR_ORGCD IN ('1300287', '1201452')                                             THEN '40' /* 방카영업부(김태현수정) */
+            WHEN B.HDQT_ORGCD IN ('1301776', '1301362', '1301828') THEN '50'
+            WHEN B.BZ_PART_FLGNM = '법인영업'
+            AND  B.BZP_NM NOT LIKE '%신채널%'                                                       THEN '50'
+            WHEN B.BZP_ORGCD IN ( '1301364','1301365','1301366','1301367','1301368'
+                                , '1301369','1301370','1301371','1301372','1301373'
+                                , '1301618','1301750','1301751','1301752','1301753'
+                                , '1301754','1301755','1301756','1301757','1301758'
+                                , '1301786','1301968','1302015','1302016')                        THEN '50'
+            WHEN (
+                 B.BZP_NM LIKE '%기업영업%'
+            OR   B.BZP_NM LIKE '%법인영업%'
+            OR   B.BRNM LIKE '%기업영업%'
+            OR   B.BRNM LIKE '%법인영업%'
+            OR   B.HDQNM LIKE '%기업영업%'
+            OR   B.HDQNM LIKE '%법인영업%'
+            OR   B.BRNM LIKE '%전략영업%'
+            OR   B.BRNM LIKE '%GA영업%'
+                 )                                                                                THEN '50'
+            WHEN B.BZ_PART_FLGNM ='본사/기타'
+            AND  B.BRNM NOT LIKE '%TM%'                                                           THEN '61'
+            ELSE '61'
+            END  AS CHNL
+FROM DATABIZ_FUTVAL_YYMM_PRED T
+LEFT JOIN M_CRM_MTHY_PS_CR A
+ON 0=0
+	AND A.CLS_YYMM = T.CLS_YYMM
+LEFT JOIN M_ORG_MTHY_BZ_ORGN B
+ON 0=0
+	AND F_PREV_MONTH(T.CLS_YYMM,'-1') = B.CLS_YYMM
+	AND A.DH_STFNO = B.STFNO;
+	
+	
+DROP TABLE DATABIZ_FUTVAL_ALL_CUS_INFO_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_ALL_CUS_INFO_PRED AS
+SELECT 
+	A.CLS_YYMM
+	,C.CTMNO AS CTMNO  -- 현재 정상 계약의 계약자 OR 피보험자 정보
+	, A.DH_STFNO
+	,C.RELPC_TPCD AS RELPC_TPCD
+	, CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(T.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END AS CTM_AGE
+	,CASE WHEN F_SEX_DEC(C.CTM_DSCNO)='M' THEN '1.M'
+			WHEN F_SEX_DEC(C.CTM_DSCNO)='F' THEN '2.F'
+			ELSE NULL
+			END AS CTM_SEX
+	,MAX(CASE WHEN C.IKD_GRPCD = 'LA' THEN 1 ELSE 0 END) AS LA_YN
+	,MAX(CASE WHEN C.IKD_GRPCD = 'CA' THEN 1 ELSE 0 END) AS CA_YN
+	,MAX(CASE WHEN C.IKD_GRPCD IN ('FA','MA') THEN 1 ELSE 0 END) AS FAMA_YN
+FROM DATABIZ_FUTVAL_ALL_CR_TEMP_PRED A
+INNER JOIN DATABIZ_FUTVAL_YYMM_PRED T
+ON 0=0
+	AND A.CLS_YYMM = T.CLS_YYMM
+INNER JOIN INS_CR_RELPC C
+ON 0=0
+	AND A.PLYNO = C.PLYNO
+	AND C.NDS_AP_STR_DTHMS <= T.CLS_NDDT
+	AND C.NDS_AP_ND_DTHMS > T.CLS_NDDT
+	AND C.RELPC_TPCD IN ('01','02') /*관계자유형 = 계약자, 피보험자*/
+	AND C.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+GROUP BY 
+	A.CLS_YYMM
+	,C.CTMNO   -- 현재 정상 계약의 계약자 OR 피보험자 정보
+	, A.DH_STFNO
+	,C.RELPC_TPCD 
+	, CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(T.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END 
+	,CASE WHEN F_SEX_DEC(C.CTM_DSCNO)='M' THEN '1.M'
+			WHEN F_SEX_DEC(C.CTM_DSCNO)='F' THEN '2.F'
+			ELSE NULL
+			END;
+			
+			
+			
+DROP TABLE DATABIZ_FUTVAL_CUS_JOB_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_CUS_JOB_PRED AS 
+SELECT 
+A.*
+	 ,CASE WHEN SPJOB_YN = 1 THEN '전문직'
+		WHEN STF_YN = '내근직' THEN '내근직'
+		WHEN STF_YN = '영업가족' THEN '영업가족'
+		WHEN JB_TYPE IN ('1', '2' ,'3') THEN '화이트'
+		WHEN JB_TYPE IN ('4', '5') THEN '자영업'
+		WHEN JB_TYPE IN ('B1', 'C','B2') THEN '주부/학생'
+		ELSE '블루' END AS JB_SEG
+FROM
+  (SELECT
+     A.*
+     ,E2.JBNM
+     ,E3.BZPS_TPCD
+     ,CASE WHEN (E2.JBNM LIKE '%전문 간호%'	
+                OR E2.JBNM LIKE '%조종사%'
+                OR E2.JBNM LIKE '%관제사%'
+                OR E2.JBNM LIKE '%항해사%'
+                OR E2.JBNM LIKE '%선박 기관사%'
+                OR E2.JBNM LIKE '%선장%'
+                OR E2.JBNM LIKE '%교수%'
+                OR E2.JBNM LIKE '%고위%'
+                OR E2.JBNM LIKE '%임원%'
+                OR E2.JBNM LIKE '%경무관 이상%'
+                OR E2.JBNM LIKE '%소방감 이상%'
+                OR E2.JBNM LIKE '%계리%'
+                OR E2.JBNM LIKE '%금융 상품%'
+                OR E2.JBNM LIKE '%자산%'
+                OR E2.JBNM LIKE '%외환 딜러%'
+                OR E2.JBNM LIKE '%소프트웨어%'
+                OR E2.JBNM LIKE '%프로그래머%'
+                OR E2.JBNM LIKE '%데이터%'
+                OR E2.JBNM LIKE '%프로그래머%'
+                OR E2.JBNM LIKE '%감독%'
+                OR E2.JBNM LIKE '%장학관%'
+                OR E2.JBNM LIKE '%판사%'
+                OR E2.JBNM LIKE '%검사%'
+                OR E2.JBNM LIKE '%변호사%'
+                OR E2.JBNM LIKE '%법무사%'
+                OR E2.JBNM LIKE '%변리사%'
+                OR E2.JBNM LIKE '%노무사%'
+                OR E2.JBNM LIKE '%회계사%'
+                OR E2.JBNM LIKE '%세무사%'
+                OR E2.JBNM LIKE '%감정평가사%'
+                OR E2.JBNM LIKE '%관세사%'
+                OR E2.JBNM LIKE '%의사%'
+                OR E2.JBNM LIKE '%치과의사%'
+                OR E2.JBNM LIKE '%수의사%'
+                OR E2.JBNM LIKE '%한의사%'
+                OR E2.JBNM LIKE '%약사%'
+                OR E2.JBNM LIKE '%손해사정사%'
+                OR E2.JBNM LIKE '%건축사%'
+                OR E2.JBNM LIKE '%행정사%'
+                OR E2.JBNM LIKE '%도선사%'
+                )	
+                AND E2.JBNM NOT LIKE '%장의사%'	
+                AND E2.JBNM NOT LIKE '%스포츠%'	
+                AND E2.JBNM NOT LIKE '%건설%'	
+                AND E2.JBNM NOT LIKE '%코치%'	
+                AND E2.JBNM NOT LIKE '%검사원%'	
+                AND E2.JBNM NOT LIKE '%검사공%'	
+                AND E2.JBNM NOT LIKE '%검사기사%'	
+                AND E2.JBNM NOT LIKE '%사육%'	
+                AND E2.JBNM NOT LIKE '%판매%'	
+                AND E2.JBNM NOT LIKE '%사무원%'	
+                AND E2.JBNM NOT LIKE '%종사원%'	
+                AND E2.JBNM NOT LIKE '%의료인%'	
+                AND E2.JBNM NOT LIKE '%공무원%'	
+                AND E2.JBNM NOT LIKE '%보조원%'	
+                AND E2.JBNM NOT LIKE '%현장기술%'	
+                AND E2.JBNM NOT LIKE '%감독자%'	
+                AND E2.JBNM NOT LIKE '%제조%'	
+                AND E2.JBNM NOT LIKE '%공급%'	
+                AND E2.JBNM NOT LIKE '%사무및감독%'	
+                AND E2.JBNM NOT LIKE '%경비원%'
+                THEN 1 ELSE 0 END AS SPJOB_YN
+     ,CASE WHEN E4.BZ_PART_FLGCD = '09' AND STF_BZ_STCD = '01' THEN '내근직'
+    	WHEN E4.STFNO IS NOT NULL AND STF_BZ_STCD = '01' THEN '영업가족'
+    	ELSE NULL END AS STF_YN
+    , CASE WHEN E2.JBNM LIKE '%주부%' THEN 'B2'
+				WHEN E1.JBCD = '0' AND E1.JB_CH_SEQNO = '2' THEN '1'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '2' THEN '2'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '3' THEN '1'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '4' THEN '1'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '2' THEN '2'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '3' THEN '2'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '4' THEN '2'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '2' THEN '2'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '3' THEN '3'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '4' THEN '3'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '3' THEN '4'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '4' THEN '4'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '2' THEN '4'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '1' THEN '4'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '1' THEN '4'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '1' THEN '4'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '2' THEN '5'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '3' THEN '5'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '4' THEN '5'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '1' THEN '6'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '3' THEN '6'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '4' THEN '6'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '2' THEN '6'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '1' THEN '7'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '1' THEN '7'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '2' THEN '7'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '2' THEN '7'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '2' THEN '7'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '3' THEN '7'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '4' THEN '7'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '1' THEN '8'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '1' THEN '8'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '3' THEN '8'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '4' THEN '8'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '1' THEN '9'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '3' THEN '9'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '4' THEN '9'
+				WHEN E1.JBCD = 'A' AND E1.JB_CH_SEQNO = '2' THEN 'A'
+				WHEN E1.JBCD = 'A' AND E1.JB_CH_SEQNO = '3' THEN 'A'
+				WHEN E1.JBCD = 'A' AND E1.JB_CH_SEQNO = '4' THEN 'A'
+				WHEN E1.JBCD = 'B' AND E1.JB_CH_SEQNO = '2' THEN 'B1'
+				WHEN E1.JBCD = 'B' AND E1.JB_CH_SEQNO = '3' THEN 'B1'
+				WHEN E1.JBCD = 'B' AND E1.JB_CH_SEQNO = '4' THEN 'B1'
+				WHEN E2.JBCD = 'B3200'  THEN 'B2'
+				ELSE 'C'
+			END AS JB_TYPE
+  FROM
+  (	
+SELECT AA.CLS_YYMM
+		, AA.CTMNO
+		, BB.JBCD
+		, BB.JB_CH_SEQNO
+		, ROW_NUMBER() OVER (PARTITION BY AA.CLS_YYMM, AA.CTMNO ORDER BY BB.AP_STR_DTHMS DESC) AS RN
+FROM SDADAM.DATABIZ_FUTVAL_ALL_CUS_INFO_PRED AA
+LEFT OUTER JOIN CUS_CTM_JB_CRR BB
+ON 0=0
+	AND AA.CTMNO = BB.CTMNO
+	AND BB.AP_STR_DTHMS <= F_LAST_DAY(AA.CLS_YYMM)
+	AND BB.AP_ND_DTHMS >  F_LAST_DAY(AA.CLS_YYMM)
+		  ) A
+	LEFT JOIN CUS_JB E1
+	ON 0=0
+		AND SUBSTR(A.JBCD, 1,1) = E1.JBCD
+		AND A.JB_CH_SEQNO = E1.JB_CH_SEQNO
+	LEFT JOIN CUS_JB E2
+	ON 0=0
+		AND A.JBCD = E2.JBCD
+		AND A.JB_CH_SEQNO = E2.JB_CH_SEQNO
+	LEFT JOIN CUS_CTM E3
+	ON 0=0
+		AND A.CTMNO = E3.CTMNO
+	LEFT JOIN M_ORG_BZ_ORGN E4
+	ON 0=0
+		AND E3.CTM_DSCNO = E4.RSNO
+		AND E4.STF_BZ_STCD = '01'
+WHERE A.RN = 1) A
+;
+
+
+
+DROP TABLE DATABIZ_FUTVAL_CUS_ADD_PRED;
+CREATE TABLE DATABIZ_FUTVAL_CUS_ADD_PRED AS
+SELECT
+  A1.CLS_YYMM
+	, A1.CTMNO
+	, CTM_SEX
+	, CASE WHEN CTM_AGE BETWEEN 18 AND 29 THEN '20대 이하'
+		   WHEN CTM_AGE BETWEEN 30 AND 39 THEN '30대'
+		   WHEN CTM_AGE BETWEEN 40 AND 49 THEN '40대'
+		   WHEN CTM_AGE BETWEEN 50 AND 59 THEN '50대'
+		   WHEN CTM_AGE BETWEEN 60 AND 99 THEN '60대 이상'
+		   ELSE NULL END AS AGE_CD
+	, CTM_AGE
+	, SD
+	, SGNG
+	, PSTNO
+	, PSTNO_ID
+	,E.JBCD
+	,E.JB_CH_SEQNO
+	,F.JBNM
+FROM (
+	SELECT DISTINCT 
+		T.CLS_YYMM
+		, T.CTMNO
+		, T.CTM_SEX
+		, T.CTM_AGE
+		, A.LACO_DONG_FLGCD
+		, A.BLDNM
+		, A.SD
+		, A.SGNG
+		, A.PSTNO
+		, A.REF_IT 
+		, TO_CHAR(A.AP_STR_DTHMS,'YYYYMM')    AS AP_STR_YYMM
+		, TO_CHAR(A.AP_ND_DTHMS,'YYYYMM')     AS AP_ND_YYMM
+		, A.AP_STR_DTHMS
+		, A.AP_ND_DTHMS
+		, COALESCE(B.PSTNO_ID,C.PSTNO_ID, D.PSTNO_ID) AS PSTNO_ID
+		, ROW_NUMBER() OVER(PARTITION BY T.CLS_YYMM, T.CTMNO ORDER BY A.AP_STR_DTHMS DESC, CASE WHEN B.PSTNO_ID IS NULL THEN 1 ELSE 0 END, CASE WHEN C.PSTNO_ID IS NULL THEN 1 ELSE 0 END) AS RK
+	FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED T
+	INNER JOIN CUS_CTM_ADR_CRR A 
+	ON 0=0
+		AND T.CTMNO = A.CTMNO
+		AND A.AP_ND_DTHMS > = F_LAST_DAY(T.CLS_YYMM) -- 시점
+		AND A.AP_STR_DTHMS < F_LAST_DAY(T.CLS_YYMM) -- 시점
+		AND A.ADR_FLGCD = '100' 
+	
+	LEFT OUTER JOIN CUS_PSTNO_RODNM_BA_ADR B 
+	ON 1=1 
+		AND A.BLD_ADMNO = B.BLD_ADMNO		
+	
+	LEFT OUTER JOIN CUS_PSTNO_RODNM_BA_ADR C
+	ON 1=1 
+		AND A.PSTNO = C.PSTNO
+		AND A.SD=C.SD 
+		AND A.SGNG = C.SGNG
+		AND A.ROAD_NM = C.ROAD_NM
+		AND A.MN_BLDNO = C.MN_BLDNO 
+		AND COALESCE(A.SUB_BLDNO,'0') = COALESCE(C.SUB_BLDNO,'0') 
+	
+	LEFT OUTER JOIN CUS_PSTNO_RODNM_BA_ADR D
+	ON 1=1 
+		AND A.PSTNO = D.PSTNO
+		AND A.SD=D.SD 
+		AND A.SGNG = D.SGNG
+		AND A.ROAD_NM = D.ROAD_NM
+		AND A.MN_BLDNO = D.MN_BLDNO
+	
+	) A1
+LEFT  JOIN CUS_CTM_JB_CRR E				
+	ON 0=0			
+		AND A1.CTMNO = E.CTMNO		
+		AND E.AP_STR_DTHMS <= F_LAST_DAY(CLS_YYMM)
+		AND E.AP_ND_DTHMS  >  F_LAST_DAY(CLS_YYMM)
+		
+	LEFT JOIN CUS_JB F		
+	ON 0=0			
+		AND E.JBCD = F.JBCD		
+		AND E.JB_CH_SEQNO = F.JB_CH_SEQNO
+WHERE 1=1
+	AND RK = 1
+; 
+
+
+
+DROP TABLE DATABIZ_FUTVAL_CUS_ADD_INCOME_PRED;
+CREATE TABLE DATABIZ_FUTVAL_CUS_ADD_INCOME_PRED AS
+SELECT DISTINCT
+	CLS_YYMM
+	, CTMNO
+	, CTM_SEX
+	, AGE_CD
+	, CTM_AGE
+	, SD
+	, SGNG
+	, PSTNO
+	, PSTNO_ID
+	, JBCD
+	, JB_CH_SEQNO
+	, JBNM
+	, NVL(INCOME_SEG, INCOME) AS INCOME
+	, NVL(CREDIT_SEG, CREDIT) AS CREDIT
+FROM (
+	/*
+	- 매핑 순서
+	격자(성, 연령) -> 격자(ALL, 연령) -> 우편번호(성, 연령) -> 우편번호(ALL, 연령) -> 격자(성, ALL) -> 격자(ALL, ALL) -> 우편번호(성, ALL) -> 우편번호(ALL, ALL)
+	*/
+	SELECT
+		B.*
+		, CASE WHEN H.전문직 = 1 THEN COALESCE(D.SPJOB_AVG_ICAMT, D1.SPJOB_AVG_ICAMT, F.SPJOB_AVG_ICAMT, F1.SPJOB_AVG_ICAMT, D2.SPJOB_AVG_ICAMT, D3.SPJOB_AVG_ICAMT, F2.SPJOB_AVG_ICAMT, F3.SPJOB_AVG_ICAMT)
+		       WHEN H.법인대표 = 1 THEN  COALESCE(D.CRP_PRS_AVG_ICAMT, D1.CRP_PRS_AVG_ICAMT, F.CRP_PRS_AVG_ICAMT, F1.CRP_PRS_AVG_ICAMT, D2.CRP_PRS_AVG_ICAMT, D3.CRP_PRS_AVG_ICAMT, F2.CRP_PRS_AVG_ICAMT, F3.CRP_PRS_AVG_ICAMT)
+		       WHEN H.자영업 = 1 THEN  COALESCE(D.SFEMP_AVG_ICAMT, D1.SFEMP_AVG_ICAMT, F.SFEMP_AVG_ICAMT, F1.SFEMP_AVG_ICAMT, D2.SFEMP_AVG_ICAMT, D3.SFEMP_AVG_ICAMT, F2.SFEMP_AVG_ICAMT, F3.SFEMP_AVG_ICAMT)
+		       WHEN H.주부 != 1 AND H.학생 != 1 AND H.무직 != 1 THEN  COALESCE(D.LBR_ICR_AVG_ICAMT, D1.LBR_ICR_AVG_ICAMT, F.LBR_ICR_AVG_ICAMT, F1.LBR_ICR_AVG_ICAMT, D2.LBR_ICR_AVG_ICAMT, D3.LBR_ICR_AVG_ICAMT, F2.LBR_ICR_AVG_ICAMT, F3.LBR_ICR_AVG_ICAMT)
+		       ELSE NULL END AS INCOME_SEG /*평균소득 - 직업별*/
+		, COALESCE(D.AVG_ICAMT, D1.AVG_ICAMT, F.AVG_ICAMT, F1.AVG_ICAMT, D2.AVG_ICAMT, D3.AVG_ICAMT, F2.AVG_ICAMT, F3.AVG_ICAMT) AS INCOME /*평균소득*/
+		, CASE WHEN  H.주부 = 1 THEN COALESCE(D.HMKR_CRDVL_AVG_POCT, D1.HMKR_CRDVL_AVG_POCT, F.HMKR_CRDVL_AVG_POCT, F1.HMKR_CRDVL_AVG_POCT, D2.HMKR_CRDVL_AVG_POCT, D3.HMKR_CRDVL_AVG_POCT, F2.HMKR_CRDVL_AVG_POCT, F3.HMKR_CRDVL_AVG_POCT)
+			   WHEN H.학생 = 1 THEN COALESCE(D.STT_CRDVL_AVG_POCT, D1.STT_CRDVL_AVG_POCT, F.STT_CRDVL_AVG_POCT, F1.STT_CRDVL_AVG_POCT, D2.STT_CRDVL_AVG_POCT, D3.STT_CRDVL_AVG_POCT, F2.STT_CRDVL_AVG_POCT, F3.STT_CRDVL_AVG_POCT)
+			   WHEN H.무직 = 1 THEN COALESCE(D.OTJOB_CRDVL_AVG_POCT, D1.OTJOB_CRDVL_AVG_POCT, F.OTJOB_CRDVL_AVG_POCT, F1.OTJOB_CRDVL_AVG_POCT, D2.OTJOB_CRDVL_AVG_POCT, D3.OTJOB_CRDVL_AVG_POCT, F2.OTJOB_CRDVL_AVG_POCT, F3.OTJOB_CRDVL_AVG_POCT)
+			   WHEN H.전문직 = 1 THEN COALESCE(D.SPJOB_CRDVL_AVG_POCT, D1.SPJOB_CRDVL_AVG_POCT, F.SPJOB_CRDVL_AVG_POCT, F1.SPJOB_CRDVL_AVG_POCT, D2.SPJOB_CRDVL_AVG_POCT, D3.SPJOB_CRDVL_AVG_POCT, F2.SPJOB_CRDVL_AVG_POCT, F3.SPJOB_CRDVL_AVG_POCT)
+		       WHEN H.법인대표 = 1 THEN  COALESCE(D.CRP_PRS_CRDVL_AVG_POCT, D1.CRP_PRS_CRDVL_AVG_POCT, F.CRP_PRS_CRDVL_AVG_POCT, F1.CRP_PRS_CRDVL_AVG_POCT, D2.CRP_PRS_CRDVL_AVG_POCT, D3.CRP_PRS_CRDVL_AVG_POCT, F2.CRP_PRS_CRDVL_AVG_POCT, F3.CRP_PRS_CRDVL_AVG_POCT)
+		       WHEN H.자영업 = 1 THEN  COALESCE(D.SFEMP_CRDVL_AVG_POCT, D1.SFEMP_CRDVL_AVG_POCT, F.SFEMP_CRDVL_AVG_POCT, F1.SFEMP_CRDVL_AVG_POCT, D2.SFEMP_CRDVL_AVG_POCT, D3.SFEMP_CRDVL_AVG_POCT, F2.SFEMP_CRDVL_AVG_POCT, F3.SFEMP_CRDVL_AVG_POCT)
+		       ELSE NULL END AS CREDIT_SEG /*평균신용점수(NICE) - 직업별*/  	
+		, COALESCE(D.AVG_CRD_VLPOC, D1.AVG_CRD_VLPOC, F.AVG_CRD_VLPOC, F1.AVG_CRD_VLPOC, D2.AVG_CRD_VLPOC, D3.AVG_CRD_VLPOC, F2.AVG_CRD_VLPOC, F3.AVG_CRD_VLPOC) AS CREDIT /*평균신용점수(NICE)*/
+	FROM SDADAM.DATABIZ_FUTVAL_CUS_ADD_PRED B
+    LEFT OUTER JOIN CUS_PSTNO_BAADR_SCT_ID C        /* 우편번호 ID별 250M격자 매칭값 */ 
+    ON B.PSTNO_ID = C.PSTNO_ID
+    LEFT OUTER JOIN M_CRM_IC_CRD_GRID_ST_STS D   /* 250M격자 기준 개인 단위 통계 */ 
+    ON 0=0
+        AND C.BAADR_SCT_ID = D.TOT_UNT_GRID_NM
+        AND B.CTM_SEX = D.SEXCD
+        AND B.AGE_CD = D.AGGB_NM 
+        AND D.ST_YYMM = '202312'
+    LEFT OUTER JOIN M_CRM_IC_CRD_GRID_ST_STS D1   /*  250M격자 기준 개인 단위 통계 - 성별ALL */
+    ON 0=0
+        AND C.BAADR_SCT_ID = D1.TOT_UNT_GRID_NM
+        AND D1.SEXCD = 'ALL'
+        AND B.AGE_CD = D1.AGGB_NM 
+        AND D1.ST_YYMM = '202312'
+    LEFT OUTER JOIN M_CRM_IC_CRD_GRID_ST_STS D2   /*  250M격자 기준 개인 단위 통계 - 연령ALL */ 
+    ON 0=0
+        AND C.BAADR_SCT_ID = D2.TOT_UNT_GRID_NM
+        AND B.CTM_SEX = D2.SEXCD
+        AND D2.AGGB_NM = 'ALL' 
+        AND D2.ST_YYMM = '202312'
+    LEFT OUTER JOIN M_CRM_IC_CRD_GRID_ST_STS D3   /*  250M격자 기준 개인 단위 통계 - 성별ALL, 연령ALL */ 
+    ON 0=0
+        AND C.BAADR_SCT_ID = D3.TOT_UNT_GRID_NM
+        AND D3.SEXCD = 'ALL'
+        AND D3.AGGB_NM = 'ALL'
+        AND D3.ST_YYMM = '202312'
+    ---
+    LEFT OUTER JOIN M_CRM_IC_CRD_PSTNO_ST_STS F /* 우편번호 기준 개인 단위 통계 */ 
+    ON 0=0
+        AND B.PSTNO = F.TOT_UNT_PSTNO
+        AND B.CTM_SEX = F.SEXCD
+        AND B.AGE_CD = F.AGGB_NM
+        AND F.ST_YYMM = '202312'
+    LEFT OUTER JOIN M_CRM_IC_CRD_PSTNO_ST_STS F1 /*  우편번호 기준 개인 단위 통계 - 성별ALL */ 
+    ON 0=0
+        AND B.PSTNO = F1.TOT_UNT_PSTNO
+        AND F1.SEXCD = 'ALL'
+        AND B.AGE_CD = F1.AGGB_NM 
+        AND F1.ST_YYMM = '202312'
+    LEFT OUTER JOIN M_CRM_IC_CRD_PSTNO_ST_STS F2 /*  우편번호 기준 개인 단위 통계 - 연령ALL */ 
+    ON 0=0
+        AND B.PSTNO = F2.TOT_UNT_PSTNO
+        AND B.CTM_SEX = F2.SEXCD
+        AND F2.AGGB_NM = 'ALL'
+        AND F2.ST_YYMM = '202312'
+    LEFT OUTER JOIN M_CRM_IC_CRD_PSTNO_ST_STS F3 /*  우편번호 기준 개인 단위 통계 - 성별ALL, 연령ALL */ 
+    ON 0=0
+        AND B.PSTNO = F3.TOT_UNT_PSTNO
+        AND F3.SEXCD = 'ALL'
+        AND F3.AGGB_NM = 'ALL'
+        AND F3.ST_YYMM = '202312' 
+	LEFT OUTER JOIN (
+		SELECT 
+			CASE WHEN (
+	            REGEXP_LIKE(A.JBNM, '판사|검사|변호사|법무사|변리사|노무사|회계사|세무사|감정평가사|관세사|의사|치과의사|수의사|한의사|약사|행정사|손해사정사|건축사|도선사|조종사|계리|교수|관제사')
+	            OR
+	            REGEXP_LIKE(A.JBNM, '전문 간호|항해사|선박 기관사|선장|고위|임원|경무관 이상|소방감 이상|금융 상품|자산|외환 딜러|소프트웨어|프로그래머|데이터|프로그래머|감독|장학관')
+	            )
+	        AND NOT REGEXP_LIKE(A.JBNM, '장의사|스포츠|건설|코치|검사원|검사공|검사기사|사육|판매|사무원|종사원|의료인|공무원|보조원|현장기술|감독자|제조|공급|사무및감독|경비원')	
+			THEN 1 ELSE 0 END AS 전문직
+			, CASE WHEN JBNM LIKE '%대표%'
+				  AND JBCD LIKE '1%' THEN 1 /* 대표이사 */
+				WHEN JBNM LIKE '%임원%' THEN 1
+			    WHEN JBNM LIKE '%경영 및 진단 전문가%' THEN 1
+			    WHEN JBNM LIKE '%경영인%' THEN 1
+			    WHEN JBNM LIKE '%경영부서관리자%' THEN 1
+				ELSE 0 END AS 법인대표 
+			, CASE WHEN  JBNM LIKE '%자영업자%'      THEN 1
+					 WHEN JBNM LIKE '%경영자%' 	      THEN 1
+
+					 WHEN JBNM LIKE '%운영%'		  
+					     AND JBNM NOT LIKE '%시스템%'
+					     AND JBNM NOT LIKE '%전산%'
+					     AND JBNM NOT LIKE '%정보%'
+					     AND JBNM NOT LIKE '%기술%'
+					     AND JBNM NOT LIKE '%연구%'
+					     AND JBNM NOT LIKE '%사무%'
+					 THEN 1
+					 WHEN JBNM LIKE '%소매%'		  THEN 1
+					 WHEN JBNM LIKE '%음식%'		  
+					    AND JBNM LIKE '%서비스%' THEN 1
+					 WHEN JBNM  LIKE '%조리%'		   
+					  AND JBNM NOT LIKE '%산후%'  
+					  AND JBNM NOT LIKE '%열차%'
+					  AND JBNM NOT LIKE '%선박%'
+					  AND JBNM NOT LIKE '%호텔%'
+					  AND JBNM NOT LIKE '%병원%' 				THEN 1
+					 WHEN JBNM  LIKE '%피부%'	    			THEN 1
+					 WHEN JBNM  LIKE '%커피%'	    			THEN 1
+					 WHEN JBNM LIKE '%식당 종사원%' 			THEN 1
+					 WHEN JBNM  LIKE '%주방장%'	    			THEN 1
+					 WHEN JBNM  LIKE '%미용사%'	    			THEN 1
+					 WHEN JBNM  LIKE '%매장 계산원%'	        THEN 1
+					 WHEN JBNM  LIKE '%음료서비스원%'	        THEN 1
+					 WHEN JBNM  LIKE '%노래방%'	    			THEN 1
+					 WHEN JBNM  LIKE '%자동차 경정비원%'	    THEN 1
+					 WHEN JBNM  LIKE '%부동산 컨설턴트%'	    THEN 1
+					 ELSE 0 END AS 자영업
+			, CASE WHEN JBNM LIKE '%주부%' THEN 1 ELSE 0 END AS 주부
+			, CASE WHEN JBNM LIKE '%학생%' THEN 1 ELSE 0 END AS 학생
+			, CASE WHEN JBNM LIKE '%무직%' AND JBNM NOT LIKE '%사무직%' THEN 1 ELSE 0 END AS 무직
+			, A.*
+		FROM CUS_JB A
+		WHERE 1=1
+		AND LENGTH(JBCD) > 4
+	) H
+	ON 1=1 
+	AND H.JBCD = B.JBCD
+	AND H.JB_CH_SEQNO = B.JB_CH_SEQNO
+);
+
+DROP TABLE DATABIZ_FUTVAL_CUS_INFO_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_CUS_INFO_PRED AS 
+SELECT 
+	A.*
+	, MONTHS_BETWEEN(F_LAST_DAY(B.CLS_YYMM),HOME_ADR_CHDT)  HOME_ADR_CHDT
+	, MONTHS_BETWEEN(F_LAST_DAY(B.CLS_YYMM),LATS_CR_CC_AGMDT)  LATS_CR_CC_AGMDT -- 계약체결동의일자
+	, MONTHS_BETWEEN(F_LAST_DAY(B.CLS_YYMM),MKTG_COLUS_UTAGR_STRDT) MKTG_COLUS_UTAGR_STRDT -- 마동시작일자
+	, MONTHS_BETWEEN(F_LAST_DAY(B.CLS_YYMM),MKTG_THRPS_UTAGR_STRDT)  MKTG_THRPS_UTAGR_STRDT-- 마케팅활용동의시작일자
+	, MONTHS_BETWEEN(F_LAST_DAY(B.CLS_YYMM),LATS_CRNTC_MAIL_RCVDT) LATS_CRNTC_MAIL_RCVDT  -- 계약안내이메일수신일자
+	
+FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED A
+LEFT JOIN M_CRM_MTHY_PSN_CTM_INFO B
+ON 0=0
+	AND A.CTMNO = B.CTMNO
+	AND A.CLS_YYMM = B.CLS_YYMM
+;
+
+	
+DROP TABLE DATABIZ_FUTVAL_CR_CHNL_PRED;
+CREATE TABLE DATABIZ_FUTVAL_CR_CHNL_PRED AS 
+SELECT 
+	*
+FROM 
+(SELECT 
+	A.CLS_YYMM
+	,C.CTMNO
+	,A.CHNL
+	,COUNT(DISTINCT A.PLYNO) PLYNO_CNT
+FROM
+(SELECT * FROM SDADAM.DATABIZ_FUTVAL_ALL_CR_TEMP_PRED
+WHERE IKD_GRPCD = 'LA') A
+INNER JOIN INS_CR_RELPC C
+ON 0=0
+  	AND A.PLYNO = C.PLYNO
+  	AND C.NDS_AP_STR_DTHMS <= F_LAST_DAY(A.CLS_YYMM)
+  	AND C.NDS_AP_ND_DTHMS > F_LAST_DAY(A.CLS_YYMM)
+  	AND C.RELPC_TPCD IN ('02') /*관계자유형 = 계약자, 피보험자*/
+  	AND C.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+  	AND C.RELPC_DSCNO_FLGCD IN ('01', '05') -- 개인고객(법인고객 제외)
+GROUP BY A.CLS_YYMM , C.CTMNO,A.CHNL) 
+PIVOT
+(
+	MAX(PLYNO_CNT)
+	FOR CHNL IN ('11' AS 전속,'12' AS 교차,'20' AS GA,'31' AS TM,'32' AS CM,'40' AS 방카,'50' AS 기업,'61' AS LIFEWITH,'62' AS 본사기타)
+) P;
+	
+	
+	
+DROP TABLE DATABIZ_FUTVAL_CR_CRR_PRED;
+CREATE TABLE DATABIZ_FUTVAL_CR_CRR_PRED AS
+SELECT 
+  CLS_YYMM
+  , CTMNO
+  , DH_STFNO
+  , MAX(INS_ST) AS MX_INS
+  , COUNT(DISTINCT CASE WHEN CR_STCD NOT IN ('00' , '12') THEN PLYNO ELSE NULL END) AS CCL_CR_CNT
+FROM 
+  (
+  SELECT 
+  	T.CLS_YYMM
+  	, C.CTMNO
+  	, A.PLYNO
+  	, A.INS_ST
+  	, D1.DH_STFNO 
+  	, CR_STCD
+  FROM DATABIZ_FUTVAL_YYMM_PRED T  
+  INNER JOIN INS_INS_CR A
+  ON 0=0
+  	AND A.AP_STRDT <= T.CLS_NDDT_TS
+  	AND A.AP_NDDT > T.CLS_NDDT_TS
+  	AND A.INS_CLSTR > T.CLS_NDDT_TS
+  	AND A.INS_ST <= T.CLS_NDDT_TS
+  	AND IKD_GRPCD = 'LA'
+  INNER JOIN INS_CR_ST_CRR B
+  ON 0=0
+  	AND A.PLYNO = B.PLYNO
+  	AND B.NDS_AP_STR_DTHMS <= T.CLS_NDDT_TS
+  	AND B.NDS_AP_ND_DTHMS > T.CLS_NDDT_TS
+  INNER JOIN INS_CR_RELPC C
+  ON 0=0
+  	AND A.PLYNO = C.PLYNO
+  	AND C.NDS_AP_STR_DTHMS <= T.CLS_NDDT_TS
+  	AND C.NDS_AP_ND_DTHMS > T.CLS_NDDT_TS
+  	AND C.RELPC_TPCD IN ('02') /*관계자유형 = 계약자, 피보험자*/
+  	AND C.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+  	AND C.RELPC_DSCNO_FLGCD IN ('01', '05') -- 개인고객(법인고객 제외)
+  LEFT JOIN INS_CR_DH_STF_CRR D1
+	ON 0=0
+		AND A.PLYNO = D1.PLYNO
+		AND D1.NDS_AP_STR_DTHMS <= T.CLS_NDDT_TS
+		AND D1.NDS_AP_ND_DTHMS > T.CLS_NDDT_TS
+		AND D1.DH_STF_TPCD = '01'
+		AND D1.PRS_DH_STF_YN = '1'  
+  WHERE EXISTS (SELECT 1 FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED D WHERE D.CTMNO = C.CTMNO)
+)
+GROUP BY 
+  CLS_YYMM
+  , CTMNO
+  , DH_STFNO
+;
+
+DROP TABLE DATABIZ_FUTVAL_PL_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_PL_PRED  AS (	
+SELECT *
+FROM
+(SELECT DISTINCT
+	AA.CLS_YYMM --설계년월
+	, AA.PLNO --설계번호
+	, AA.PLDT --설계일자
+	, AA.PL_STCD --설계상태코드
+	, AA.PL_ST_CHDT -- 설계상태변경일자
+	, AA.DH_STFNO AS CE_STFNO-- 취급직원번호
+	, AA.USRNO AS CE_USRNO
+	, BB.CTMNO -- 고개번호
+	, BB.RELPC_TPCD -- 관계자유형코드
+	, AA.PLNM
+	, AA.GD_TYPE
+	, AA.PL_FIN_CD
+  , ROW_NUMBER() OVER (PARTITION BY AA.CLS_YYMM,AA.PLNO ORDER BY AA.PLDT DESC) AS RN
+FROM (
+	SELECT
+		T.CLS_YYMM AS CLS_YYMM --설계년월
+		, A.PLNO --설계번호
+		, A.PLDT --설계일자
+		, A.CGAF_CH_SEQNO -- 발행후변경순번
+		, A.PL_STCD -- 설계상태코드
+		, A.PL_ST_CHDT -- 설계상태변경일자
+		, B.DH_STFNO -- 취급직원번호
+		, B.USRNO
+		, C.PLNM
+		, CASE WHEN E.GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+           WHEN E.GDNM LIKE '%더건강 더실속%' OR E.MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+           WHEN E.GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+      	   WHEN E.MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+      	   WHEN E.MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+      	   WHEN E.MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+      	   WHEN E.MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+      	   WHEN E.MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+      	   WHEN E.GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+           WHEN E.GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+      	   WHEN REGEXP_LIKE(E.GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+      	   WHEN E.MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+      	   ELSE 'ETC' END AS GD_TYPE
+       , CASE WHEN A.PL_STCD IN ('03','04','05','06','07','08','09') THEN 1 ELSE 0 END AS PL_FIN_CD  -- 설계완료여부
+	FROM DATABIZ_FUTVAL_YYMM_PRED T 
+	INNER JOIN INS_INS_PL A
+	  ON A.PLDT <= FIRST_DAY(T.CLS_YYMM)
+	LEFT OUTER JOIN INS_PL_DH_STF  B    				/* 설계취급자 */
+    ON   0=0
+		    AND A.PLNO = B.PLNO
+        AND A.CGAF_CH_SEQNO = B.CGAF_CH_SEQNO
+        AND B.DH_STF_TPCD = '01'                 			/* 모집직원 */
+        AND B.IKD_GRPCD = 'LA'
+	LEFT JOIN INS_GD_CE_PL C
+	ON 0=0
+		AND A.PLCD = C.PLCD
+		AND A.GDCD = C.GDCD
+	LEFT JOIN M_CRM_GD_CSF_INFO E
+	ON 0=0
+		AND A.GDCD = E.GDCD
+	WHERE 1=1
+		--AND A.PL_STCD IN ('03','04','05','06','07','08','09') -- '01':설계중 / '02' :단순설계 제외,  '03': 설계완료 ~ '09' : 수납완료
+		AND A.PL_FLGCD = '01' -- 설계구분 : "가입"설계
+		AND A.IKD_GRPCD = 'LA' -- 장기
+		AND A.VALD_PL_YN = '1' -- 유효설계
+) AA
+INNER JOIN INS_PL_RELPC BB
+ON 0=0
+	AND AA.PLNO = BB.PLNO
+	AND AA.CGAF_CH_SEQNO = BB.CGAF_CH_SEQNO
+	AND BB.IKD_GRPCD = 'LA'
+	AND BB.RELPC_TPCD IN ('01', '02') -- 계약자/피보험자
+WHERE BB.CTMNO IN (SELECT DISTINCT CTMNO FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED)
+)
+WHERE RN = 1)
+;
+
+DROP TABLE DATABIZ_FUTVAL_CLM_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_CLM_PRED AS
+SELECT
+  DISTINCT 
+	T.CLS_YYMM
+	,T.CLS_NDDT
+	,A.CTMNO
+	,CASE WHEN B.IKD_GRPCD IN ('FA','MA') THEN 'FAMA' ELSE B.IKD_GRPCD END AS IKD_GRPCD
+	,B.CLMDT
+	,SUM(B.WONCR_CV_PYAMT) AS PY_AMT
+FROM DATABIZ_FUTVAL_YYMM_PRED T
+INNER JOIN DATABIZ_FUTVAL_ALL_CUS_INFO_PRED A
+ON 0=0
+	AND T.CLS_YYMM = A.CLS_YYMM
+LEFT JOIN M_CMP_GN_CVRCL_PY_IBNF_LIST B
+ON 0=0
+	AND A.CTMNO = B.CLMPS_CTMNO
+WHERE 0=0
+	AND B.CLMDT BETWEEN F_LAST_DAY(F_PREV_MONTH(T.CLS_YYMM,'60')) AND FIRST_DAY(T.CLS_YYMM)
+GROUP BY
+	T.CLS_YYMM
+	,T.CLS_NDDT
+	,A.CTMNO
+	,CASE WHEN B.IKD_GRPCD IN ('FA','MA') THEN 'FAMA' ELSE B.IKD_GRPCD END 
+	,B.CLMDT
+
+UNION
+
+SELECT
+  DISTINCT 
+	CLS_YYMM
+	,CLS_NDDT
+	,CTMNO
+	,IKD_GRPCD
+	,CLMDT
+	,SUM(RPBL_PY_IBAMT) + SUM(OPTN_PY_IBAMT) AS PY_AMT
+FROM
+	(
+	SELECT DISTINCT
+		T.CLS_YYMM
+		,T.CLS_NDDT
+		,A.CTMNO
+		,'CA' AS IKD_GRPCD 
+		,C.CLMDT
+		,B.RPBL_PY_IBAMT
+		,B.OPTN_PY_IBAMT
+	FROM DATABIZ_FUTVAL_YYMM_PRED T
+	INNER JOIN DATABIZ_FUTVAL_ALL_CUS_INFO_PRED A
+	ON 0=0
+		AND T.CLS_YYMM = A.CLS_YYMM
+	LEFT JOIN M_CMP_CR_CLM_CRST B
+	ON 0=0
+		AND A.CTMNO = B.NRDPS_CTMNO
+	LEFT JOIN M_CMP_CR_CMP_CLM_CR C
+	ON 0=0
+		AND B.RCPDT = C.RCPDT
+		AND B.RCP_NV_SEQNO = C.RCP_NV_SEQNO
+	WHERE 0=0
+		AND C.CLMDT BETWEEN F_LAST_DAY(F_PREV_MONTH(T.CLS_YYMM,'60')) AND FIRST_DAY(T.CLS_YYMM)
+	) AA
+GROUP BY
+	CLS_YYMM
+	,CLS_NDDT
+	,CTMNO
+	,IKD_GRPCD
+	,CLMDT
+;
+
+
+DROP TABLE DATABIZ_FUTVAL_GNANL_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_GNANL_PRED AS
+SELECT
+  DISTINCT  
+  A1.*
+	, CASE WHEN B1.CTMNO IS NOT NULL THEN 1 ELSE 0 END AS GNANL_YN -- 보장분석 여부
+	, B1.GNANL_DT
+	, HOMEAPP_YN
+	, B1.STFNO AS GNANL_STFNO
+FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED A1
+LEFT JOIN
+	(
+	SELECT 
+	    T.CLS_YYMM
+		  , A.GNANL_NO
+	    , B.SND_SRV_SEQNO
+	    , A.GNANL_DT
+	    , A.STFNO
+	    , B.CTMNO
+	    , B.SND_SRV_TPCD
+	    , CASE WHEN A.STFNO IN ('8909504','8914327') THEN 1 ELSE 0 END AS HOMEAPP_YN
+	FROM DATABIZ_FUTVAL_YYMM_PRED T
+	INNER JOIN SFA_GNANL_BA A
+	ON 0=0
+	  AND A.GNANL_DT <= FIRST_DAY(T.CLS_YYMM)
+	LEFT JOIN SFA_GNANL_SND_SRV_LOG B
+	ON 0=0
+		AND A.GNANL_NO = B.GNANL_NO
+	WHERE 0=0 
+		AND A.GNANL_PL_TPCD = '10' -- 보장분석 PRO  20: EASY
+	  AND A.ERS_YN = '0'         -- 삭제여부 N 
+	) B1
+ON 0=0
+	AND A1.CTMNO = B1.CTMNO
+;
+
+
+
+
+DROP TABLE DATABIZ_FUTVAL_CR_NRD_INFO_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_CR_NRD_INFO_PRED AS
+  SELECT 
+  	A.CLS_YYMM
+  	, A.CRT_CTMNO
+  	, COUNT(DISTINCT B.CTMNO) AS NRD_CNT
+  	, MAX(CASE WHEN 
+  		CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(a.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12) 
+  				  ELSE NULL
+  				  END < 20
+  		THEN 1
+  		ELSE 0 END) KIDS_YN 
+  FROM 
+    (
+      SELECT 
+        DISTINCT 
+          CRT_CTMNO
+          ,PLYNO
+          ,CLS_YYMM
+      FROM 
+      DATABIZ_FUTVAL_ALL_CR_TEMP_PRED
+      WHERE IKD_GRPCD = 'LA'
+      ) A
+  INNER JOIN INS_CR_RELPC B
+  ON 0=0
+  	AND A.PLYNO = B.PLYNO
+  	AND B.AP_STRDT <= F_LAST_DAY(A.CLS_YYMM)
+  	AND B.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+  	AND B.RELPC_TPCD IN ('02')
+  GROUP BY 
+  	A.CLS_YYMM
+  	, A.CRT_CTMNO
+  	;
+
+
+
+DROP TABLE DATABIZ_FUTVAL_CR_GD_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_CR_GD_PRED AS
+SELECT 
+  *
+FROM
+  (SELECT 
+    CLS_YYMM
+    ,CRT_CTMNO
+    ,GD_TYPE
+    ,COUNT(DISTINCT PLYNO) AS PLY_CNT
+  FROM
+    (
+      SELECT 
+        A.*
+        , CASE WHEN GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+              WHEN GDNM LIKE '%더건강 더실속%' OR MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+              WHEN GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+      	      WHEN MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+      	      WHEN MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+      	      WHEN MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+      	      WHEN MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+      	      WHEN MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+      	      WHEN GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+              WHEN GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+      	      WHEN REGEXP_LIKE(GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+      	      WHEN MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+      	   	  ELSE 'ETC' END AS GD_TYPE 
+      FROM DATABIZ_FUTVAL_ALL_CR_TEMP_PRED A)
+  GROUP BY 
+    CLS_YYMM
+    ,CRT_CTMNO
+    ,GD_TYPE)
+  PIVOT
+  (
+  	MAX(PLY_CNT)
+  	FOR GD_TYPE IN ('L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,'SAFE' AS SAFE , 'SS' AS SS, '유병자'  AS 유병자,'L11' AS L11,'L123' AS L123)
+  ) P ;
+
+DROP TABLE DATABIZ_FUTVAL_STF_ADD_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_STF_ADD_PRED AS
+SELECT 
+  DISTINCT 
+	A.CTMNO
+	,B.STFNO
+FROM
+  (
+  SELECT 
+    A.*
+    ,B.CTM_DSCNO 
+  FROM CUS_CTM_ADR_CRR A
+  LEFT JOIN CUS_CTM B ON A.CTMNO = B.CTMNO
+  WHERE 1=1
+  	AND AP_ND_DTHMS > = SYSDATE -- 시점
+  	AND AP_STR_DTHMS < SYSDATE  -- 시점
+  	AND ADR_FLGCD = '100'
+	) A
+LEFT JOIN 
+  (
+  SELECT 
+    A.*
+    ,B.RSNO 
+  FROM SAM_STF_ADDR A
+  LEFT JOIN SAM_STF B ON A.STFNO = B.STFNO
+  WHERE 1=1
+  	AND VALD_NDDT > = SYSDATE -- 시점
+  	AND VALD_STRDT < SYSDATE  -- 시점
+  	AND ADR_FLGCD = '100'
+  	) B
+ON 0=0
+	AND A.CTM_DSCNO != B.RSNO
+	AND A.DTADR = B.DTADR
+	AND A.SD||' '||A.SGNG = B.SD||' '||B.SGNG
+	AND NVL(A.RI_OR_LRDLP,'X') = NVL(B.RI_OR_LRDLP,'X')
+	AND NVL(A.TWMD,'X') = NVL(B.TWMD,'X')
+	AND A.PSTNO = B.PSTNO
+WHERE B.STFNO IS NOT NULL;
+
+DROP TABLE DATABIZ_FUTVAL_STF_CR_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_STF_CR_PRED AS
+SELECT
+	A.*
+	,CASE WHEN B.RELPC_RELCD IN ('02','03','04','05','06','07','08','09','10','14','15','16','36','40') THEN 'Y' ELSE 'N' END AS 가족계약여부
+	,B.DTCNM AS 관계
+FROM
+(SELECT 				           -- 모집자 본인이 계약자,피보험자인 계약
+	DISTINCT
+	B.CLS_YYMM
+	,A.PLYNO
+	,B.RSNO
+	,B.STFNO
+	,A.CTMNO
+FROM INS_CR_RELPC A
+INNER JOIN 
+(
+SELECT 
+	B.CLS_YYMM
+	, STFNO
+	, RSNO
+FROM DATABIZ_FUTVAL_YYMM_PRED T
+INNER JOIN M_ORG_MTHY_BZ_ORGN B
+ON 0=0
+	AND T.CLS_YYMM = B.CLS_YYMM
+WHERE STF_BZ_STCD ='01') B
+ON 0=0
+	AND A.RELPC_TPCD IN ('01','02') -- 계약자,피보험자가 모집자인 경우만!
+	AND A.CTM_DSCNO = B.RSNO
+	AND A.NDS_AP_ND_DTHMS > F_LAST_DAY(B.CLS_YYMM)
+	AND A.NDS_AP_STR_DTHMS <= F_LAST_DAY(B.CLS_YYMM)
+	AND A.IKD_GRPCD = 'LA') A
+	
+LEFT JOIN
+	
+(
+	SELECT
+		A.*
+		,B.DTCNM
+	FROM
+		INS_CR_RELPC_REL A                  -- 피보험자와 계약자사 관계 T
+	LEFT JOIN
+		RELCD B                             --관계이름 T
+	ON A.RELPC_RELCD = B.RELCD
+	) B
+
+ON 0=0
+	AND A.PLYNO = B.PLYNO
+	AND B.CNFT_RELPC_TPCD ='01' -- 계약자와
+	AND B.ST_RELPC_TPCD = '02'  -- 피보험자의 관계만 따지기
+	AND B.NDS_AP_ND_DTHMS > F_LAST_DAY(A.CLS_YYMM)
+	AND B.NDS_AP_STR_DTHMS <= F_LAST_DAY(A.CLS_YYMM)
+;
+
+
+DROP TABLE DATABIZ_FUTVAL_CUSACT_ISPL_AGRE_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_CUSACT_ISPL_AGRE_PRED AS
+SELECT DISTINCT
+	A1.CLS_YYMM
+	, A1.AGRE_ADMNO
+	, A1.DH_STFNO
+	, C1.CTMNO
+	, A1.AGRE_STRDT
+	, A1.AGRE_NDDT
+	, CASE WHEN A1.CNT >= 4 AND A1.AGRE_STRDT <= F_LAST_DAY(A1.CLS_YYMM) AND A1.AGRE_NDDT >  F_LAST_DAY(A1.CLS_YYMM) THEN 1 ELSE 0 END AS ISPL_AGRE_YN
+FROM (
+	SELECT 
+	   T.CLS_YYMM
+	  , AGRE_ADMNO
+	  , DH_STFNO 
+	  , CTM_DSCNO
+      , MAX(AGRE_STRDT) AS AGRE_STRDT
+      , MAX(AGRE_NDDT) AS AGRE_NDDT
+      , SUM(1) AS CNT
+    FROM DATABIZ_FUTVAL_YYMM_PRED T 
+    INNER JOIN INS_CRDIF_INQ_AGR_ADM A
+    ON 0=0	
+    	AND A.AP_STR_DTHMS <= F_LAST_DAY(T.CLS_YYMM)
+    WHERE 1=1
+    	AND CRDIF_INQ_AGRE_YN = '1'
+	    AND WRCS_KNDCD IN ('02','03','05','06') /* 02:수집이용, 03:조회제공, 04:제공, 05: 민감정보 */
+		AND CRDIF_INQ_AGRE_MTDCD IN ('02','13')  /* LMS + 카드 */
+		AND CRDIF_INQ_AGRE_MTDCD    IN ('01','02','03','07','13','14','17','18','19')              /*신용정보조회동의방법코드:스캔(개인),휴대폰(LMS),넷팩스(개인),스캔(변경,단체),넷팩스(변경,단체),카드인증*/
+		AND AP_ND_DTHMS           = TO_DATE('99991231', 'YYYYMMDD')
+	GROUP BY
+	  T.CLS_YYMM
+	  , AGRE_ADMNO
+	  , DH_STFNO 
+	  , CTM_DSCNO
+) A1
+INNER JOIN INS_CRDIF_INQ_AGR_ADM B1
+ON 0=0
+	AND A1.AGRE_ADMNO = B1.AGRE_ADMNO
+	AND B1.WRCS_KNDCD = '06'
+	AND (CASE WHEN B1.CRDIF_INQ_AGRE_MTDCD     IN ('01','07','11','12') AND B1.RCGNT_STCD = '01' THEN '1'    /* 신용정보조회동의방법코드  = 01.스캔(개인), 07.넷팩스(개인), 11.스캔(변경,단체), 13.넷팩스(변경,단체) & 인식상태코드 = 01.정상 */
+            WHEN B1.CRDIF_INQ_AGRE_MTDCD NOT IN ('01','07','11','12')                          THEN '1'    /* 신용정보조회동의방법코드 <> 01.스캔(개인), 07.넷팩스(개인), 11.스캔(변경,단체), 13.넷팩스(변경,단체) */
+            END) = '1'
+INNER JOIN CUS_CTM C1
+ON 0=0
+	AND A1.CTM_DSCNO = C1.CTM_DSCNO
+WHERE 1=1
+	AND EXISTS (SELECT 1 FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED B WHERE C1.CTMNO = B.CTMNO AND A1.CLS_YYMM = B.CLS_YYMM)
+;
+
+
+
+
+
+
+
+DROP TABLE DATABIZ_FUTVAL_MAIN_PRED PURGE;
+CREATE TABLE DATABIZ_FUTVAL_MAIN_PRED AS
+SELECT 
+  DISTINCT
+    A.CLS_YYMM
+  , A.CTMNO
+  , A.DH_STFNO
+  , B17.CTM_DSCNO
+  , CASE WHEN A.CTM_AGE >= 70 THEN 70
+    		WHEN A.CTM_AGE >= 60 THEN 60
+    		WHEN A.CTM_AGE >= 50 THEN 50
+    		WHEN A.CTM_AGE >= 40 THEN 40
+    		WHEN A.CTM_AGE >= 30 THEN 30
+    		WHEN A.CTM_AGE >= 20 THEN 20
+    		WHEN A.CTM_AGE < 20 THEN 10
+    		ELSE NULL END AS AGE_SEG
+  , A.CTM_SEX
+  , A.CA_YN
+  , A.FAMA_YN
+  , NVL(SUBSTR(B1.JBCD,1,1),'N') AS JBCD
+  , NVL(TRUNC(B2.INCOME/1000,0) * 1000,0) AS INCOME
+  , CASE WHEN B3.HOME_ADR_CHDT >= 60 THEN '5년이상'
+        WHEN B3.HOME_ADR_CHDT >= 48 THEN '4년이상'
+        WHEN B3.HOME_ADR_CHDT >= 36 THEN '3년이상'
+        WHEN B3.HOME_ADR_CHDT >= 24 THEN '2년이상'
+        WHEN B3.HOME_ADR_CHDT >= 12 THEN '1년이상'
+        WHEN B3.HOME_ADR_CHDT < 12 THEN '1년미만'
+        WHEN B3.HOME_ADR_CHDT IS NULL THEN '이력없음'
+        END AS HOME_ADR_CHDT
+  , CASE WHEN B3.LATS_CR_CC_AGMDT >= 60 THEN '5년이상'
+        WHEN B3.LATS_CR_CC_AGMDT >= 48 THEN '4년이상'
+        WHEN B3.LATS_CR_CC_AGMDT >= 36 THEN '3년이상'
+        WHEN B3.LATS_CR_CC_AGMDT >= 24 THEN '2년이상'
+        WHEN B3.LATS_CR_CC_AGMDT >= 12 THEN '1년이상'
+        WHEN B3.LATS_CR_CC_AGMDT < 12 THEN '1년미만'
+        WHEN B3.LATS_CR_CC_AGMDT IS NULL THEN '이력없음'
+        END AS LATS_CR_CC_AGMDT
+  , CASE WHEN B3.MKTG_THRPS_UTAGR_STRDT >= 60 THEN '5년이상'
+        WHEN B3.MKTG_THRPS_UTAGR_STRDT >= 48 THEN '4년이상'
+        WHEN B3.MKTG_THRPS_UTAGR_STRDT >= 36 THEN '3년이상'
+        WHEN B3.MKTG_THRPS_UTAGR_STRDT >= 24 THEN '2년이상'
+        WHEN B3.MKTG_THRPS_UTAGR_STRDT >= 12 THEN '1년이상'
+        WHEN B3.MKTG_THRPS_UTAGR_STRDT < 12 THEN '1년미만'
+        WHEN B3.MKTG_THRPS_UTAGR_STRDT IS NULL THEN '이력없음'
+        END AS MKTG_THRPS_UTAGR_STRDT
+  , CASE WHEN B3.LATS_CRNTC_MAIL_RCVDT >= 60 THEN '5년이상'
+        WHEN B3.LATS_CRNTC_MAIL_RCVDT >= 48 THEN '4년이상'
+        WHEN B3.LATS_CRNTC_MAIL_RCVDT >= 36 THEN '3년이상'
+        WHEN B3.LATS_CRNTC_MAIL_RCVDT >= 24 THEN '2년이상'
+        WHEN B3.LATS_CRNTC_MAIL_RCVDT >= 12 THEN '1년이상'
+        WHEN B3.LATS_CRNTC_MAIL_RCVDT < 12 THEN '1년미만'
+        WHEN B3.LATS_CRNTC_MAIL_RCVDT IS NULL THEN '이력없음'
+        END AS LATS_CRNTC_MAIL_RCVDT
+	, NVL(B4.전속,0) 전속
+	, NVL(B4.교차,0) 교차
+	, NVL(B4.GA,0) GA
+	, NVL(B4.TM,0) + NVL(B4.CM,0) AS 다이렉트
+	, NVL(B4.방카,0) + NVL(B4.기업,0) + NVL(B4.LIFEWITH,0) + NVL(B4.본사기타,0) AS 기타
+  , CASE WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) >= 60 THEN '5년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) >= 48 THEN '4년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) >= 36 THEN '3년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) >= 24 THEN '2년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) >= 12 THEN '1년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) < 12 THEN '1년미만'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B5.MX_INS),0) IS NULL THEN '이력없음'
+        END AS MX_INS
+	, NVL(B5.CCL_CR_CNT,0) CCL_CR_CNT
+	, NVL(B6.NRD_CNT,0) NRD_CNT
+	, NVL(B6.KIDS_YN,0) KIDS_YN
+  , CASE WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) >= 60 THEN '5년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) >= 48 THEN '4년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) >= 36 THEN '3년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) >= 24 THEN '2년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) >= 12 THEN '1년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) < 12 THEN '1년미만'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B8.MX_PLDT),0) IS NULL THEN '이력없음'
+        END AS MX_PLDT	
+  , CASE WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) >= 60 THEN '5년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) >= 48 THEN '4년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) >= 36 THEN '3년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) >= 24 THEN '2년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) >= 12 THEN '1년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) < 12 THEN '1년미만'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B9.MX_CLMDT),0) IS NULL THEN '이력없음'
+        END AS MX_CLMDT	
+  , CASE WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) >= 60 THEN '5년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) >= 48 THEN '4년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) >= 36 THEN '3년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) >= 24 THEN '2년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) >= 12 THEN '1년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) < 12 THEN '1년미만'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B10.MX_GNANL),0) IS NULL THEN '이력없음'
+        END AS MX_GNANL	
+	, CASE WHEN B11.CTMNO IS NOT NULL THEN 1 ELSE 0 END AS SAME_ADD_YN
+	, CASE WHEN B12.CTMNO IS NOT NULL THEN 1 ELSE 0 END AS FMY_CR_YN
+	, CASE WHEN B13.CTMNO IS NOT NULL THEN 1 ELSE 0 END AS OTHER_CHNL_YN
+	, CASE WHEN B15.PSS_CTM_CVDT IS NOT NULL THEN 1 ELSE 0 END AS PSS_CTM_YN
+  , CASE WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) >= 60 THEN '5년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) >= 48 THEN '4년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) >= 36 THEN '3년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) >= 24 THEN '2년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) >= 12 THEN '1년이상'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) < 12 THEN '1년미만'
+        WHEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), CASE WHEN TO_CHAR(B15.INP_DTHMS,'YYYY') = '0001' THEN B15.MDF_DTHMS ELSE B15.INP_DTHMS END ),0) IS NULL THEN '이력없음'
+        END AS CUS_INP_DT		
+  , CASE WHEN B16.ISPL_AGRE_YN = 1 THEN '동의'
+        WHEN B16.ISPL_AGRE_YN = 0 AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B16.AGRE_NDDT),0) >= 60 THEN '5년이상'
+        WHEN B16.ISPL_AGRE_YN = 0 AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B16.AGRE_NDDT),0) >= 48 THEN '4년이상'
+        WHEN B16.ISPL_AGRE_YN = 0 AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B16.AGRE_NDDT),0) >= 36 THEN '3년이상'
+        WHEN B16.ISPL_AGRE_YN = 0 AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B16.AGRE_NDDT),0) >= 24 THEN '2년이상'
+        WHEN B16.ISPL_AGRE_YN = 0 AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B16.AGRE_NDDT),0) >= 12 THEN '1년이상'
+        WHEN B16.ISPL_AGRE_YN = 0 AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),B16.AGRE_NDDT),0) < 12 THEN '1년미만'
+        ELSE '동의이력없음'
+        END AS ISPL_AGRE	
+	, NVL(PRM,0) PRM
+  , NVL(B7.L01,0) L01
+  , NVL(B7.L03,0) L03
+  , NVL(B7.L04,0) L04
+  , NVL(B7.L06,0)  L06
+  , NVL(B7.L08,0) L08
+  , NVL(B7.SAFE,0) SAFE
+  , NVL(B7.SS,0) SS
+  , NVL(B7.유병자,0) 유병자
+  , NVL(B7.L11,0) L11
+  , NVL(B7.L123,0) L123
+	
+FROM
+  (
+  SELECT * 
+  FROM DATABIZ_FUTVAL_ALL_CUS_INFO_PRED 
+  WHERE 1=1
+    AND LA_YN > 0
+    AND RELPC_TPCD = '01'
+    ) A
+LEFT JOIN   DATABIZ_FUTVAL_CUS_JOB_PRED  B1
+ON 0=0 
+  AND A.CTMNO = B1.CTMNO
+  AND A.CLS_YYMM = B1.CLS_YYMM
+LEFT JOIN   DATABIZ_FUTVAL_CUS_ADD_INCOME_PRED B2
+ON 0=0
+  AND A.CTMNO = B2.CTMNO
+  AND A.CLS_YYMM = B2.CLS_YYMM
+LEFT JOIN   DATABIZ_FUTVAL_CUS_INFO_PRED B3
+ON 0=0
+  AND A.CTMNO = B3.CTMNO
+  AND A.CLS_YYMM = B3.CLS_YYMM
+LEFT JOIN   DATABIZ_FUTVAL_CR_CHNL_PRED B4
+ON 0=0
+  AND A.CTMNO = B4.CTMNO
+  AND A.CLS_YYMM = B4.CLS_YYMM
+LEFT JOIN   DATABIZ_FUTVAL_CR_CRR_PRED B5
+ON 0=0
+  AND A.CTMNO = B5.CTMNO
+  AND A.DH_STFNO = B5.DH_STFNO
+  AND A.CLS_YYMM = B5.CLS_YYMM
+LEFT JOIN   DATABIZ_FUTVAL_CR_NRD_INFO_PRED B6
+ON 0=0
+  AND A.CTMNO = B6.CRT_CTMNO
+  AND A.CLS_YYMM = B6.CLS_YYMM
+LEFT JOIN   DATABIZ_FUTVAL_CR_GD_PRED B7
+ON 0=0
+  AND A.CTMNO = B7.CRT_CTMNO
+  AND A.CLS_YYMM = B7.CLS_YYMM
+LEFT JOIN 
+  (
+  SELECT 
+  	CLS_YYMM
+  	, CTMNO 
+  	, CE_STFNO
+  	, MAX(PLDT) AS MX_PLDT
+  FROM
+  DATABIZ_FUTVAL_PL_PRED
+  GROUP BY CLS_YYMM,CTMNO , CE_STFNO  
+  ) B8
+ON 0=0
+  AND A.CTMNO = B8.CTMNO
+  AND A.CLS_YYMM = B8.CLS_YYMM
+  AND A.DH_STFNO = B8.CE_STFNO
+LEFT JOIN 
+  (
+  SELECT 
+  	CLS_YYMM 
+  	, CTMNO
+  	, MAX(CLMDT) AS MX_CLMDT
+  FROM
+  DATABIZ_FUTVAL_CLM_PRED
+  GROUP BY CLS_YYMM ,CTMNO 
+  ) B9
+ON 0=0
+  AND A.CTMNO = B9.CTMNO
+  AND A.CLS_YYMM = B9.CLS_YYMM
+LEFT JOIN 
+  (
+  SELECT 
+  	CLS_YYMM
+  	, CTMNO 
+  	, GNANL_STFNO	
+  	, MAX(GNANL_DT) AS MX_GNANL	
+  FROM DATABIZ_FUTVAL_GNANL_PRED
+  GROUP BY 
+  	CLS_YYMM
+  	, CTMNO 
+  	, GNANL_STFNO
+  ) B10
+ON 0=0
+  AND A.CTMNO = B10.CTMNO
+  AND A.CLS_YYMM = B10.CLS_YYMM
+  AND A.DH_STFNO = B10.GNANL_STFNO  
+LEFT JOIN   DATABIZ_FUTVAL_STF_ADD_PRED  B11
+ON 0=0
+  AND A.CTMNO = B11.CTMNO
+  AND A.DH_STFNO = B11.STFNO    
+LEFT JOIN   DATABIZ_FUTVAL_STF_CR_PRED  B12
+ON 0=0
+  AND A.CTMNO = B12.CTMNO
+  AND A.DH_STFNO = B12.STFNO    
+  AND A.CLS_YYMM = B12.CLS_YYMM
+LEFT JOIN 
+  (
+  SELECT
+  	*
+  FROM
+  (SELECT 
+  	CLS_YYMM
+  	, CTMNO
+  	, CASE WHEN NVL(전속,0) > 0 THEN 1 ELSE 0 END AS  전속
+  	, CASE WHEN NVL(교차,0) > 0 THEN 1 ELSE 0 END AS  교차
+  	, CASE WHEN NVL(GA,0) > 0 THEN 1 ELSE 0 END AS  GA
+  	, CASE WHEN NVL(TM,0) + NVL(CM,0) > 0 THEN 1 ELSE 0 END AS  다이렉트
+  	, CASE WHEN NVL(방카,0) + NVL(기업,0) + NVL(LIFEWITH,0) + NVL(본사기타,0) > 0 THEN 1 ELSE 0 END AS  기타
+  FROM DATABIZ_FUTVAL_CR_CHNL_PRED
+  )
+  WHERE 전속 + 교차 + GA + 다이렉트 + 기타 > 1
+  ) B13
+ON 0=0
+  AND A.CTMNO = B13.CTMNO
+  AND A.CLS_YYMM = B13.CLS_YYMM
+LEFT JOIN 
+  (
+  SELECT 
+  	CLS_YYMM
+  	, CRT_CTMNO
+  	, DH_STFNO
+  	, SUM(LTRM_MPY_CV_PRM) PRM
+  FROM DATABIZ_FUTVAL_ALL_CR_TEMP_PRED
+  WHERE IKD_GRPCD = 'LA'
+  GROUP BY 
+  	CLS_YYMM
+  	, CRT_CTMNO
+  	, DH_STFNO  
+  ) B14
+ON 0=0
+  AND A.CTMNO = B14.CRT_CTMNO
+  AND A.DH_STFNO = B14.DH_STFNO    
+  AND A.CLS_YYMM = B14.CLS_YYMM
+LEFT JOIN CUS_BZ_FML_CTM B15
+ON 0=0
+	 AND A.CTMNO = B15.CTMNO
+	 AND A.DH_STFNO = B15.STFNO
+LEFT JOIN (
+    SELECT 
+        A.*
+        , ROW_NUMBER() OVER (PARTITION BY CLS_YYMM , CTMNO ORDER BY AGRE_NDDT DESC) RN
+    FROM DATABIZ_FUTVAL_CUSACT_ISPL_AGRE_PRED A) B16
+ON 0=0
+  AND A.CTMNO = B16.CTMNO
+  AND A.CLS_YYMM = B16.CLS_YYMM
+  AND B16.RN = 1
+LEFT JOIN CUS_CTM B17
+ON 0=0
+  AND A.CTMNO = B17.CTMNO
+  ;
+
+
+
+
+DROP TABLE CRM_MART_ALL_CR_TEMP PURGE;
+CREATE TABLE CRM_MART_ALL_CR_TEMP AS
+SELECT 
+	A.*
+	  ,CASE WHEN B.STFNO = '8901911'                       THEN '61'
+	          WHEN B.STFNO = '6009607' THEN '11' /* 이관고객 전속으로 포함 */
+            WHEN B.BZ_ATRCD IN ('30', '31')                THEN '62' /* LIFE WITH */
+            WHEN B.BRNM LIKE '%LIFE%'                      THEN '62' /*LIFE WITH*/
+            WHEN B.TMNM LIKE '%교차%'            THEN '12'  /* 생보형GA이외 교차는 교차로 배정 */
+            WHEN B.BR_ORGCD IN ('1301406','1301908','1302142') THEN '12'
+            WHEN B.TMNM LIKE '%한생GA팀%'                    THEN '20' /* 한생GA적용 */
+            WHEN B.BZ_FML_QUFCD IN ('G01')                 THEN '20' /* 생보형GA(한생+미래에셋 GA) 적용 */
+            WHEN B.BZ_ATRCD IN ('15','16','18','97','27')  THEN '12' /* ATCH_CRO_FLGCD 오류 보정 */
+            WHEN B.BZ_FML_QUFCD IN ('39','47','56')        THEN '12' /* 교차사업소장, 교차매니저, 교차육성팀장  */
+            WHEN B.BZ_PART_FLGCD = '06'
+	            AND  COALESCE(B.BZ_ATRCD, '00') NOT IN ('15','16','18','97','27')
+	            AND BRNM NOT LIKE '%TM%' THEN  '11'                  /*(24.11) TM이면 다이렉트로 배정 */
+            WHEN B.BZ_PART_FLGCD = '06'
+	            AND  B.BZ_FML_QUFCD IS NULL
+	            AND BRNM NOT LIKE '%TM%'THEN  '11'                   /*(24.11) TM이면 다이렉트로 배정 */
+            WHEN B.BRNM LIKE '%지역단%' THEN  '11'
+            WHEN B.BRNM LIKE '%GA사업단%' THEN '20'
+            WHEN B.BRNM LIKE '%HF%' THEN  '20'
+            WHEN (B.HDQT_ORGCD IN ('1300011', '1302011','1303011'))               /* GA영업본부 */
+            OR   (B.HDQT_ORGCD='1301318' AND B.BR_ORGCD='1301321')  /* 대구GA: 13.10~14.06 */
+            OR   (B.HDQT_ORGCD='1300007' AND B.BR_ORGCD='1301040')  /* 중부GA: 13.10~14.06 */
+            OR   (B.HDQT_ORGCD='1300008' AND B.BR_ORGCD='1301322')  /* 부산GA: 13.10~14.06 */
+            OR   (B.BR_ORGCD = '1301409')                           /* 호남GA: 14.07~14.12 */
+            OR   (B.BR_ORGCD = '1300163' AND B.BZP_ORGCD='1301383') /* 제주GA(가상): 14.02~ */
+            OR   (B.BR_ORGCD = '1301040' AND B.BZP_ORGCD='1301396') /* 호남GA 영업 소파트 */
+            OR   (B.BR_ORGCD = '1300090' AND B.BZP_ORGCD='1301384') /* 속초가상지점: 14.02 ~ 14.07 */  THEN '20'
+            WHEN B.STFNO = '8066063'
+            AND  B.BZP_ORGCD = '1301581'                                                          THEN '31' /* 20이후 사실상 폐쇄 */
+            WHEN B.STFNO IN ('8066063', '8066059', '6010186', '3449868')                          THEN '32'
+            WHEN B.HDQT_ORGCD IN ('1300013', '1300287','1300288')                                  THEN '40' /* 방카영업1-2부, 방카영업부: 18.12~ */
+            WHEN B.HDQT_ORGCD IN ('1300012', '1301363','1303053') THEN '31'      /* 장기TM 영업부, 업무지원센터 */
+            WHEN B.BR_ORGCD IN ('1300280', '1301363', '1303054', '1303055')    THEN '31'        /* 장기TM 영업부, 업무지원센터 */
+            WHEN B.BR_ORGCD IN ('1300287', '1201452')                                             THEN '40' /* 방카영업부(김태현수정) */
+            WHEN B.HDQT_ORGCD IN ('1301776', '1301362', '1301828') THEN '50'
+            WHEN B.BZ_PART_FLGNM = '법인영업'
+            AND  B.BZP_NM NOT LIKE '%신채널%'                                                       THEN '50'
+            WHEN B.BZP_ORGCD IN ( '1301364','1301365','1301366','1301367','1301368'
+                                , '1301369','1301370','1301371','1301372','1301373'
+                                , '1301618','1301750','1301751','1301752','1301753'
+                                , '1301754','1301755','1301756','1301757','1301758'
+                                , '1301786','1301968','1302015','1302016')                        THEN '50'
+            WHEN (
+                 B.BZP_NM LIKE '%기업영업%'
+            OR   B.BZP_NM LIKE '%법인영업%'
+            OR   B.BRNM LIKE '%기업영업%'
+            OR   B.BRNM LIKE '%법인영업%'
+            OR   B.HDQNM LIKE '%기업영업%'
+            OR   B.HDQNM LIKE '%법인영업%'
+            OR   B.BRNM LIKE '%전략영업%'
+            OR   B.BRNM LIKE '%GA영업%'
+                 )                                                                                THEN '50'
+            WHEN B.BZ_PART_FLGNM ='본사/기타'
+            AND  B.BRNM NOT LIKE '%TM%'                                                           THEN '61'
+            ELSE '61'
+            END  AS CHNL
+FROM DATABIZ_FUTVAL_YYMM_PRED T
+LEFT JOIN M_CRM_MTHY_PS_CR A
+ON 0=0
+	AND A.CLS_YYMM = T.CLS_YYMM
+LEFT JOIN M_ORG_MTHY_BZ_ORGN B
+ON 0=0
+	AND T.CLS_YYMM = B.CLS_YYMM
+	AND A.DH_STFNO = B.STFNO;
+
+
+
+
+DROP TABLE CRM_MART_ALL_CUS_INFO PURGE;
+CREATE TABLE CRM_MART_ALL_CUS_INFO AS
+SELECT 
+	A.CLS_YYMM
+	,C.CTMNO AS CTMNO  -- 현재 정상 계약의 계약자 OR 피보험자 정보
+	,C.RELPC_TPCD AS RELPC_TPCD
+	, CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(T.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END AS CTM_AGE
+	,CASE WHEN F_SEX_DEC(C.CTM_DSCNO)='M' THEN '1.M'
+			WHEN F_SEX_DEC(C.CTM_DSCNO)='F' THEN '2.F'
+			ELSE NULL
+			END AS CTM_SEX
+	,MAX(CASE WHEN C.IKD_GRPCD = 'LA' THEN 1 ELSE 0 END) AS LA_YN
+	,MAX(CASE WHEN C.IKD_GRPCD = 'CA' THEN 1 ELSE 0 END) AS CA_YN
+	,MAX(CASE WHEN C.IKD_GRPCD IN ('FA','MA') THEN 1 ELSE 0 END) AS FAMA_YN
+FROM CRM_MART_ALL_CR_TEMP A
+INNER JOIN DATABIZ_FUTVAL_YYMM_PRED T
+ON 0=0
+	AND A.CLS_YYMM = T.CLS_YYMM
+INNER JOIN INS_CR_RELPC C
+ON 0=0
+	AND A.PLYNO = C.PLYNO
+	AND C.NDS_AP_STR_DTHMS <= T.CLS_NDDT
+	AND C.NDS_AP_ND_DTHMS > T.CLS_NDDT
+	AND C.RELPC_TPCD IN ('01','02') /*관계자유형 = 계약자, 피보험자*/
+	AND C.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+GROUP BY 
+	A.CLS_YYMM
+	,C.CTMNO   -- 현재 정상 계약의 계약자 OR 피보험자 정보
+	,C.RELPC_TPCD 
+	, CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(T.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(C.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END 
+	,CASE WHEN F_SEX_DEC(C.CTM_DSCNO)='M' THEN '1.M'
+			WHEN F_SEX_DEC(C.CTM_DSCNO)='F' THEN '2.F'
+			ELSE NULL
+			END;
+
+
+/* 보험료 : 월납환산, 적립, 보장 */
+--CALL P_DROP_TABLE('CRM_MART_LA_PRM');
+DROP TABLE CRM_MART_LA_PRM PURGE;
+CREATE TABLE CRM_MART_LA_PRM AS 
+SELECT
+	A.CLS_YYMM
+	, A.PLYNO 
+	, A.CRT_CTMNO
+	, CASE WHEN GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+        WHEN GDNM LIKE '%더건강 더실속%' OR MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+        WHEN GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+	    WHEN MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+	    WHEN MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+	    WHEN MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+	    WHEN MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+	    WHEN MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+	    WHEN GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+        WHEN GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+	    WHEN REGEXP_LIKE(GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+	    WHEN MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+	   	ELSE 'ETC' END AS GD_TYPE
+	, A.LTRM_MPY_CV_PRM
+	, B.CU_PRM
+	, B.GN_PRM
+FROM DATABIZ_FUTVAL_YYMM_PRED T
+INNER JOIN SDADAM.CRM_MART_ALL_CR_TEMP A
+ON 0=0
+    AND A.CLS_YYMM = T.CLS_YYMM
+LEFT JOIN M_ERL_LTRM_CR_MTT B
+ON 0=0
+	AND A.PLYNO = B.PLYNO
+	AND B.AP_STRDT <= F_LAST_DAY(A.CLS_YYMM)
+	AND B.AP_NDDT > F_LAST_DAY(A.CLS_YYMM);
+
+
+
+DROP TABLE SEG_MkTG_PRES_VAL PURGE;
+CREATE TABLE SEG_MKTG_PRES_VAL AS 
+SELECT
+	DISTINCT
+    A.CLS_YYMM
+	, A.CTMNO
+	, A.CTM_AGE
+	, PLY_CNT
+	, SM_LTRM_PRM
+	, CASE WHEN A.CTM_AGE >= 70 THEN 70
+		WHEN A.CTM_AGE >= 60 THEN 60
+		WHEN A.CTM_AGE >= 50 THEN 50
+		WHEN A.CTM_AGE >= 40 THEN 40
+		WHEN A.CTM_AGE >= 30 THEN 30
+		WHEN A.CTM_AGE >= 20 THEN 20
+		WHEN A.CTM_AGE < 20 THEN 10
+		ELSE NULL END AS CTM_AGE_SEG
+FROM
+(
+    SELECT A.* 
+    FROM DATABIZ_FUTVAL_YYMM_PRED T
+    INNER JOIN SDADAM.CRM_MART_ALL_CUS_INFO A
+    ON 0=0
+        AND A.CLS_YYMM = T.CLS_YYMM
+    WHERE 1=1
+    	AND RELPC_TPCD = '02'
+    	AND LA_YN = 1
+	) A
+LEFT JOIN 
+	(
+    SELECT 
+	  A.CLS_YYMM
+	  , C.CTMNO 
+	  , COUNT(DISTINCT A.PLYNO) PLY_CNT  
+	FROM DATABIZ_FUTVAL_YYMM_PRED T
+    INNER JOIN SDADAM.CRM_MART_ALL_CR_TEMP A
+    ON 0=0
+        AND A.CLS_YYMM = T.CLS_YYMM
+	INNER JOIN INS_CR_RELPC C
+	ON 0=0
+		AND A.PLYNO = C.PLYNO
+		AND C.NDS_AP_STR_DTHMS <= F_LAST_DAY(A.CLS_YYMM)
+		AND C.NDS_AP_ND_DTHMS > F_LAST_DAY(A.CLS_YYMM)
+		AND C.RELPC_TPCD IN ('02') /*관계자유형 = 계약자, 피보험자*/
+		AND C.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+	WHERE A.IKD_GRPCD = 'LA'
+		AND A.MKTG_GD_CSFCD NOT IN ('L12','L13') 
+		AND A.GDNM NOT LIKE '%실손의료보험%'
+	GROUP BY 
+	  A.CLS_YYMM
+	  , C.CTMNO
+    ) B
+ON 0=0
+	AND A.CTMNO = B.CTMNO
+    AND A.CLS_YYMM = B.CLS_YYMM
+LEFT JOIN
+	(
+	SELECT 
+        A.CLS_YYMM
+		, C.CTMNO
+		, SUM(A.LTRM_MPY_CV_PRM) AS SM_LTRM_PRM
+	FROM DATABIZ_FUTVAL_YYMM_PRED T 
+    INNER JOIN CRM_MART_LA_PRM A
+    ON 0=0
+        AND A.CLS_YYMM = T.CLS_YYMM
+	INNER JOIN INS_CR_RELPC C
+	ON 0=0
+		AND A.PLYNO = C.PLYNO
+		AND C.NDS_AP_STR_DTHMS <= F_LAST_DAY(A.CLS_YYMM)
+		AND C.NDS_AP_ND_DTHMS > F_LAST_DAY(A.CLS_YYMM)
+		AND C.RELPC_TPCD IN ('02') /*관계자유형 = 계약자, 피보험자*/
+		AND C.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+	WHERE 1=1
+	  AND A.GD_TYPE NOT IN ('SS','L123')
+	GROUP BY A.CLS_YYMM, C.CTMNO
+	) D
+ON 0=0
+	AND A.CTMNO = D.CTMNO
+    AND A.CLS_YYMM = D.CLS_YYMM
+
+WHERE A.CTMNO NOT IN (SELECT
+        	A.CTMNO
+        FROM CUS_CTM A
+        INNER JOIN M_ORG_MTHY_BZ_ORGN B
+        ON 0=0
+        	AND B.CLS_YYMM IN (SELECT CLS_YYMM FROM DATABIZ_FUTVAL_YYMM_PRED) /* 현재 */
+        	AND B.RETDT >= SYSDATE 			/*퇴사자 제외 */
+        	AND B.STF_BZ_STCD = '01' 									/* FP 상태 정상 */
+        	AND A.CTM_DSCNO = B.RSNO)
+	;
+
+
+DROP TABLE SEG_MKTG_PRES_CVR_INFO;
+CREATE TABLE SEG_MKTG_PRES_CVR_INFO AS(
+    SELECT A.CLS_YYMM, CTMNO , '질병사망' AS 담보명 , DSDE_AMT AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '질병후유장해' AS 담보명 , DSAS_SLOBS_AMT AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '질병고도후유장해' AS 담보명 , DSAS_DGR_SLOBS_AMT AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '유사암진단비' AS 담보명 , SMLY_CANCR_DASCS_AMT AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '암진단비' AS 담보명 , CANCR_DASCS_AMT AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '고액암진단비' AS 담보명 , HAMT_CANCR_DASCS_AMT  AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '뇌혈관질환진단비' AS 담보명 , CRLR_DSAS_DASCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '허혈성심장질환진단비' AS 담보명 , ISMC_HEART_DSAS_DASCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '급성신근경색증진단비' AS 담보명 , AMIFN_INCR_DASCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '표적항암약물허가치료비' AS 담보명 , FOCUS_ANTI_MEDI_APPR_MDCF   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '암수술비' AS 담보명 , CANCR_OPCCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '뇌혈관질환수술비' AS 담보명 , CRLR_DSAS_OPCCS_AMT  AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '허혈성심장질환수술비' AS 담보명 , ISMC_HEART_DSAS_OPCCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '질병수술비' AS 담보명 , DSAS_OPCCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '상해수술비' AS 담보명 , INJR_OPCCS_AMT   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '간병인사용상해' AS 담보명 , GB_AMT  AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+
+    UNION ALL
+
+    SELECT A.CLS_YYMM, CTMNO , '간병인사용질병' AS 담보명 , GB_AMT2   AS 담보가입금액
+    FROM DATABIZ_FUTVAL_YYMM_PRED T INNER JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST A ON A.CLS_YYMM = T.CLS_YYMM
+)
+;
+
+
+
+DROP TABLE SEG_MKTG_PRES_VAL_T;
+CREATE TABLE SEG_MKTG_PRES_VAL_T AS(
+    SELECT
+        CLS_YYMM
+    	,CTMNO
+    	,SUM(CASE WHEN 담보명 = '질병사망' THEN 4*SCORE
+    			WHEN 담보명 = '질병후유장해' THEN 2*SCORE
+    			WHEN 담보명 IN ('간병인사용질병','간병인사용상해') THEN 1.5*SCORE
+    			ELSE SCORE END) AS TOTAL_SCORE
+    	,MAX(CASE WHEN 담보명 IN ('질병사망','질병후유장해') AND  SCORE > 0 THEN 1 ELSE 0 END) 질병사망
+    	,MAX(CASE WHEN 담보명 IN ('유사암진단비','암진단비','뇌혈관질환진단비','허혈성심장질환진단비','급성신근경색증진단비','표적항암약물허가치료비') AND  SCORE > 0 THEN 1 ELSE 0 END) 진단비
+    	,MAX(CASE WHEN 담보명 IN ('암수술비','뇌혈관질환수술비','허혈성심장질환수술비','질병수술비','상해수술비') AND  SCORE > 0 THEN 1 ELSE 0 END) 수술비
+    	,MAX(CASE WHEN 담보명 IN ('간병인사용질병','간병인사용상해') AND  SCORE > 0 THEN 1 ELSE 0 END) 간병
+    FROM 
+        (
+        SELECT 
+            A.CLS_YYMM
+            , A.CTMNO
+            , A.CTM_AGE_SEG
+            , B.담보명
+        	, CASE WHEN B.담보명 IN ('표적항암약물허가치료비','간병인사용상해','간병인사용질병') AND 담보가입금액 > 0 THEN 1
+        			WHEN B.담보명 IN ('표적항암약물허가치료비','간병인사용상해','간병인사용질병') AND 담보가입금액 = 0 THEN 0
+        			WHEN B.담보명 NOT IN ('표적항암약물허가치료비','간병인사용상해','간병인사용질병') AND 담보가입금액 >= HIGH THEN 1
+        			WHEN B.담보명 NOT IN ('표적항암약물허가치료비','간병인사용상해','간병인사용질병') AND 담보가입금액 >= LOW THEN 0.75
+        			WHEN B.담보명 NOT IN ('표적항암약물허가치료비','간병인사용상해','간병인사용질병') AND 담보가입금액 > 0 THEN 0.5
+        			WHEN B.담보명 NOT IN ('표적항암약물허가치료비','간병인사용상해','간병인사용질병') AND 담보가입금액 = 0 THEN 0
+        			END AS SCORE
+        FROM SEG_MKTG_PRES_VAL A
+        LEFT JOIN SEG_MKTG_PRES_CVR_INFO B
+        ON 0=0
+            AND A.CLS_YYMM = B.CLS_YYMM
+            AND A.CTMNO = B.CTMNO
+        LEFT JOIN SEG_MTKG_CVR_RANGE C
+        ON 0=0
+            AND A.CTM_AGE_SEG = C.연령
+            AND B.담보명 = C.담보명
+        )
+    GROUP BY CLS_YYMM, CTMNO
+);
+
+
+
+
+DROP TABLE SEG_MKTG_PRES_VAL_T3;
+CREATE TABLE SEG_MKTG_PRES_VAL_T3 AS (
+SELECT
+    CLS_YYMM
+	, CTMNO
+	, CTM_AGE_SEG
+	, PLY_SCORE
+	, PRM_SCORE
+	, TOTAL_SCORE
+	, D_SCORE
+	, PLY_SCORE+PRM_SCORE+TOTAL_SCORE+D_SCORE AS SM
+FROM
+(SELECT 
+    A.CLS_YYMM
+	,A.CTMNO
+	,CASE WHEN CTM_AGE >= 70 THEN 70
+		WHEN CTM_AGE >= 60 THEN 60
+		WHEN CTM_AGE >= 50 THEN 50
+		WHEN CTM_AGE >= 40 THEN 40
+		WHEN CTM_AGE >= 30 THEN 30
+		WHEN CTM_AGE >= 20 THEN 20
+		WHEN CTM_AGE < 20 THEN 10
+		ELSE NULL END AS CTM_AGE_SEG
+	,CASE WHEN A.PLY_CNT <= 1 THEN 0
+		WHEN A.PLY_CNT <= 2 THEN 3
+		WHEN A.PLY_CNT <= 3 THEN 5
+		WHEN A.PLY_CNT <= 5 THEN 7
+		WHEN A.PLY_CNT <= 10 THEN 8
+		WHEN A.PLY_CNT > 10 THEN 10
+		END AS PLY_SCORE
+	,CASE WHEN A.SM_LTRM_PRM <= 100000 THEN 0
+		WHEN A.SM_LTRM_PRM <= 200000 THEN 3
+		WHEN A.SM_LTRM_PRM < 300000 THEN 5
+		WHEN A.SM_LTRM_PRM < 500000 THEN 7
+		WHEN A.SM_LTRM_PRM < 1000000 THEN 8
+		WHEN A.SM_LTRM_PRM >= 1000000 THEN 10
+		END AS PRM_SCORE
+	,B.TOTAL_SCORE
+	,CASE WHEN B.간병+B.수술비+B.진단비+B.질병사망 = 4 THEN 10
+		WHEN B.간병+B.수술비+B.진단비+B.질병사망 = 3 THEN 7
+		WHEN B.간병+B.수술비+B.진단비+B.질병사망 = 2 THEN 5
+		WHEN B.간병+B.수술비+B.진단비+B.질병사망 = 1 THEN 3
+		WHEN B.간병+B.수술비+B.진단비+B.질병사망 = 0 THEN 0
+		END AS D_SCORE
+FROM SEG_MKTG_PRES_VAL A
+LEFT JOIN SEG_MKTG_PRES_VAL_T B
+ON 0=0
+	AND A.CTMNO = B.CTMNO
+    AND A.CLS_YYMM = B.CLS_YYMM)
+	);
+
+/* 미래가치 최종 쿼리*/
+SELECT
+	CLS_YYMM
+	, CTMNO
+	, DH_STFNO
+	, CTM_DSCNO
+	, PROB_3M  -- 3개월내가치
+	, PROB_6M  -- 6개월내가치
+	, PROB_12M -- 12개월내가치
+FROM SDADAM.DATABIZ_FUTVAL_PRED
+
+
+
+
+
+
+
+
+
+
+/*
+================================================================================
+  상품 추천 쿼리 - 리팩토링 및 최적화 최종본
+  
+  [실행 순서]
+  01. GDRES_SYS_YYMM_PRED          기준 날짜
+  02. GDREC_TMGD_LIST               판매중 상품 목록
+  03. GDREC_TMGD_LIST_INFO          상품/담보 가입조건
+  04. M_BIZ_CTM_INFO_CVR_LIST_RECT_T01  담보보장조건 코드
+  05. GDREC_SYS_STF_PRED            TM 채널 직원
+  06. GDREC_ORIGIN_INS_CR_PRED      장기TM 취급 계약 (핵심 소스)
+  07. M_BIZ_CTM_INFO_CVR_LIST_RECT_T02  보유고객 (보험나이 계산)
+  08. M_BIZ_CTM_INFO_CVR_LIST_RECT_T03  담보 가입금액
+  09. M_BIZ_CTM_INFO_CVR_LIST_RECT_T04  담보보장조건 매핑
+  10. M_BIZ_CTM_INFO_CVR_LIST_RECT_T06  가입금액 보정
+  -- ※ T09(PIVOT), M_BIZ_RECT_GDINFO_* 는 T06 이후 (원본 파일 참조)
+  11. GDREC_ORIGIN_INS_GD_PRED      상품별 기가입 (PIVOT)
+  12. GDREC_ORIGIN_INS_PRMCNT_PRED  계약수/보험료 합계
+  13. GDREC_ORIGIN_INS_NRD_PRED     피보험자수/미성년 여부
+  14. GDREC_ORIGIN_INS_CA_PRED      자동차보험 계약수
+  15. GDREC_ORIGIN_INS_INSDIFF_PRED 최초가입 경과월
+  16. GDREC_ORIGIN_INS_CRTINFO_PRED 계약자 연령/성별
+  17. GDREC_ORIGIN_INS_NRDINFO_PRED 피보험자 연령/성별
+  18. GDREC_ORIGIN_INS_CRTJB_PRED   계약자 직업 분류
+  19. GDREC_ORIGIN_INS_OVD_PRED     연체 보험료
+  20. GDREC_ORIGIN_INS_CLM_PRED     지급 보험금 (장기+자동차)
+  21. GDREC_ORIGIN_INS_PRVGD_PRED   해지/해약 이력
+  22. GDREC_ORIGIN_INS_NOCVR_XC_PRED 부담보/할증 이력
+  -- ※ ADDCR_PRED, CHNL_PRED 는 이 위치에서 생성 (원본 파일 참조)
+  23. GDREC_ORIGIN_MAIN99_PRED      1차 취합
+  24. GDREC_ORIGIN_PL_PRED          설계 정보
+  25. GDREC_ORIGIN_PL_ALL_PRED      설계 이력 (PIVOT)
+  26. GDREC_ORIGIN_PL_CL_PRED       설계 완료 이력 (PIVOT)
+  27. GDREC_TMGD_PL_INFO_PRED       설계 정보 종합
+  28. GDREC_ORIGIN_CLM_ALL_PRED     사고/지급 (무사고 판별)
+  29. GDREC_ORIGIN_CLM_CSF_PRED     중대질환 청구
+  30. GDREC_ORIGIN_CLM_MTT_PRED     중대질환 고지
+  31. GDREC_ORIGIN_CLM_HSP_PRED     입원/수술 고지
+  32. GDREC_ORIGIN_CLM_G_PRED       최근 입원 청구
+  33. GDREC_TMGD_CLM_INFO_PRED      청구 정보 종합
+  34. GDREC_ORIGIN_MAIN9_PRED       2차 취합
+  35. GDREC_ORIGIN_MAIN_FIN_PRED    최종 결과
+
+  [GD_TYPE 공통 분류 로직 - 4개 테이블에서 동일하게 사용]
+  CASE WHEN GDNM LIKE '%Young%'                                       THEN 'L04'
+       WHEN GDNM LIKE '%더건강 더실속%' OR MKTG_GD_CSFCD IN ('L02','L01') THEN 'L01'
+       WHEN GDNM LIKE '%더건강%'                                       THEN 'L01'
+       WHEN GDNM LIKE '%시그니처 여성 건강%'                             THEN 'L01'
+       WHEN MKTG_GD_CSFCD = 'L03' THEN 'L03'  WHEN MKTG_GD_CSFCD = 'L04' THEN 'L04'
+       WHEN MKTG_GD_CSFCD = 'L06' THEN 'L06'  WHEN MKTG_GD_CSFCD = 'L11' THEN 'L11'
+       WHEN MKTG_GD_CSFCD = 'L08' THEN 'L08'
+       WHEN GDNM LIKE '%세이프투게더%' THEN 'SAFE'
+       WHEN GDNM LIKE '%실손의료보험%' THEN 'SS'
+       WHEN REGEXP_LIKE(GDNM,'참 편한|WELL100|간편|3N5|355') THEN '유병자'
+       WHEN MKTG_GD_CSFCD IN ('L12','L13') THEN 'L123'
+       ELSE 'ETC' END AS GD_TYPE
+  ※ 운영 환경에서 M_CRM_GD_CSF_INFO 기반 VIEW(GD_TYPE_V)로 중앙화 권장
+  ※ 'SI' vs '유병자' 혼용 → 담당자 확인 후 통일 필요
+================================================================================
+*/
+
+
+
+/* ============================================================================
+   [01] 기준 날짜 세팅
+============================================================================ */
+DROP TABLE GDRES_SYS_YYMM_PRED PURGE;
+CREATE TABLE GDRES_SYS_YYMM_PRED NOLOGGING AS
+SELECT
+    YYMM                                                                    AS CLS_YYMM
+    , F_ADD_MONTHS_A(F_LAST_DAY(YYMM), -2)                                 AS CLS_YYMM_2MB
+    , F_ADD_MONTHS_A(F_LAST_DAY(YYMM), -1)                                 AS CLS_YYMM_1MB
+    , FIRST_DAY(YYMM)                                                       AS CLS_STRDT
+    , LEAST(SYSDATE, YYMM_NDDT)                                             AS CLS_NDDT
+    , LEAST(SYSDATE,
+        TO_DATE(TO_CHAR(YYMM_NDDT,'YYYY-MM-DD')||' 23:59:59','YYYY-MM-DD HH24:MI:SS'))
+                                                                            AS CLS_NDDT_TS
+    , LEAST(CAST(F_LAST_DAY(YYMM) AS DATE), SYSDATE)                       AS CLS_NDDT_LD
+FROM M_COD_YYMM
+WHERE YYMM = TO_CHAR(SYSDATE, 'YYYYMM');
+
+
+/* ============================================================================
+   [02] 장기 TM 판매 중인 상품 목록
+============================================================================ */
+DROP TABLE GDREC_TMGD_LIST PURGE;
+CREATE TABLE GDREC_TMGD_LIST NOLOGGING AS
+SELECT DISTINCT
+    A.*
+    , CASE
+        WHEN B.GDNM LIKE '%Young%'                                          THEN 'L04'
+        WHEN B.GDNM LIKE '%더건강 더실속%' OR B.MKTG_GD_CSFCD IN ('L02','L01') THEN 'L01'
+        WHEN B.GDNM LIKE '%더건강%'                                          THEN 'L01'
+        WHEN B.GDNM LIKE '%시그니처 여성 건강%'                                THEN 'L01'
+        WHEN B.MKTG_GD_CSFCD = 'L03' THEN 'L03'  WHEN B.MKTG_GD_CSFCD = 'L04' THEN 'L04'
+        WHEN B.MKTG_GD_CSFCD = 'L06' THEN 'L06'  WHEN B.MKTG_GD_CSFCD = 'L11' THEN 'L11'
+        WHEN B.MKTG_GD_CSFCD = 'L08' THEN 'L08'
+        WHEN B.GDNM LIKE '%세이프투게더%' THEN 'SAFE'
+        WHEN B.GDNM LIKE '%실손의료보험%' THEN 'SS'
+        WHEN REGEXP_LIKE(B.GDNM,'참 편한|WELL100|간편|3N5|355') THEN 'SI'
+        WHEN B.MKTG_GD_CSFCD IN ('L12','L13') THEN 'L123'
+        ELSE 'ETC'
+      END AS GD_TYPE
+    , B.GDNM
+    , D.DTCNM AS SL_CHNCD
+FROM IGD_GD_SL_TRM A
+LEFT JOIN M_CRM_GD_CSF_INFO  B ON A.GDCD     = B.GDCD
+LEFT JOIN IGD_GD_SL_CHN_REL  C ON A.GDCD     = C.GDCD
+LEFT JOIN SL_CHNCD           D ON C.SL_CHNCD = D.SL_CHNCD
+WHERE A.SL_NDDT  >= SYSDATE
+  AND A.GDCD     LIKE '%LA%'
+  AND D.DTCNM    = 'TM'
+  AND A.GDCD     IN (SELECT GDCD FROM TB_LNG_BJONG_MASTER WHERE SALE_END_YN = 'Y');
+
+
+/* ============================================================================
+   [03] 상품/담보별 가입 연령 및 필수담보 여부
+============================================================================ */
+DROP TABLE GDREC_TMGD_LIST_INFO PURGE;
+CREATE TABLE GDREC_TMGD_LIST_INFO NOLOGGING AS
+SELECT DISTINCT
+    A.*
+    , B.CVRCD
+    , B.CVR_PRSNM                                   -- 담보명
+    , B.CVR_CLA_CN                                  -- 담보약관내용
+    , B.CVR_BA_TRT_FLGCD                            -- 특약여부
+    , B.ISAMT_NEED_YN                               -- 가입금액필요여부
+    , B.MN_IS_AGE, B.MX_IS_AGE                     -- 최소/최대가입연령
+    , B.IS_AV_SEXCD                                 -- 성별코드
+    , C.ESSN_IS_YN                                  -- 필수가입여부
+    , C.MN_IS_AV_AGE, C.MX_IS_AV_AGE
+    , C.ISAMT_MNVL, C.ISAMT_MXVL                   -- 최소/최대가입금액
+    , C.REC_CVR_YN                                  -- 추천담보여부
+    , CASE WHEN F.GDCD IS NOT NULL THEN 1 ELSE 0 END AS 무사고_YN
+FROM      GDREC_TMGD_LIST    A
+LEFT JOIN IGD_GD_CVR          B ON A.GDCD = B.GDCD
+LEFT JOIN INS_GD_CE_PL_CVR    C ON A.GDCD = C.GDCD AND B.CVRCD = C.CVRCD
+-- ※ D(IGD_GD_CVR_ACM_RK): 원본에서 조인되나 출력 컬럼 없음 → 제거
+LEFT JOIN IGD_GD_US_ATR       F ON F.GDCD = A.GDCD AND F.ATRCD = 'PA00119';
+
+
+/* ============================================================================
+   [04] 담보보장조건 코드 (T01)
+   ※ 원본 WHERE 조건 정리:
+      CASE WHEN (IN(13,25) AND <59) THEN '0' ELSE '1' END = '1'
+      → NOT (THCP_INSTR_MNVL IN (13,25) AND THCP_INSTR_MXVL < 59) 와 동일
+      ※ 원본 내 OR 조건(THCP_INSTR_MNVL IN(13,25) OR THCP_INSTR_MXVL IN(12,24))은
+         상위 AND 조건에 논리적으로 흡수 → 제거. 원의도 재확인 권장.
+============================================================================ */
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 NOLOGGING AS
+SELECT
+    THCP_GN_CND_SEQNO, THCP_GD_XCPT_MTT, THCP_CVRCD
+    , THCP_IBAMT_STNM, THCP_INS_MULT_STAMT, THCP_INSTR_CSFNM
+    , THCP_INSTR_MNVL, THCP_INSTR_MXVL
+    , THCP_INS_AGE_MNVL, THCP_INS_AGE_MXVL
+    , THCP_AN_PY_CT, THCP_AN_ND_DTNM, THCP_AN_TRM_NM
+    , THCP_GNAMT_ITCD, THCP_GNAMT
+FROM SFA_THCP_CVR_GN_CND
+WHERE THCP_INSTR_CSFNM = '만기'
+  AND NOT (THCP_INSTR_MNVL IN (13,25) AND THCP_INSTR_MXVL < 59);
+
+
+/* ============================================================================
+   [05] TM 채널 직원 세팅
+============================================================================ */
+DROP TABLE GDREC_SYS_STF_PRED PURGE;
+CREATE TABLE GDREC_SYS_STF_PRED NOLOGGING AS
+SELECT
+    B.CLS_YYMM
+    , B.STFNO
+    , CASE
+        WHEN B.STFNO = '8901911'                                            THEN '61'
+        WHEN B.STFNO = '6009607'                                            THEN '11'
+        WHEN B.BZ_ATRCD IN ('30','31')                                      THEN '62'  -- LIFE WITH
+        WHEN B.BRNM LIKE '%LIFE%'                                           THEN '62'
+        WHEN B.TMNM LIKE '%교차%'                                            THEN '12'
+        WHEN B.BR_ORGCD IN ('1301406','1301908','1302142')                   THEN '12'
+        WHEN B.TMNM LIKE '%한생GA팀%'                                        THEN '20'
+        WHEN B.BZ_FML_QUFCD IN ('G01')                                      THEN '20'  -- 생보형GA
+        WHEN B.BZ_ATRCD IN ('15','16','18','97','27')                       THEN '12'
+        WHEN B.BZ_FML_QUFCD IN ('39','47','56')                             THEN '12'  -- 교차 직책
+        WHEN B.BZ_PART_FLGCD = '06'
+             AND COALESCE(B.BZ_ATRCD,'00') NOT IN ('15','16','18','97','27')
+             AND B.BRNM NOT LIKE '%TM%'                                     THEN '11'
+        WHEN B.BZ_PART_FLGCD = '06'
+             AND B.BZ_FML_QUFCD IS NULL
+             AND B.BRNM NOT LIKE '%TM%'                                     THEN '11'
+        WHEN B.BRNM LIKE '%지역단%'                                          THEN '11'
+        WHEN B.BRNM LIKE '%GA사업단%' OR B.BRNM LIKE '%HF%'                 THEN '20'
+        WHEN B.HDQT_ORGCD IN ('1300011','1302011','1303011')
+          OR (B.HDQT_ORGCD='1301318' AND B.BR_ORGCD='1301321')
+          OR (B.HDQT_ORGCD='1300007' AND B.BR_ORGCD='1301040')
+          OR (B.HDQT_ORGCD='1300008' AND B.BR_ORGCD='1301322')
+          OR  B.BR_ORGCD = '1301409'
+          OR (B.BR_ORGCD = '1300163' AND B.BZP_ORGCD='1301383')
+          OR (B.BR_ORGCD = '1301040' AND B.BZP_ORGCD='1301396')
+          OR (B.BR_ORGCD = '1300090' AND B.BZP_ORGCD='1301384')            THEN '20'  -- GA 계열
+        WHEN B.STFNO = '8066063' AND B.BZP_ORGCD = '1301581'               THEN '31'
+        WHEN B.STFNO IN ('8066063','8066059','6010186','3449868')           THEN '32'
+        WHEN B.HDQT_ORGCD IN ('1300013','1300287','1300288')                THEN '40'  -- 방카
+        WHEN B.HDQT_ORGCD IN ('1300012','1301363','1303053')                THEN '31'  -- 장기TM
+        WHEN B.BR_ORGCD   IN ('1300280','1301363','1303054','1303055')      THEN '31'
+        WHEN B.BR_ORGCD   IN ('1300287','1201452')                          THEN '40'
+        WHEN B.HDQT_ORGCD IN ('1301776','1301362','1301828')                THEN '50'
+        WHEN B.BZ_PART_FLGNM = '법인영업' AND B.BZP_NM NOT LIKE '%신채널%'  THEN '50'
+        WHEN B.BZP_ORGCD IN (
+              '1301364','1301365','1301366','1301367','1301368','1301369',
+              '1301370','1301371','1301372','1301373','1301618','1301750',
+              '1301751','1301752','1301753','1301754','1301755','1301756',
+              '1301757','1301758','1301786','1301968','1302015','1302016')   THEN '50'
+        WHEN B.BZP_NM  LIKE '%기업영업%' OR B.BZP_NM  LIKE '%법인영업%'
+          OR B.BRNM    LIKE '%기업영업%' OR B.BRNM    LIKE '%법인영업%'
+          OR B.HDQNM   LIKE '%기업영업%' OR B.HDQNM   LIKE '%법인영업%'
+          OR B.BRNM    LIKE '%전략영업%' OR B.BRNM    LIKE '%GA영업%'       THEN '50'
+        WHEN B.BZ_PART_FLGNM = '본사/기타' AND B.BRNM NOT LIKE '%TM%'      THEN '61'
+        ELSE '61'
+      END AS CHNL
+    , B.CHN_CL_ATRCD
+FROM GDRES_SYS_YYMM_PRED T
+INNER JOIN M_ORG_MTHY_BZ_ORGN B ON T.CLS_YYMM = B.CLS_YYMM
+WHERE B.STF_BZ_STCD = '01';
+
+
+/* ============================================================================
+   [06] 장기 TM 취급 계약 (핵심 소스 테이블)
+   ※ IKD_GRPCD='LA' + 장기TM 채널(CHNL='31') 필터
+   ※ 이 테이블 이후에 T02~T06, 고객 피처 테이블들 생성 가능
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_CR_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CR_PRED NOLOGGING AS
+SELECT /*+ PARALLEL(8) */ A.*
+FROM GDRES_SYS_YYMM_PRED T
+INNER JOIN M_CRM_MTHY_PS_CR A ON A.CLS_YYMM = T.CLS_YYMM
+WHERE A.IKD_GRPCD = 'LA'
+  AND EXISTS (
+      SELECT 1 FROM GDREC_SYS_STF_PRED B
+      WHERE A.DH_STFNO = B.STFNO AND A.CLS_YYMM = B.CLS_YYMM AND B.CHNL = '31'
+  );
+
+
+/* ============================================================================
+   [07] 보유고객 월별 기준 + 보험나이 계산 (T02)
+   ※ [성능] INS_AGE 계산 시 동일 AGE() 표현식 2회 반복 → CROSS APPLY로 1회로 축약
+   ※ [제거] WHERE A1.IKD_GRPCD='LA' : GDREC_ORIGIN_INS_CR_PRED가 이미 LA 전용
+============================================================================ */
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 NOLOGGING AS
+SELECT
+    A2.CLS_YYMM, A2.PLYNO, A2.CTMNO, A2.RELPC_SEQNO
+    , A2.STFNO, A2.USRNO, A2.GDCD, A2.INS_ST, A2.INS_CLSTR, A2.BRTH
+    , CASE
+        WHEN F_ISDATE(A2.BRTH) = 'T' AND A2.CTM_TPCD = '01'
+        -- CROSS APPLY로 AGE값 1회 계산 후 재사용 (아래 APPLY_AGE 참조)
+        THEN A2.AGE_YEAR - CASE
+               WHEN A2.AGE_MONTH = 1
+                AND SUBSTR(A2.BASE_DT, 6, 2) = SUBSTR(A2.BRTH, 6, 2) THEN 1
+               ELSE 0
+             END
+      END AS INS_AGE
+FROM (
+    SELECT /*+ PARALLEL(8) FULL(A1) FULL(B1) LEADING(A1) */
+        T.CLS_YYMM
+        , A1.PLYNO, B1.CTMNO, B1.RELPC_SEQNO
+        , A1.DH_STFNO                       AS STFNO
+        , COALESCE(A1.DH_USR_NO, '9999999') AS USRNO
+        , A1.GDCD, A1.INS_ST, A1.INS_CLSTR
+        , F_BIRTH_DAY_DEC(B1.CTM_DSCNO)    AS BRTH
+        , C.CTM_TPCD
+        -- 기준일(가입월+6개월) 1회 계산
+        , TO_CHAR(ADD_MONTHS(F_LAST_DAY(A1.CLS_YYMM), 6)) AS BASE_DT
+        -- AGE 결과를 한 번만 계산 → 연/월 추출에 재사용
+        , EXTRACT(YEAR FROM
+            TO_YMINTERVAL(AGE(ADD_MONTHS(F_LAST_DAY(A1.CLS_YYMM), 6),
+                              TO_DATE(F_BIRTH_DAY_DEC(B1.CTM_DSCNO),'YYYYMMDD'))
+                          DEFAULT '000-00' ON CONVERSION ERROR)
+          ) AS AGE_YEAR
+        , EXTRACT(MONTH FROM
+            TO_YMINTERVAL(AGE(ADD_MONTHS(F_LAST_DAY(A1.CLS_YYMM), 6),
+                              TO_DATE(F_BIRTH_DAY_DEC(B1.CTM_DSCNO),'YYYYMMDD'))
+                          DEFAULT '000-00' ON CONVERSION ERROR)
+          ) AS AGE_MONTH
+        , ROW_NUMBER() OVER (
+            PARTITION BY A1.PLYNO, B1.CTMNO, T.CLS_YYMM
+            ORDER BY B1.RELPC_SEQNO
+          ) AS RN
+    FROM (
+        SELECT A.*, B.GDNM_CLEAN
+        FROM   GDREC_ORIGIN_INS_CR_PRED A
+        LEFT JOIN M_DS_CRM_REC_GDNM_TM     B ON A.GDCD = B.GDCD
+        WHERE  TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+        -- ※ IKD_GRPCD='LA' 필터 제거: 소스 테이블이 이미 LA 전용
+    ) A1
+    INNER JOIN GDRES_SYS_YYMM_PRED T  ON A1.CLS_YYMM = T.CLS_YYMM
+    INNER JOIN INS_CR_RELPC         B1
+        ON  A1.PLYNO            = B1.PLYNO
+        AND B1.IKD_GRPCD        IN ('LA')
+        AND B1.RELPC_STCD       IN ('01','04')   -- 정상, 납입면제
+        AND B1.RELPC_TPCD        = '02'          -- 피보험자
+        AND B1.VALD_NDS_YN       = '1'
+        AND B1.NDS_AP_STR_DTHMS <= T.CLS_NDDT
+        AND B1.NDS_AP_ND_DTHMS   > T.CLS_NDDT
+        AND B1.CTMNO            IS NOT NULL
+    LEFT JOIN CUS_CTM C ON B1.CTMNO = C.CTMNO
+) A2
+WHERE A2.RN = 1;
+
+
+/* ============================================================================
+   [08] 담보 가입금액 추출 (T03)
+   ※ [성능] EXISTS → INNER JOIN으로 변경 (대용량 INS_CR_CVR 스캔 시 더 효율적)
+============================================================================ */
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 NOLOGGING AS
+SELECT /*+ PARALLEL(8) FULL(A1) FULL(B1) LEADING(A1) */
+    A1.CLS_YYMM, A1.PLYNO, B1.CVRCD, B1.CVR_SEQNO
+    , A1.CTMNO, A1.RELPC_SEQNO, A1.STFNO, A1.USRNO
+    , A1.INS_ST, A1.INS_CLSTR, A1.GDCD, A1.BRTH, A1.INS_AGE
+    , B1.CVR_STCD
+    , B1.INS_ST                                         AS CVR_INS_ST
+    , B1.INS_CLSTR                                      AS CVR_INS_CLSTR
+    , F_DIFF_DATE('MM', TO_CHAR(B1.INS_CLSTR,'YYYYMMDD'),
+                        TO_CHAR(F_LAST_DAY(A1.CLS_YYMM),'YYYYMMDD')) AS CVR_CLSTR_ST_RNDMC
+    , F_DIFF_DATE('MM', TO_CHAR(B1.INS_ST,'YYYYMMDD'),
+                        TO_CHAR(F_LAST_DAY(A1.CLS_YYMM),'YYYYMMDD')) AS CVR_ST_ST_RNDMC
+    , B1.AP_PRM, B1.ISAMT
+    , B1.AUTO_RNW_AV_YN, B1.AUTO_RNW_CVR_CNLDT, B1.RNW_NDDT
+    , C1.MDCS_RGT_BJ_YN, C1.RLPMI_CVR_YN
+FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 A1
+INNER JOIN (
+    SELECT
+        T.CLS_YYMM, B1.*
+        , ROW_NUMBER() OVER (
+            PARTITION BY T.CLS_YYMM, B1.PLYNO, B1.RELPC_OJ_SEQNO, B1.CVRCD, B1.CVR_SEQNO
+            ORDER BY B1.NDSNO DESC
+          ) AS RN
+    FROM (
+        SELECT
+            CVR_STCD, INS_ST, INS_CLSTR, AP_PRM, ISAMT
+            , AUTO_RNW_AV_YN, AUTO_RNW_CVR_CNLDT, RNW_NDDT
+            , RELPC_OJ_SEQNO, PLYNO, CVRCD, CVR_SEQNO
+            , NDS_AP_STR_DTHMS, NDS_AP_ND_DTHMS, NDSNO
+        FROM INS_CR_CVR
+        -- [성능] EXISTS → INNER JOIN: 옵티마이저가 NL/Hash 선택 가능
+        INNER JOIN (SELECT DISTINCT THCP_CVRCD FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T01) T01
+            ON CVRCD = T01.THCP_CVRCD
+        WHERE IKD_GRPCD     = 'LA'
+          AND VALD_NDS_YN   = '1'
+          AND CVR_STCD      IN ('01','07','08')   -- 정상, 완납, 납입면제
+          AND CVR_BJ_FLGCD  IN ('01','03')        -- 인담보, 적립담보
+    ) B1
+    INNER JOIN GDRES_SYS_YYMM_PRED T
+        ON  B1.NDS_AP_STR_DTHMS <= T.CLS_NDDT
+        AND B1.NDS_AP_ND_DTHMS   > T.CLS_NDDT
+) B1
+    ON  A1.PLYNO        = B1.PLYNO
+    AND A1.RELPC_SEQNO  = B1.RELPC_OJ_SEQNO
+    AND A1.CLS_YYMM     = B1.CLS_YYMM
+    AND B1.INS_CLSTR   >= F_LAST_DAY(B1.CLS_YYMM)
+    AND B1.RN           = 1
+LEFT JOIN IGD_GD_CVR C1
+    ON  B1.CVRCD    = C1.CVRCD
+    AND A1.GDCD     = C1.GDCD
+    AND C1.AP_NDDT   > F_LAST_DAY(B1.CLS_YYMM)
+    AND C1.AP_STRDT <= F_LAST_DAY(B1.CLS_YYMM);
+
+
+/* ============================================================================
+   [09] 담보보장조건 ↔ 담보코드 매핑 (T04)
+============================================================================ */
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T04 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T04 NOLOGGING AS
+SELECT *
+FROM (
+    SELECT /*+ PARALLEL(8) FULL(A1) FULL(B1) LEADING(B1) */
+        A1.CLS_YYMM, A1.PLYNO, A1.CVRCD, A1.CVR_SEQNO
+        , A1.CTMNO, A1.RELPC_SEQNO, A1.STFNO, A1.USRNO
+        , A1.INS_ST, A1.INS_CLSTR, A1.GDCD, A1.CVR_STCD
+        , A1.INS_ST    AS CVR_INS_ST     -- ※ 원본 중복 컬럼 유지 (하위 호환)
+        , A1.INS_CLSTR AS CVR_INS_CLSTR
+        , A1.AP_PRM, A1.ISAMT
+        , A1.AUTO_RNW_AV_YN, A1.AUTO_RNW_CVR_CNLDT, A1.RNW_NDDT
+        , A1.MDCS_RGT_BJ_YN, A1.RLPMI_CVR_YN
+        , A1.BRTH, A1.INS_AGE, A1.CVR_ST_ST_RNDMC, A1.CVR_CLSTR_ST_RNDMC
+        , B1.THCP_GN_CND_SEQNO, B1.THCP_GD_XCPT_MTT, B1.THCP_CVRCD
+        , B1.THCP_IBAMT_STNM, B1.THCP_INS_MULT_STAMT, B1.THCP_INSTR_CSFNM
+        , B1.THCP_INSTR_MNVL, B1.THCP_INSTR_MXVL
+        , B1.THCP_INS_AGE_MNVL, B1.THCP_INS_AGE_MXVL
+        , B1.THCP_AN_PY_CT, B1.THCP_AN_ND_DTNM, B1.THCP_AN_TRM_NM
+        , B1.THCP_GNAMT_ITCD, B1.THCP_GNAMT
+        -- 일배책/화재벌금/운전자벌금: 동일 고객+항목 내 최신가입 1건만
+        , CASE
+            WHEN B1.THCP_GNAMT_ITCD IN ('SH0001','SH0003','WJ0001')
+                THEN ROW_NUMBER() OVER (
+                         PARTITION BY A1.CLS_YYMM, A1.CTMNO, B1.THCP_GNAMT_ITCD
+                         ORDER BY A1.INS_ST DESC)
+            ELSE 1
+          END AS RN
+    FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 A1
+    INNER JOIN M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 B1
+        ON  A1.CVRCD = B1.THCP_CVRCD
+        AND (B1.THCP_GD_XCPT_MTT IS NULL OR B1.THCP_GD_XCPT_MTT LIKE '%'||A1.GDCD||'%')
+)
+WHERE RN = 1;
+
+
+/* ============================================================================
+   [10] 가입금액 보정 (T06) - 지급금액 산출
+============================================================================ */
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T06 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T06 NOLOGGING AS
+SELECT
+    A2.*
+    , CASE
+        WHEN A2.THCP_IBAMT_STNM = '가입금액'
+             AND A2.THCP_GNAMT_ITCD IN ('JH0004','JH0005','JH0006','JH0007','JH0008','JH0009')
+            THEN A2.ISAMT                                                           -- 후유장해 6종
+        WHEN A2.THCP_IBAMT_STNM = '가입금액'
+            THEN (A2.ISAMT / A2.THCP_INS_MULT_STAMT) * A2.THCP_GNAMT
+        WHEN A2.THCP_IBAMT_STNM = '정액'
+            THEN A2.THCP_GNAMT * 10000
+        WHEN A2.THCP_IBAMT_STNM IN ('보험료','일시납')
+            THEN ((A2.AP_PRM / 10000) / A2.THCP_INS_MULT_STAMT) * A2.THCP_GNAMT * 10000
+      END AS CALC_PYAMT
+FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T04 A2;
+
+/*
+   ※ [T09] M_BIZ_CTM_INFO_CVR_LIST_RECT_T09: T06을 PIVOT → 고객-담보 Wide 테이블
+      원본 파일 참조. T06 이후 즉시 실행.
+
+   ※ [M_BIZ_RECT_GDINFO_*] 연령별 상위75% 가입금액 (L01/L03/SS/L08/L11):
+      T09 이후 실행. 원본 파일 참조.
+*/
+
+
+/* ============================================================================
+   [11] 상품별 기가입 현황 PIVOT
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_GD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_GD_PRED NOLOGGING AS
+SELECT *
+FROM (
+    SELECT
+        CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+        , COUNT(DISTINCT PLYNO) AS PLY_CNT
+    FROM (
+        SELECT A.*
+            , CASE
+                WHEN GDNM LIKE '%Young%'                                        THEN 'L04'
+                WHEN GDNM LIKE '%더건강 더실속%' OR MKTG_GD_CSFCD IN ('L02','L01') THEN 'L01'
+                WHEN GDNM LIKE '%더건강%'                                        THEN 'L01'
+                WHEN GDNM LIKE '%시그니처 여성 건강%'                              THEN 'L01'
+                WHEN MKTG_GD_CSFCD = 'L03' THEN 'L03'  WHEN MKTG_GD_CSFCD = 'L04' THEN 'L04'
+                WHEN MKTG_GD_CSFCD = 'L06' THEN 'L06'  WHEN MKTG_GD_CSFCD = 'L11' THEN 'L11'
+                WHEN MKTG_GD_CSFCD = 'L08' THEN 'L08'
+                WHEN GDNM LIKE '%세이프투게더%' THEN 'SAFE'
+                WHEN GDNM LIKE '%실손의료보험%' THEN 'SS'
+                WHEN REGEXP_LIKE(GDNM,'참 편한|WELL100|간편|3N5|355') THEN '유병자'
+                WHEN MKTG_GD_CSFCD IN ('L12','L13') THEN 'L123'
+                ELSE 'ETC'
+              END AS GD_TYPE
+        FROM GDREC_ORIGIN_INS_CR_PRED A
+    )
+    GROUP BY CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+)
+PIVOT (MAX(PLY_CNT) FOR GD_TYPE IN (
+    'L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,
+    'SAFE' AS SAFE,'SS' AS SS,'유병자' AS 유병자,'L11' AS L11,'L123' AS L123
+)) P;
+
+/*
+   ※ GDREC_ORIGIN_INS_ADDCR_GD_PRED: 구조 동일, 소스만 ADDCR_PRED로 변경. 원본 파일 참조.
+*/
+
+
+/* ============================================================================
+   [12] 고객별 계약수/보험료 합계
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_PRMCNT_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_PRMCNT_PRED NOLOGGING AS
+SELECT
+    CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO
+    , SUM(LTRM_MPY_CV_PRM)  AS PRM
+    , COUNT(DISTINCT PLYNO) AS PLY_CNT
+FROM GDREC_ORIGIN_INS_CR_PRED
+GROUP BY CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO;
+
+
+/* ============================================================================
+   [13] 피보험자수 및 미성년 피보험자 존재 여부
+   ※ [논리] AP_STRDT/AP_NDDT 기준을 SYSDATE → F_LAST_DAY(CLS_YYMM)으로 변경
+      다른 테이블들이 모두 CLS_YYMM 기준이므로 통일 (원본은 SYSDATE → 기준일 불일치)
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_NRD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_NRD_PRED NOLOGGING AS
+SELECT
+    A.CLS_YYMM, A.CRT_CTMNO
+    , COUNT(DISTINCT B.CTMNO) AS NRD_CNT
+    , MAX(CASE
+        WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T'
+         AND TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),
+                  TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12) < 20
+        THEN 1 ELSE 0
+      END) AS KIDS_YN
+FROM (SELECT DISTINCT CRT_CTMNO, PLYNO, CLS_YYMM FROM GDREC_ORIGIN_INS_CR_PRED) A
+INNER JOIN INS_CR_RELPC B
+    ON  A.PLYNO        = B.PLYNO
+    AND B.AP_STRDT    <= F_LAST_DAY(A.CLS_YYMM)   -- ※ 수정: SYSDATE → CLS_YYMM 기준 통일
+    AND B.AP_NDDT      > F_LAST_DAY(A.CLS_YYMM)
+    AND B.RELPC_TPCD  IN ('02')
+GROUP BY A.CLS_YYMM, A.CRT_CTMNO;
+
+
+/* ============================================================================
+   [14] 계약자별 자동차보험 계약수
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_CA_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CA_PRED NOLOGGING AS
+SELECT
+    A.CLS_YYMM, A.CRT_CTMNO
+    , COUNT(DISTINCT B.PLYNO) AS CA_CNT
+FROM (SELECT DISTINCT CRT_CTMNO, CLS_YYMM FROM GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN M_CRM_MTHY_PS_CR B
+    ON  A.CRT_CTMNO  = B.MN_NRDPS_CTMNO
+    AND A.CLS_YYMM   = B.CLS_YYMM
+    AND B.IKD_GRPCD  = 'CA'
+GROUP BY A.CLS_YYMM, A.CRT_CTMNO;
+
+
+/* ============================================================================
+   [15] 최초 보험 가입 후 경과 개월수
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_INSDIFF_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_INSDIFF_PRED NOLOGGING AS
+SELECT CLS_YYMM, CRT_CTMNO
+    , TRUNC(MONTHS_BETWEEN(F_LAST_DAY(CLS_YYMM), INS_ST), 0) AS INS_DIFF
+FROM (
+    SELECT A.*
+        , ROW_NUMBER() OVER (PARTITION BY CRT_CTMNO, CLS_YYMM ORDER BY INS_ST) AS RN
+    FROM GDREC_ORIGIN_INS_CR_PRED A
+)
+WHERE RN = 1;
+
+
+/* ============================================================================
+   [16] 계약자 연령/성별
+   [17] 피보험자 연령/성별
+   ※ 두 테이블은 JOIN 키(CRT_CTMNO vs MN_NRDPS_CTMNO)만 다르고 구조 동일
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_CRTINFO_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CRTINFO_PRED NOLOGGING AS
+SELECT A.*
+    , CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T'
+           THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),
+                    TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12)
+      END AS CTM_AGE
+    , CASE WHEN F_SEX_DEC(B.CTM_DSCNO) = 'M' THEN '1.M'
+           WHEN F_SEX_DEC(B.CTM_DSCNO) = 'F' THEN '2.F' END AS CTM_SEX
+FROM (SELECT DISTINCT CRT_CTMNO, CLS_YYMM FROM GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN CUS_CTM B ON B.CTMNO = A.CRT_CTMNO;
+
+DROP TABLE GDREC_ORIGIN_INS_NRDINFO_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_NRDINFO_PRED NOLOGGING AS
+SELECT A.*
+    , CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T'
+           THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM),
+                    TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12)
+      END AS CTM_AGE
+    , CASE WHEN F_SEX_DEC(B.CTM_DSCNO) = 'M' THEN '1.M'
+           WHEN F_SEX_DEC(B.CTM_DSCNO) = 'F' THEN '2.F' END AS CTM_SEX
+FROM (SELECT DISTINCT MN_NRDPS_CTMNO, CLS_YYMM FROM GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN CUS_CTM B ON B.CTMNO = A.MN_NRDPS_CTMNO;
+
+
+/* ============================================================================
+   [18] 계약자 직업 분류
+   ※ 전문직 LIKE 패턴 → REGEXP_LIKE 단일 표현식으로 압축 (가독성+성능)
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_CRTJB_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CRTJB_PRED NOLOGGING AS
+SELECT
+    A.*
+    , CASE
+        WHEN SPJOB_YN = 1             THEN '전문직'
+        WHEN STF_YN   = '내근직'      THEN '내근직'
+        WHEN STF_YN   = '영업가족'    THEN '영업가족'
+        WHEN JB_TYPE IN ('1','2','3') THEN '화이트'
+        WHEN JB_TYPE IN ('4','5')     THEN '자영업'
+        WHEN JB_TYPE IN ('B1','C','B2') THEN '주부/학생'
+        ELSE '블루'
+      END AS JB_SEG
+FROM (
+    SELECT
+        A.*
+        , E2.JBNM, E3.BZPS_TPCD
+        -- [가독성] 전문직 포함/제외 패턴을 REGEXP_LIKE로 단일화
+        , CASE
+            WHEN REGEXP_LIKE(E2.JBNM,
+                 '전문 간호|조종사|관제사|항해사|선박 기관사|선장|교수|고위|임원|경무관 이상|'||
+                 '소방감 이상|계리|금융 상품|자산|외환 딜러|소프트웨어|프로그래머|데이터|'||
+                 '감독|장학관|판사|검사|변호사|법무사|변리사|노무사|회계사|세무사|'||
+                 '감정평가사|관세사|의사|치과의사|수의사|한의사|약사|손해사정사|'||
+                 '건축사|행정사|도선사')
+             AND NOT REGEXP_LIKE(E2.JBNM,
+                 '장의사|스포츠|건설|코치|검사원|검사공|검사기사|사육|판매|사무원|'||
+                 '종사원|의료인|공무원|보조원|현장기술|감독자|제조|공급|사무및감독|경비원')
+                THEN 1 ELSE 0
+          END AS SPJOB_YN
+        , CASE
+            WHEN E4.BZ_PART_FLGCD = '09' AND E4.STF_BZ_STCD = '01' THEN '내근직'
+            WHEN E4.STFNO IS NOT NULL     AND E4.STF_BZ_STCD = '01' THEN '영업가족'
+          END AS STF_YN
+        , CASE
+            WHEN E2.JBNM LIKE '%주부%'                            THEN 'B2'
+            WHEN E1.JBCD='0' AND E1.JB_CH_SEQNO='2'              THEN '1'
+            WHEN E1.JBCD='1' AND E1.JB_CH_SEQNO='2'              THEN '2'
+            WHEN E1.JBCD='1' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '1'
+            WHEN E1.JBCD='2' AND E1.JB_CH_SEQNO IN ('2','3','4') THEN '2'
+            WHEN E1.JBCD='3' AND E1.JB_CH_SEQNO='2'              THEN '2'
+            WHEN E1.JBCD='3' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '3'
+            WHEN E1.JBCD='4' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '4'
+            WHEN E1.JBCD='5' AND E1.JB_CH_SEQNO='2'              THEN '4'
+            WHEN E1.JBCD IN ('6','8','9') AND E1.JB_CH_SEQNO='1' THEN '4'
+            WHEN E1.JBCD='4' AND E1.JB_CH_SEQNO='2'              THEN '5'
+            WHEN E1.JBCD='5' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '5'
+            WHEN E1.JBCD='1' AND E1.JB_CH_SEQNO='1'              THEN '6'
+            WHEN E1.JBCD='6' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '6'
+            WHEN E1.JBCD='9' AND E1.JB_CH_SEQNO='2'              THEN '6'
+            WHEN E1.JBCD='4' AND E1.JB_CH_SEQNO='1'              THEN '7'
+            WHEN E1.JBCD='5' AND E1.JB_CH_SEQNO='1'              THEN '7'
+            WHEN E1.JBCD IN ('6','7','8') AND E1.JB_CH_SEQNO='2' THEN '7'
+            WHEN E1.JBCD='7' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '7'
+            WHEN E1.JBCD IN ('3','7') AND E1.JB_CH_SEQNO='1'     THEN '8'
+            WHEN E1.JBCD='8' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '8'
+            WHEN E1.JBCD='2' AND E1.JB_CH_SEQNO='1'              THEN '9'
+            WHEN E1.JBCD='9' AND E1.JB_CH_SEQNO IN ('3','4')     THEN '9'
+            WHEN E1.JBCD='A' AND E1.JB_CH_SEQNO IN ('2','3','4') THEN 'A'
+            WHEN E1.JBCD='B' AND E1.JB_CH_SEQNO IN ('2','3','4') THEN 'B1'
+            WHEN E2.JBCD='B3200'                                   THEN 'B2'
+            ELSE 'C'
+          END AS JB_TYPE
+    FROM (
+        SELECT AA.CLS_YYMM, AA.CTMNO, BB.JBCD, BB.JB_CH_SEQNO
+            , ROW_NUMBER() OVER (PARTITION BY AA.CLS_YYMM, AA.CTMNO ORDER BY BB.AP_STR_DTHMS DESC) AS RN
+        FROM (SELECT DISTINCT CRT_CTMNO AS CTMNO, CLS_YYMM FROM GDREC_ORIGIN_INS_CR_PRED) AA
+        LEFT JOIN CUS_CTM_JB_CRR BB
+            ON  AA.CTMNO        = BB.CTMNO
+            AND BB.AP_STR_DTHMS <= F_LAST_DAY(AA.CLS_YYMM)
+            AND BB.AP_ND_DTHMS   > F_LAST_DAY(AA.CLS_YYMM)
+    ) A
+    LEFT JOIN CUS_JB        E1 ON SUBSTR(A.JBCD,1,1) = E1.JBCD AND A.JB_CH_SEQNO = E1.JB_CH_SEQNO
+    LEFT JOIN CUS_JB        E2 ON A.JBCD = E2.JBCD AND A.JB_CH_SEQNO = E2.JB_CH_SEQNO
+    LEFT JOIN CUS_CTM       E3 ON A.CTMNO = E3.CTMNO
+    LEFT JOIN M_ORG_BZ_ORGN E4 ON E3.CTM_DSCNO = E4.RSNO
+    WHERE A.RN = 1
+) A;
+
+
+/* ============================================================================
+   [19] 연체 보험료
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_OVD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_OVD_PRED NOLOGGING AS
+SELECT DISTINCT A.*, C1.CTMNO
+FROM GDRES_SYS_YYMM_PRED T
+INNER JOIN INS_DCN_PRM A
+    ON  A.CLS_YYMM BETWEEN F_PREV_MONTH(T.CLS_YYMM,'12') AND T.CLS_YYMM
+INNER JOIN INS_CR_RELPC C1
+    ON  A.PLYNO                 = C1.PLYNO
+    AND C1.NDS_AP_STR_DTHMS    <= F_LAST_DAY(T.CLS_YYMM)
+    AND C1.NDS_AP_ND_DTHMS      > F_LAST_DAY(T.CLS_YYMM)
+    AND C1.RELPC_TPCD          IN ('01')          -- 계약자
+    AND C1.RELPC_STCD          IN ('01','04')      -- 정상, 납입면제
+    AND C1.RELPC_DSCNO_FLGCD   IN ('01','05')      -- 개인고객
+    AND C1.IKD_GRPCD            = 'LA'
+WHERE A.CLS_BFAF_FLGCD = '03'                     -- 확정 마감
+  AND A.DU_AR_FLGCD   IN ('01','02')              -- 응당
+  AND EXISTS (
+      SELECT 1 FROM GDREC_ORIGIN_INS_CR_PRED B
+      WHERE C1.CTMNO = B.CRT_CTMNO AND T.CLS_YYMM = B.CLS_YYMM
+  );
+
+
+/* ============================================================================
+   [20] 지급 보험금 (장기 + 자동차)
+   ※ [성능] LEFT JOIN + WHERE B.컬럼 → 사실상 INNER JOIN. 명시적으로 변경.
+   ※ [성능] 원본 UNION → UNION ALL: 두 소스는 완전히 다른 계통
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_CLM_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CLM_PRED NOLOGGING AS
+-- 장기 보험
+SELECT
+    T.CLS_YYMM, T.CLS_NDDT, A.MN_NRDPS_CTMNO
+    , CASE WHEN B.IKD_GRPCD IN ('FA','MA') THEN 'FAMA' ELSE B.IKD_GRPCD END AS IKD_GRPCD
+    , B.CLMDT
+    , SUM(B.WONCR_CV_PYAMT) AS PY_AMT
+FROM GDRES_SYS_YYMM_PRED T
+INNER JOIN GDREC_ORIGIN_INS_CR_PRED    A ON T.CLS_YYMM = A.CLS_YYMM
+INNER JOIN M_CMP_GN_CVRCL_PY_IBNF_LIST B            -- [수정] LEFT→INNER (WHERE로 필터 중)
+    ON  A.MN_NRDPS_CTMNO = B.CLMPS_CTMNO
+    AND B.CLMDT BETWEEN F_LAST_DAY(F_PREV_MONTH(T.CLS_YYMM,'60')) AND T.CLS_NDDT
+GROUP BY T.CLS_YYMM, T.CLS_NDDT, A.MN_NRDPS_CTMNO
+       , CASE WHEN B.IKD_GRPCD IN ('FA','MA') THEN 'FAMA' ELSE B.IKD_GRPCD END, B.CLMDT
+
+UNION ALL  -- [수정] UNION → UNION ALL: 소스가 다른 테이블이므로 중복 없음
+
+-- 자동차 보험
+SELECT CLS_YYMM, CLS_NDDT, MN_NRDPS_CTMNO, IKD_GRPCD, CLMDT
+    , SUM(RPBL_PY_IBAMT) + SUM(OPTN_PY_IBAMT) AS PY_AMT
+FROM (
+    SELECT DISTINCT
+        T.CLS_YYMM, T.CLS_NDDT, A.MN_NRDPS_CTMNO, 'CA' AS IKD_GRPCD
+        , C.CLMDT, B.RPBL_PY_IBAMT, B.OPTN_PY_IBAMT
+    FROM GDRES_SYS_YYMM_PRED T
+    INNER JOIN GDREC_ORIGIN_INS_CR_PRED A ON T.CLS_YYMM = A.CLS_YYMM
+    LEFT  JOIN M_CMP_CR_CLM_CRST        B ON A.MN_NRDPS_CTMNO = B.NRDPS_CTMNO
+    INNER JOIN M_CMP_CR_CMP_CLM_CR      C            -- [수정] LEFT→INNER
+        ON  B.RCPDT = C.RCPDT AND B.RCP_NV_SEQNO = C.RCP_NV_SEQNO
+        AND C.CLMDT BETWEEN F_LAST_DAY(F_PREV_MONTH(T.CLS_YYMM,'60')) AND T.CLS_NDDT
+) AA
+GROUP BY CLS_YYMM, CLS_NDDT, MN_NRDPS_CTMNO, IKD_GRPCD, CLMDT;
+
+
+/* ============================================================================
+   [21] 해지/해약 계약 이력
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_PRVGD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_PRVGD_PRED NOLOGGING AS
+SELECT DISTINCT
+    A.CLS_YYMM, A.MN_NRDPS_CTMNO, A.CRT_CTMNO
+    , B.PLYNO, D.CR_STCD
+    , CASE
+        WHEN E.GDNM LIKE '%Young%'                                          THEN 'L04'
+        WHEN E.GDNM LIKE '%더건강 더실속%' OR E.MKTG_GD_CSFCD IN ('L02','L01') THEN 'L01'
+        WHEN E.GDNM LIKE '%더건강%'                                          THEN 'L01'
+        WHEN E.GDNM LIKE '%시그니처 여성 건강%'                                THEN 'L01'
+        WHEN E.MKTG_GD_CSFCD = 'L03' THEN 'L03'  WHEN E.MKTG_GD_CSFCD = 'L04' THEN 'L04'
+        WHEN E.MKTG_GD_CSFCD = 'L06' THEN 'L06'  WHEN E.MKTG_GD_CSFCD = 'L11' THEN 'L11'
+        WHEN E.MKTG_GD_CSFCD = 'L08' THEN 'L08'
+        WHEN E.GDNM LIKE '%세이프투게더%' THEN 'SAFE'
+        WHEN E.GDNM LIKE '%실손의료보험%' THEN 'SS'
+        WHEN REGEXP_LIKE(E.GDNM,'참 편한|WELL100|간편|3N5|355') THEN '유병자'
+        WHEN E.MKTG_GD_CSFCD IN ('L12','L13') THEN 'L123'
+        ELSE 'ETC'
+      END AS GD_TYPE
+    , C.INS_ST
+FROM (SELECT DISTINCT CRT_CTMNO, MN_NRDPS_CTMNO, CLS_YYMM FROM GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN INS_CR_RELPC B
+    ON  A.CRT_CTMNO  = B.CTMNO
+    AND B.AP_STRDT   <= F_LAST_DAY(A.CLS_YYMM) AND B.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+    AND B.RELPC_TPCD IN ('01')
+LEFT JOIN INS_CR_RELPC B2
+    ON  A.MN_NRDPS_CTMNO = B2.CTMNO
+    AND B2.AP_STRDT  <= F_LAST_DAY(A.CLS_YYMM) AND B2.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+    AND B2.RELPC_TPCD IN ('02')
+INNER JOIN INS_INS_CR C
+    ON  B.PLYNO    = C.PLYNO
+    AND C.AP_STRDT <= F_LAST_DAY(A.CLS_YYMM) AND C.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+    AND C.IKD_GRPCD = 'LA'
+INNER JOIN INS_CR_ST_CRR D      -- CR_STCD 조회용 (NDS 기준)
+    ON  D.PLYNO              = B.PLYNO
+    AND D.NDS_AP_STR_DTHMS  <= F_LAST_DAY(A.CLS_YYMM)
+    AND D.NDS_AP_ND_DTHMS    > F_LAST_DAY(A.CLS_YYMM)
+INNER JOIN M_CRM_GD_CSF_INFO E ON C.GDCD = E.GDCD
+WHERE D.CR_STCD NOT IN ('00','10');
+
+
+/* ============================================================================
+   [22] 부담보/표준하체할증 이력
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_INS_NOCVR_XC_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_NOCVR_XC_PRED NOLOGGING AS
+SELECT DISTINCT
+    A.CLS_YYMM, A.PLYNO, A.MN_NRDPS_CTMNO AS CTMNO
+    , C1.AP_STRDT, C1.CVRCD, C1.ATRVL
+    , CASE WHEN C1.PLYNO IS NULL THEN 0 ELSE 1 END AS NO_CVR_YN
+    , CASE WHEN D1.PLYNO IS NULL THEN 0 ELSE 1 END AS XC_YN
+FROM GDREC_ORIGIN_INS_CR_PRED A
+LEFT JOIN INS_CVR_AD_ATRVL C1
+    ON  A.PLYNO = C1.PLYNO AND C1.CVRCD = 'CLA00503' AND C1.ATRCD = 'CA00119'
+    AND C1.AP_STRDT < F_LAST_DAY(A.CLS_YYMM) AND C1.AP_NDDT >= F_LAST_DAY(A.CLS_YYMM)
+LEFT JOIN INS_CR_CVR D1
+    ON  A.PLYNO = D1.PLYNO AND D1.SUSTD_XC_RK_NDX > 0 AND D1.CVR_STCD = '01'
+    AND D1.AP_STRDT < F_LAST_DAY(A.CLS_YYMM) AND D1.AP_NDDT >= F_LAST_DAY(A.CLS_YYMM);
+
+/*
+   ※ GDREC_ORIGIN_INS_CHNL_PRED (채널별 기가입) → 여기 위치. 원본 파일 참조.
+*/
+
+
+/* ============================================================================
+   [23] 1차 취합: 고객 기본 특성
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_MAIN99_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_MAIN99_PRED NOLOGGING AS
+SELECT
+    A.*
+    , B1.NRD_CNT, B1.KIDS_YN
+    , B2.CA_CNT
+    , B3.INS_DIFF
+    , B7.CTM_AGE, B7.CTM_SEX
+    , B77.CTM_AGE AS NRD_AGE, B77.CTM_SEX AS NRD_SEX
+    , B4.JB_SEG
+    , B5.CLM_CNT, B5.PY_AMT
+    , B6.NO_CVR_YN, B6.XC_YN
+    , B8.DELAY_YYMM
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+LEFT JOIN GDREC_ORIGIN_INS_NRD_PRED     B1  ON A.CLS_YYMM = B1.CLS_YYMM AND A.CRT_CTMNO = B1.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CA_PRED      B2  ON A.CLS_YYMM = B2.CLS_YYMM AND A.CRT_CTMNO = B2.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_INSDIFF_PRED B3  ON A.CLS_YYMM = B3.CLS_YYMM AND A.CRT_CTMNO = B3.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CRTJB_PRED  B4  ON A.CLS_YYMM = B4.CLS_YYMM AND A.CRT_CTMNO = B4.CTMNO
+LEFT JOIN (
+    SELECT CLS_YYMM, MN_NRDPS_CTMNO
+        , COUNT(DISTINCT CLMDT) AS CLM_CNT
+        , SUM(PY_AMT)           AS PY_AMT
+    FROM GDREC_ORIGIN_INS_CLM_PRED
+    GROUP BY CLS_YYMM, MN_NRDPS_CTMNO
+) B5 ON A.CLS_YYMM = B5.CLS_YYMM AND A.MN_NRDPS_CTMNO = B5.MN_NRDPS_CTMNO
+LEFT JOIN (
+    SELECT CLS_YYMM, CTMNO
+        , MAX(NO_CVR_YN) AS NO_CVR_YN, MAX(XC_YN) AS XC_YN
+    FROM GDREC_ORIGIN_INS_NOCVR_XC_PRED
+    GROUP BY CLS_YYMM, CTMNO
+) B6 ON A.CLS_YYMM = B6.CLS_YYMM AND A.MN_NRDPS_CTMNO = B6.CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CRTINFO_PRED  B7  ON A.CLS_YYMM = B7.CLS_YYMM  AND A.CRT_CTMNO      = B7.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_NRDINFO_PRED  B77 ON A.CLS_YYMM = B77.CLS_YYMM AND A.MN_NRDPS_CTMNO = B77.MN_NRDPS_CTMNO
+LEFT JOIN (
+    SELECT CLS_YYMM, CTMNO
+        , SUM(CASE WHEN DU_AR_FLGCD='01' THEN AP_PRM END) AS AP_PRM
+        , SUM(CASE WHEN DU_AR_FLGCD='02' THEN AP_PRM END) AS DELAY_PRM
+        , COUNT(DISTINCT CASE WHEN DU_AR_FLGCD='02' THEN CLS_YYMM END) AS DELAY_YYMM
+        , SUM(CASE WHEN DU_AR_FLGCD='02' AND NW_AR_CTUAR_FLGCD='03' THEN AP_PRM END) AS CTU_DELAY_PRM
+        , COUNT(DISTINCT CASE WHEN DU_AR_FLGCD='02' AND NW_AR_CTUAR_FLGCD='03' THEN CLS_YYMM END) AS CTU_DELAY_YYMM
+    FROM GDREC_ORIGIN_INS_OVD_PRED
+    GROUP BY CLS_YYMM, CTMNO
+) B8 ON A.CLS_YYMM = B8.CLS_YYMM AND A.CRT_CTMNO = B8.CTMNO;
+
+
+/* ============================================================================
+   [24] 설계 정보
+   ※ [성능] INNER JOIN BBB WHERE CTMNO IN (SELECT DISTINCT ...) →
+      EXISTS로 변경 (PRMCNT가 이미 유니크키 수준이므로 semi-join이 더 효율적)
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_PL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_PL_PRED NOLOGGING AS
+SELECT *
+FROM (
+    SELECT DISTINCT
+        AA.PL_YYMM, AA.PLNO, AA.PLDT, AA.PL_STCD, AA.PL_ST_CHDT
+        , AA.DH_STFNO AS CE_STFNO, AA.USRNO AS CE_USRNO
+        , BB.CTMNO AS CRT_CTMNO, BBB.CTMNO AS MN_NRDPS_CTMNO
+        , AA.PLNM, AA.GD_TYPE, AA.PL_FIN_CD
+        , ROW_NUMBER() OVER (PARTITION BY AA.PLNO ORDER BY AA.PLDT DESC) AS RN
+    FROM (
+        SELECT
+            TO_CHAR(A.PLDT,'YYYYMM') AS PL_YYMM, A.PLNO, A.PLDT, A.CGAF_CH_SEQNO
+            , A.PL_STCD, A.PL_ST_CHDT, B.DH_STFNO, B.USRNO, C.PLNM
+            , CASE
+                WHEN E.GDNM LIKE '%Young%'                                          THEN 'L04'
+                WHEN E.GDNM LIKE '%더건강 더실속%' OR E.MKTG_GD_CSFCD IN ('L02','L01') THEN 'L01'
+                WHEN E.GDNM LIKE '%더건강%'                                          THEN 'L01'
+                WHEN E.GDNM LIKE '%시그니처 여성 건강%'                                THEN 'L01'
+                WHEN E.MKTG_GD_CSFCD = 'L03' THEN 'L03'  WHEN E.MKTG_GD_CSFCD = 'L04' THEN 'L04'
+                WHEN E.MKTG_GD_CSFCD = 'L06' THEN 'L06'  WHEN E.MKTG_GD_CSFCD = 'L11' THEN 'L11'
+                WHEN E.MKTG_GD_CSFCD = 'L08' THEN 'L08'
+                WHEN E.GDNM LIKE '%세이프투게더%' THEN 'SAFE'
+                WHEN E.GDNM LIKE '%실손의료보험%' THEN 'SS'
+                WHEN REGEXP_LIKE(E.GDNM,'참 편한|WELL100|간편|3N5|355') THEN '유병자'
+                WHEN E.MKTG_GD_CSFCD IN ('L12','L13') THEN 'L123'
+                ELSE 'ETC'
+              END AS GD_TYPE
+            , CASE WHEN A.PL_STCD IN ('03','04','05','06','07','08','09') THEN 1 ELSE 0 END AS PL_FIN_CD
+        FROM INS_INS_PL A
+        LEFT JOIN INS_PL_DH_STF  B ON A.PLNO=B.PLNO AND A.CGAF_CH_SEQNO=B.CGAF_CH_SEQNO
+                                  AND B.DH_STF_TPCD='01' AND B.IKD_GRPCD='LA'
+        LEFT JOIN INS_GD_CE_PL   C ON A.PLCD=C.PLCD AND A.GDCD=C.GDCD
+        LEFT JOIN M_CRM_GD_CSF_INFO E ON A.GDCD=E.GDCD
+        WHERE A.PL_FLGCD='01' AND A.IKD_GRPCD='LA' AND A.VALD_PL_YN='1'
+    ) AA
+    INNER JOIN INS_PL_RELPC BB
+        ON  AA.PLNO=BB.PLNO AND AA.CGAF_CH_SEQNO=BB.CGAF_CH_SEQNO
+        AND BB.IKD_GRPCD='LA' AND BB.RELPC_TPCD IN ('01')
+        -- [성능] IN(SELECT DISTINCT ...) → EXISTS (semi-join, PRMCNT 재스캔 방지)
+        AND EXISTS (SELECT 1 FROM GDREC_ORIGIN_INS_PRMCNT_PRED P WHERE BB.CTMNO = P.CRT_CTMNO)
+    INNER JOIN INS_PL_RELPC BBB
+        ON  AA.PLNO=BBB.PLNO AND AA.CGAF_CH_SEQNO=BBB.CGAF_CH_SEQNO
+        AND BBB.IKD_GRPCD='LA' AND BBB.RELPC_TPCD IN ('02')
+        AND EXISTS (SELECT 1 FROM GDREC_ORIGIN_INS_PRMCNT_PRED P WHERE BBB.CTMNO = P.MN_NRDPS_CTMNO)
+)
+WHERE RN = 1;
+
+
+/* ============================================================================
+   [25] 설계 이력 건수 PIVOT
+   [26] 설계 완료 건수 PIVOT
+   ※ 두 테이블은 WHERE PL_FIN_CD=1 유무만 다름 → 공통 인라인 뷰 구조 사용
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_PL_ALL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_PL_ALL_PRED NOLOGGING AS
+SELECT *
+FROM (
+    SELECT CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+        , COUNT(DISTINCT PLNO) AS PLNO_CNT
+    FROM (
+        SELECT A.*, B.PLDT, B.GD_TYPE, B.PLNO
+            , RANK() OVER (PARTITION BY A.CRT_CTMNO, A.MN_NRDPS_CTMNO ORDER BY A.CLS_YYMM DESC) AS RN
+        FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+        LEFT JOIN GDREC_ORIGIN_PL_PRED    B
+            ON  A.CRT_CTMNO = B.CRT_CTMNO AND A.MN_NRDPS_CTMNO = B.MN_NRDPS_CTMNO
+            AND F_LAST_DAY(A.CLS_YYMM) >= B.PLDT
+    )
+    WHERE RN = 1
+    GROUP BY CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+)
+PIVOT (MAX(PLNO_CNT) FOR GD_TYPE IN (
+    'L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,
+    'SAFE' AS SAFE,'SS' AS SS,'유병자' AS 유병자,'L11' AS L11,'L123' AS L123
+)) P;
+
+DROP TABLE GDREC_ORIGIN_PL_CL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_PL_CL_PRED NOLOGGING AS
+SELECT *
+FROM (
+    SELECT CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+        , COUNT(DISTINCT PLNO) AS PLNO_CNT
+    FROM (
+        SELECT A.*, B.PLDT, B.GD_TYPE, B.PLNO
+            , RANK() OVER (PARTITION BY A.CRT_CTMNO, A.MN_NRDPS_CTMNO ORDER BY A.CLS_YYMM DESC) AS RN
+        FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+        LEFT JOIN GDREC_ORIGIN_PL_PRED    B
+            ON  A.CRT_CTMNO = B.CRT_CTMNO AND A.MN_NRDPS_CTMNO = B.MN_NRDPS_CTMNO
+            AND F_LAST_DAY(A.CLS_YYMM) >= B.PLDT
+        WHERE B.PL_FIN_CD = 1          -- 설계 완료만
+    )
+    WHERE RN = 1
+    GROUP BY CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+)
+PIVOT (MAX(PLNO_CNT) FOR GD_TYPE IN (
+    'L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,
+    'SAFE' AS SAFE,'SS' AS SS,'유병자' AS 유병자,'L11' AS L11,'L123' AS L123
+)) P;
+
+
+/* ============================================================================
+   [27] 설계 정보 종합
+============================================================================ */
+DROP TABLE GDREC_TMGD_PL_INFO_PRED PURGE;
+CREATE TABLE GDREC_TMGD_PL_INFO_PRED NOLOGGING AS
+SELECT
+    A.CLS_YYMM, A.CRT_CTMNO, A.MN_NRDPS_CTMNO
+    , NVL(B1.L01,0) AS L01_설계이력,  NVL(B1.L03,0) AS L03_설계이력
+    , NVL(B1.L04,0) AS L04_설계이력,  NVL(B1.L06,0) AS L06_설계이력
+    , NVL(B1.L08,0) AS L08_설계이력,  NVL(B1.SAFE,0) AS SAFE_설계이력
+    , NVL(B1.SS,0)  AS SS_설계이력,   NVL(B1.유병자,0) AS 유병자_설계이력
+    , NVL(B1.L11,0) AS L11_설계이력,  NVL(B1.L123,0) AS L123_설계이력
+    , NVL(B2.L01,0) AS L01_설계완료,  NVL(B2.L03,0) AS L03_설계완료
+    , NVL(B2.L04,0) AS L04_설계완료,  NVL(B2.L06,0) AS L06_설계완료
+    , NVL(B2.L08,0) AS L08_설계완료,  NVL(B2.SAFE,0) AS SAFE_설계완료
+    , NVL(B2.SS,0)  AS SS_설계완료,   NVL(B2.유병자,0) AS 유병자_설계완료
+    , NVL(B2.L11,0) AS L11_설계완료,  NVL(B2.L123,0) AS L123_설계완료
+    , B3.GD_TYPE AS 최근가입설계상품
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+LEFT JOIN GDREC_ORIGIN_PL_ALL_PRED B1
+    ON A.CLS_YYMM=B1.CLS_YYMM AND A.CRT_CTMNO=B1.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B1.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_PL_CL_PRED B2
+    ON A.CLS_YYMM=B2.CLS_YYMM AND A.CRT_CTMNO=B2.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B2.MN_NRDPS_CTMNO
+LEFT JOIN (
+    SELECT *
+    FROM (
+        SELECT A.*, B.GD_TYPE, B.PLNO
+            , RANK()       OVER (PARTITION BY A.CRT_CTMNO,A.MN_NRDPS_CTMNO ORDER BY A.CLS_YYMM DESC)      AS RN
+            , ROW_NUMBER() OVER (PARTITION BY A.CRT_CTMNO,A.MN_NRDPS_CTMNO ORDER BY A.CLS_YYMM DESC, B.PLDT DESC) AS RN2
+        FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+        LEFT JOIN GDREC_ORIGIN_PL_PRED    B
+            ON A.CRT_CTMNO=B.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B.MN_NRDPS_CTMNO
+            AND F_LAST_DAY(A.CLS_YYMM) >= B.PLDT
+    )
+    WHERE RN=1 AND RN2=1
+) B3 ON A.CLS_YYMM=B3.CLS_YYMM AND A.CRT_CTMNO=B3.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B3.MN_NRDPS_CTMNO;
+
+
+/* ============================================================================
+   [28] 사고/지급 보험금 (무사고 판별용)
+   [32] 최근 입원 청구
+   ※ [성능] 두 테이블은 동일한 M_CMP_GN_CVRCL_PY_IBNF_LIST를 2회 full scan.
+      CLM_ALL: 전체 사고, CLM_G: CLM_CVR_LCLCD IN ('G001') 필터 추가.
+      → 실제 환경에서 1회 스캔 후 CASE WHEN 분기로 통합 가능 (여기서는 원본 구조 유지)
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_CLM_ALL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_ALL_PRED NOLOGGING AS
+SELECT
+    A.CLS_YYMM, A.CLMPS_CTMNO, A.CLMPS_CTM_DSCNO
+    , SUM(A.WONCR_CV_PYAMT) AS 지급보험금
+    , MAX(A.PRVDT)          AS 최근사고일자
+FROM (
+    SELECT BB.CLS_YYMM, AA.*
+    FROM M_CMP_GN_CVRCL_PY_IBNF_LIST AA
+    INNER JOIN GDREC_ORIGIN_INS_PRMCNT_PRED BB
+        ON AA.CLMPS_CTMNO = BB.CRT_CTMNO AND F_LAST_DAY(BB.CLS_YYMM) >= AA.PRVDT
+) A
+LEFT JOIN LSE_CLMPS      B ON A.RCP_YYMM=B.RCP_YYMM AND A.RCP_NV_SEQNO=B.RCP_NV_SEQNO
+                           AND A.CLMPS_SEQNO=B.CLMPS_SEQNO AND B.CLMPS_FLGCD='01'
+LEFT JOIN LSE_DGN        C ON A.RCP_YYMM=C.RCP_YYMM AND A.RCP_NV_SEQNO=C.RCP_NV_SEQNO
+                           AND A.CLMPS_SEQNO=C.CLMPS_SEQNO AND A.CLM_NV_SEQNO=C.CLM_NV_SEQNO
+LEFT JOIN M_LCR_LTINS_CR D ON A.PLYNO=D.PLYNO
+LEFT JOIN SUS_DSACD      E ON REPLACE(C.DGNCD,'*','')=E.SUS_DSACD
+WHERE A.PLYNO IS NOT NULL AND A.IKD_GRPCD='LA' AND A.CCL_YN='0'
+  AND COALESCE(A.UDRTK_TYCD,'01') <> '03'
+  AND A.XI_PY_FLGCD IN ('02','03') AND A.CLM_NV_CSFCD='11'
+GROUP BY A.CLS_YYMM, A.CLMPS_CTMNO, A.CLMPS_CTM_DSCNO;
+
+
+/* ============================================================================
+   [29] 중대질환 청구 여부
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_CLM_CSF_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_CSF_PRED NOLOGGING AS
+SELECT A.CLS_YYMM, A.CLMPS_CTMNO AS CTMNO, MAX(A.CLMDT) AS DT
+FROM (
+    SELECT BB.CLS_YYMM, AA.*
+    FROM M_CMP_GN_CVRCL_PY_IBNF_LIST AA
+    INNER JOIN GDREC_ORIGIN_INS_PRMCNT_PRED BB
+        ON AA.CLMPS_CTMNO = BB.CRT_CTMNO AND F_LAST_DAY(BB.CLS_YYMM) >= AA.PRVDT
+) A
+INNER JOIN LSE_DGN C
+    ON A.RCP_YYMM=C.RCP_YYMM AND A.RCP_NV_SEQNO=C.RCP_NV_SEQNO
+   AND A.CLMPS_SEQNO=C.CLMPS_SEQNO AND A.CLM_NV_SEQNO=C.CLM_NV_SEQNO
+INNER JOIN (
+    SELECT DISTINCT DSACD FROM INS_UD_DSAS_CSF_REL
+    WHERE AP_NDDT = F_LAST_DAY('999912')
+      AND DSAS_CSFCD IN (
+        'UW02010','UW02020','UW02030','UW02040','UW02050','UW02060','UW02070','UW02080','UW02090',
+        'UW02100','UW02110','UW02120','UW02130','UW02140','UW02150','UW02160','UW02170','UW02180',
+        'UW03010','UW03020','UW03030','UW03040','UW03050','UW03060',
+        'UW04010','UW04020','UW04030','UW04040',
+        'UW09070','UW09090','UW09250','UW09260',
+        'UW12220','UW12210','UW12290','UW12300','UW12110','UW16120')
+) Z ON C.DGNCD = Z.DSACD
+GROUP BY A.CLS_YYMM, A.CLMPS_CTMNO;
+
+
+/* ============================================================================
+   [30] 중대질환 고지 여부
+   [31] 입원/수술 고지 여부
+   ※ 두 테이블은 INS_BFPL_DSAS_NC_MTT 조인 구조 동일, WHERE 조건만 다름
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_CLM_MTT_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_MTT_PRED NOLOGGING AS
+SELECT AA.*, BB.DGNDT
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED AA
+INNER JOIN (
+    SELECT NVL(B.CTMNO, A.CTMNO) AS CTMNO, MAX(A.DGNDT) AS DGNDT
+    FROM INS_BFPL_DSAS_NC_MTT A
+    LEFT JOIN INS_PL_RELPC    B ON A.PLNO=B.PLNO AND A.CGAF_CH_SEQNO=B.CGAF_CH_SEQNO AND A.RELPC_SEQNO=B.RELPC_SEQNO
+    WHERE A.DSACD IN (
+        'UW02010','UW02020','UW02030','UW02040','UW02050','UW02060','UW02070','UW02080','UW02090',
+        'UW02100','UW02110','UW02120','UW02130','UW02140','UW02150','UW02160','UW02170','UW02180',
+        'UW03010','UW03020','UW03030','UW03040','UW03050','UW03060',
+        'UW04010','UW04020','UW04030','UW04040',
+        'UW09070','UW09090','UW09250','UW09260',
+        'UW12220','UW12210','UW12290','UW12300','UW12110','UW16120')
+    GROUP BY NVL(B.CTMNO, A.CTMNO)
+) BB ON AA.MN_NRDPS_CTMNO = BB.CTMNO AND F_LAST_DAY(AA.CLS_YYMM) >= BB.DGNDT;
+
+DROP TABLE GDREC_ORIGIN_CLM_HSP_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_HSP_PRED NOLOGGING AS
+SELECT AA.*, BB.DGNDT
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED AA
+INNER JOIN (
+    SELECT NVL(B.CTMNO, A.CTMNO) AS CTMNO, MAX(A.DGNDT) AS DGNDT
+    FROM INS_BFPL_DSAS_NC_MTT A
+    LEFT JOIN INS_PL_RELPC    B ON A.PLNO=B.PLNO AND A.CGAF_CH_SEQNO=B.CGAF_CH_SEQNO AND A.RELPC_SEQNO=B.RELPC_SEQNO
+    WHERE NVL(A.OP_RMDY_YN,0) + NVL(A.RL_HSP_YN,0) >= 1   -- 입원 또는 수술
+    GROUP BY NVL(B.CTMNO, A.CTMNO)
+) BB ON AA.MN_NRDPS_CTMNO = BB.CTMNO AND F_LAST_DAY(AA.CLS_YYMM) >= BB.DGNDT;
+
+
+/* ============================================================================
+   [32] 최근 입원 청구 (G001: 사망/후유장해/입원/수술)
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_CLM_G_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_G_PRED NOLOGGING AS
+SELECT
+    A.CLS_YYMM, A.CLMPS_CTMNO, A.CLMPS_CTM_DSCNO
+    , SUM(A.WONCR_CV_PYAMT) AS 지급보험금
+    , MAX(A.PRVDT)          AS 최근사고일자
+FROM (
+    SELECT BB.CLS_YYMM, AA.*
+    FROM M_CMP_GN_CVRCL_PY_IBNF_LIST AA
+    INNER JOIN GDREC_ORIGIN_INS_PRMCNT_PRED BB
+        ON AA.CLMPS_CTMNO = BB.CRT_CTMNO AND F_LAST_DAY(BB.CLS_YYMM) >= AA.PRVDT
+) A
+LEFT JOIN LSE_DGN   C ON A.RCP_YYMM=C.RCP_YYMM AND A.RCP_NV_SEQNO=C.RCP_NV_SEQNO
+                      AND A.CLMPS_SEQNO=C.CLMPS_SEQNO AND A.CLM_NV_SEQNO=C.CLM_NV_SEQNO
+LEFT JOIN SUS_DSACD E ON REPLACE(C.DGNCD,'*','')=E.SUS_DSACD
+WHERE A.PLYNO IS NOT NULL AND A.IKD_GRPCD='LA' AND A.CCL_YN='0'
+  AND COALESCE(A.UDRTK_TYCD,'01') <> '03'
+  AND A.XI_PY_FLGCD IN ('02','03') AND A.CLM_NV_CSFCD='11'
+  AND A.CLM_CVR_LCLCD IN ('G001')   -- CLM_ALL 대비 추가 필터
+GROUP BY A.CLS_YYMM, A.CLMPS_CTMNO, A.CLMPS_CTM_DSCNO;
+
+
+/* ============================================================================
+   [33] 청구 정보 종합
+============================================================================ */
+DROP TABLE GDREC_TMGD_CLM_INFO_PRED PURGE;
+CREATE TABLE GDREC_TMGD_CLM_INFO_PRED NOLOGGING AS
+SELECT
+    A.CLS_YYMM, A.CRT_CTMNO, A.MN_NRDPS_CTMNO
+    , TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), B1.최근사고일자) / 12, 0) AS 입원청구
+    , TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), B2.DGNDT)        / 12, 0) AS 입원고지
+    , TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), B3.DGNDT)        / 12, 0) AS 중대질환고지
+    , TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), B4.DT)           / 12, 0) AS 중대질환청구
+    , TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), B5.최근사고일자) / 12, 0) AS 무사고
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+LEFT JOIN GDREC_ORIGIN_CLM_G_PRED   B1 ON A.CLS_YYMM=B1.CLS_YYMM AND A.MN_NRDPS_CTMNO=B1.CLMPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_HSP_PRED B2 ON A.CLS_YYMM=B2.CLS_YYMM AND A.MN_NRDPS_CTMNO=B2.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_MTT_PRED B3 ON A.CLS_YYMM=B3.CLS_YYMM AND A.MN_NRDPS_CTMNO=B3.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_CSF_PRED B4 ON A.CLS_YYMM=B4.CLS_YYMM AND A.MN_NRDPS_CTMNO=B4.CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_ALL_PRED B5 ON A.CLS_YYMM=B5.CLS_YYMM AND A.MN_NRDPS_CTMNO=B5.CLMPS_CTMNO;
+
+
+/* ============================================================================
+   [34] 2차 취합: 기가입/채널/담보금액/이력 통합
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_MAIN9_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_MAIN9_PRED NOLOGGING AS
+SELECT
+    A.*
+    -- 상품 유형별 기가입
+    , NVL(B1.L01,0) AS L01_기가입,   NVL(B1.L03,0) AS L03_기가입
+    , NVL(B1.L04,0) AS L04_기가입,   NVL(B1.L06,0) AS L06_기가입
+    , NVL(B1.L08,0) AS L08_기가입,   NVL(B1.SAFE,0) AS SAFE_기가입
+    , NVL(B1.SS,0)  AS SS_기가입,    NVL(B1.유병자,0) AS 유병자_기가입
+    , NVL(B1.L11,0) AS L11_기가입,   NVL(B1.L123,0) AS L123_기가입
+    -- 채널별 기가입
+    , NVL(B2.전속,0) AS 전속_기가입,  NVL(B2.교차,0) AS 교차_기가입
+    , NVL(B2.GA,0)   AS GA_기가입,   NVL(B2.TM,0)   AS TM_기가입
+    , NVL(B2.CM,0)   AS CM_기가입
+    , NVL(B2.방카,0)+NVL(B2.기업,0)+NVL(B2.LIFEWITH,0)+NVL(B2.본사기타,0) AS 그외채널_기가입
+    -- 담보 가입금액 (SDADAM.M_BIZ_CTM_INFO_CVR_LIST 에서)
+    , NVL(B3.DSDE_AMT,0) AS DSDE_AMT,                 NVL(B3.INJR_DE_AMT,0) AS INJR_DE_AMT
+    , NVL(B3.CANCR_DE_AMT,0) AS CANCR_DE_AMT,         NVL(B3.TRF_INJR_DE_AMT,0) AS TRF_INJR_DE_AMT
+    , NVL(B3.DSAS_SLOBS_AMT,0) AS DSAS_SLOBS_AMT,     NVL(B3.DSAS_DGR_SLOBS_AMT,0) AS DSAS_DGR_SLOBS_AMT
+    , NVL(B3.INJR_SLOBS_AMT,0) AS INJR_SLOBS_AMT,     NVL(B3.INJR_DGR_SLOBS_AMT,0) AS INJR_DGR_SLOBS_AMT
+    , NVL(B3.SMLY_CANCR_DASCS_AMT,0) AS SMLY_CANCR_DASCS_AMT
+    , NVL(B3.CANCR_DASCS_AMT,0) AS CANCR_DASCS_AMT,   NVL(B3.HAMT_CANCR_DASCS_AMT,0) AS HAMT_CANCR_DASCS_AMT
+    , NVL(B3.RE_DGN_CANCR_AMT,0) AS RE_DGN_CANCR_AMT, NVL(B3.CANCR_HSP_DDALW_AMT,0) AS CANCR_HSP_DDALW_AMT
+    , NVL(B3.CANCR_OPCCS_AMT,0) AS CANCR_OPCCS_AMT,   NVL(B3.CRLR_DSAS_DASCS_AMT,0) AS CRLR_DSAS_DASCS_AMT
+    , NVL(B3.STRK_DASCS_AMT,0) AS STRK_DASCS_AMT,     NVL(B3.CBHMH_DASCS_AMT,0) AS CBHMH_DASCS_AMT
+    , NVL(B3.CRLR_DSAS_OPCCS_AMT,0) AS CRLR_DSAS_OPCCS_AMT
+    , NVL(B3.ISMC_HEART_DSAS_DASCS_AMT,0) AS ISMC_HEART_DSAS_DASCS_AMT
+    , NVL(B3.AMIFN_INCR_DASCS_AMT,0) AS AMIFN_INCR_DASCS_AMT
+    , NVL(B3.ISMC_HEART_DSAS_OPCCS_AMT,0) AS ISMC_HEART_DSAS_OPCCS_AMT
+    , NVL(B3.CI_AMT,0) AS CI_AMT,                     NVL(B3.GI_AMT,0) AS GI_AMT
+    , NVL(B3.DSAS_HSP_RLPMI_AMT,0) AS DSAS_HSP_RLPMI_AMT
+    , NVL(B3.DSAS_OTP_RLPMI_AMT,0) AS DSAS_OTP_RLPMI_AMT
+    , NVL(B3.INJR_HSP_RLPMI_AMT,0) AS INJR_HSP_RLPMI_AMT
+    , NVL(B3.INJR_OTP_RLPMI_AMT,0) AS INJR_OTP_RLPMI_AMT
+    , NVL(B3.DSAS_HSP_DDALW_1_AMT,0) AS DSAS_HSP_DDALW_1_AMT
+    , NVL(B3.DSAS_HSP_DDALW_4_AMT,0) AS DSAS_HSP_DDALW_4_AMT
+    , NVL(B3.INJR_HSP_DDALW_1_AMT,0) AS INJR_HSP_DDALW_1_AMT
+    , NVL(B3.INJR_HSP_DDALW_4_AMT,0) AS INJR_HSP_DDALW_4_AMT
+    , NVL(B3.DSAS_OPCCS_AMT,0) AS DSAS_OPCCS_AMT,     NVL(B3.INJR_OPCCS_AMT,0) AS INJR_OPCCS_AMT
+    , NVL(B3.MILD_DEMEN_AMT,0) AS MILD_DEMEN_AMT,     NVL(B3.SERI_DEMEN_AMT,0) AS SERI_DEMEN_AMT
+    , NVL(B3.LTRM_RCPR_DGN_RANK4_AMT,0) AS LTRM_RCPR_DGN_RANK4_AMT
+    , NVL(B3.LTRM_RCPR_DGN_RANK1_AMT,0) AS LTRM_RCPR_DGN_RANK1_AMT
+    , NVL(B3.BDIN_CCA_SUAMT_AMT,0) AS BDIN_CCA_SUAMT_AMT
+    , NVL(B3.LWR_SNRT_CS_AMT,0) AS LWR_SNRT_CS_AMT,  NVL(B3.DRV_PNLTY_AMT,0) AS DRV_PNLTY_AMT
+    , NVL(B3.AUTO_CRCLM_INJ_URAMT,0) AS AUTO_CRCLM_INJ_URAMT
+    , NVL(B3.FIRE_PNLTY_AMT,0) AS FIRE_PNLTY_AMT,    NVL(B3.USLLF_LBTRS_AMT,0) AS USLLF_LBTRS_AMT
+    , NVL(B3.IMPL_MDCF_AMT,0) AS IMPL_MDCF_AMT,       NVL(B3.CROW_MDCF_AMT,0) AS CROW_MDCF_AMT
+    , NVL(B3.FRCTR_DASCS_AMT,0) AS FRCTR_DASCS_AMT,   NVL(B3.BURN_DASCS_AMT,0) AS BURN_DASCS_AMT
+    , NVL(B3.FOCUS_ANTI_MEDI_APPR_MDCF,0) AS FOCUS_ANTI_MEDI_APPR_MDCF
+    , NVL(B3.DSAS_OPCCS_14_KND_ISYN,0) AS DSAS_OPCCS_14_KND_ISYN
+    , NVL(B3.DSAS_OPCCS_16_KND_ISYN,0) AS DSAS_OPCCS_16_KND_ISYN
+    , NVL(B3.DSAS_OPCCS_18_KND_ISYN,0) AS DSAS_OPCCS_18_KND_ISYN
+    , NVL(B3.DSAS_OPCCS_34_KND_ISYN,0) AS DSAS_OPCCS_34_KND_ISYN
+    , NVL(B3.DSAS_OPCCS_56_KND_ISYN,0) AS DSAS_OPCCS_56_KND_ISYN
+    , NVL(B3.DSAS_OPCCS_121_KND_ISYN,0) AS DSAS_OPCCS_121_KND_ISYN
+    , NVL(B3.GB_AMT,0) AS GB_AMT,                     NVL(B3.GB_AMT2,0) AS GB_AMT2
+    -- 해지/해약 이력
+    , NVL(B5.L01,0) AS L01_이력,   NVL(B5.L03,0) AS L03_이력
+    , NVL(B5.L04,0) AS L04_이력,   NVL(B5.L06,0) AS L06_이력
+    , NVL(B5.L08,0) AS L08_이력,   NVL(B5.SAFE,0) AS SAFE_이력
+    , NVL(B5.SS,0)  AS SS_이력,    NVL(B5.유병자,0) AS 유병자_이력
+    , NVL(B5.L11,0) AS L11_이력,   NVL(B5.L123,0) AS L123_이력
+    , NVL(B4.PRED_INCOME,0) AS PRED_INCOME
+FROM GDREC_ORIGIN_MAIN99_PRED A
+LEFT JOIN GDREC_ORIGIN_INS_GD_PRED    B1
+    ON A.CLS_YYMM=B1.CLS_YYMM AND A.CRT_CTMNO=B1.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B1.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CHNL_PRED  B2
+    ON A.CLS_YYMM=B2.CLS_YYMM AND A.CRT_CTMNO=B2.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B2.MN_NRDPS_CTMNO
+LEFT JOIN SDADAM.M_BIZ_CTM_INFO_CVR_LIST B3
+    ON A.CLS_YYMM = F_PREV_MONTH(B3.CLS_YYMM,'-1') AND A.MN_NRDPS_CTMNO=B3.CTMNO
+LEFT JOIN SDADAM.FINANCIAL_DAM_PRED    B4
+    ON A.CLS_YYMM = F_PREV_MONTH(B4.STYYMM,'-1') AND A.CRT_CTMNO=B4.CTMNO
+LEFT JOIN (
+    SELECT *
+    FROM (
+        SELECT CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+            , COUNT(DISTINCT PLYNO) AS PLY_CNT
+        FROM GDREC_ORIGIN_INS_PRVGD_PRED
+        GROUP BY CLS_YYMM, CRT_CTMNO, MN_NRDPS_CTMNO, GD_TYPE
+    )
+    PIVOT (MAX(PLY_CNT) FOR GD_TYPE IN (
+        'L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,
+        'SAFE' AS SAFE,'SS' AS SS,'유병자' AS 유병자,'L11' AS L11,'L123' AS L123
+    )) P
+) B5 ON A.CLS_YYMM=B5.CLS_YYMM AND A.CRT_CTMNO=B5.CRT_CTMNO AND A.MN_NRDPS_CTMNO=B5.MN_NRDPS_CTMNO;
+
+
+/* ============================================================================
+   [35] 최종 결과
+============================================================================ */
+DROP TABLE GDREC_ORIGIN_MAIN_FIN_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_MAIN_FIN_PRED NOLOGGING AS
+SELECT
+    A.*
+    , B1.L01_설계이력, B1.L03_설계이력, B1.L04_설계이력, B1.L06_설계이력, B1.L08_설계이력
+    , B1.SAFE_설계이력, B1.SS_설계이력, B1.유병자_설계이력, B1.L11_설계이력, B1.L123_설계이력
+    , B1.L01_설계완료, B1.L03_설계완료, B1.L04_설계완료, B1.L06_설계완료, B1.L08_설계완료
+    , B1.SAFE_설계완료, B1.SS_설계완료, B1.유병자_설계완료, B1.L11_설계완료, B1.L123_설계완료
+    , B1.최근가입설계상품
+    -- NULL='X', >10='10', 그 외=연수 문자열
+    , CASE WHEN B2.입원청구    > 10 THEN '10' WHEN B2.입원청구    IS NULL THEN 'X' ELSE TO_CHAR(B2.입원청구)    END AS 입원청구
+    , CASE WHEN B2.입원고지    > 10 THEN '10' WHEN B2.입원고지    IS NULL THEN 'X' ELSE TO_CHAR(B2.입원고지)    END AS 입원고지
+    , CASE WHEN B2.중대질환고지 > 10 THEN '10' WHEN B2.중대질환고지 IS NULL THEN 'X' ELSE TO_CHAR(B2.중대질환고지) END AS 중대질환고지
+    , CASE WHEN B2.중대질환청구 > 10 THEN '10' WHEN B2.중대질환청구 IS NULL THEN 'X' ELSE TO_CHAR(B2.중대질환청구) END AS 중대질환청구
+    , CASE WHEN B2.무사고      > 10 THEN '10' WHEN B2.무사고      IS NULL THEN 'X' ELSE TO_CHAR(B2.무사고)      END AS 무사고
+FROM GDREC_ORIGIN_MAIN9_PRED A
+LEFT JOIN GDREC_TMGD_PL_INFO_PRED  B1
+    ON A.CRT_CTMNO=B1.CRT_CTMNO AND A.CLS_YYMM=B1.CLS_YYMM AND A.MN_NRDPS_CTMNO=B1.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_TMGD_CLM_INFO_PRED B2
+    ON A.CRT_CTMNO=B2.CRT_CTMNO AND A.CLS_YYMM=B2.CLS_YYMM AND A.MN_NRDPS_CTMNO=B2.MN_NRDPS_CTMNO;
+
+
+/* 추천 상품 결과 최종 */
+SELECT 
+	CTMNO
+	, REC_CD
+	, REC_RANK
+	, AP_SEQ
+	, AP_STRDT
+	, AP_NDDT
+	, REC_GDCD
+	, REC_GDNM
+	, REC_POCT
+	, REC_RS1
+	, CUSTID
+	, FIN_YN
+FROM SDADAM.M_CRM_REC_RLT_BIZ;
