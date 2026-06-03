@@ -108,6 +108,7 @@ WHERE A.CLS_YYMM  = TO_CHAR(ADD_MONTHS(SYSDATE,-1),'YYYYMM')
 
 -- ============================================================
 -- [4] 설계이력  →  AI_DESIGN  (tbl_ds_design_history)
+--     최근 3년 제한 (계약·통화이력과 기간 통일)
 -- ============================================================
 DROP TABLE AI_DESIGN PURGE;
 
@@ -131,7 +132,8 @@ INNER JOIN INS_PL_RELPC R
 LEFT JOIN M_CRM_GD_CSF_INFO G ON A.GDCD = G.GDCD
 WHERE A.PL_FLGCD   = '01'
   AND A.IKD_GRPCD  = 'LA'
-  AND A.VALD_PL_YN = '1';
+  AND A.VALD_PL_YN = '1'
+  AND A.PLDT       >= ADD_MONTHS(SYSDATE,-36);
 
 
 -- ============================================================
@@ -241,18 +243,14 @@ WHERE A.SL_NDDT >= SYSDATE
 -- ============================================================
 DROP TABLE AI_CALL_DETAIL PURGE;
 
+-- ※ [수정] INTIME = 통화시간(초). 이전 코드는 INTIME을 시간 포맷(HH:MM)으로 오변환했음
+--          CALL_DT는 날짜(INDATE)만, CALL_DURATION은 초 단위 그대로
 CREATE TABLE AI_CALL_DETAIL AS
 SELECT
-    L.CALLID                                               AS CALL_ID,
+    L.CALLID                              AS CALL_ID,
     C2.CTMNO,
-    TO_TIMESTAMP(
-        TO_CHAR(TO_DATE(T.INDATE,'YYYYMMDD'),'YYYY-MM-DD')
-        || ' ' || SUBSTR(LPAD(T.INTIME,6,'0'),1,2)
-        || ':' || SUBSTR(LPAD(T.INTIME,6,'0'),3,2)
-        || ':00',
-        'YYYY-MM-DD HH24:MI:SS'
-    )                                                      AS CALL_DT,
-    T.INTIME                                               AS CALL_DURATION,
+    TO_DATE(T.INDATE,'YYYYMMDD')          AS CALL_DT,
+    T.INTIME                              AS CALL_DURATION,
     CASE
         WHEN T.CONTACTMINORCD IN ('020206','030202')       THEN '결번'
         WHEN T.DIALRESULTCD   = '02'                       THEN '타인통화'
@@ -293,7 +291,7 @@ SELECT
     C2.CTMNO,
     A.CMS_CMPG_NM                                          AS CAMPAIGN_NM,
     TRUNC(TO_DATE(A.ASDT,'YYYYMMDD'))                      AS ASSIGN_DT,
-    TRUNC(B.MSG_SEND_DT)                                   AS MSG_SEND_DT,
+    TRUNC(B.MSG_SEND_DT)                                   AS MSG_SEND_DT,  -- 검증: TB_LIST에 MSG_SEND_DT 컬럼 없으면 NULL AS MSG_SEND_DT
     CASE
         WHEN A.CMPG_MDCCD LIKE '%POM%'  THEN 'POM'
         WHEN A.CMPG_MDCCD LIKE '%CM%'
@@ -406,10 +404,11 @@ LEFT JOIN TB_LIST B
 LEFT JOIN TB_CUSTOMER CUST ON B.CUSTID = CUST.CUSTID
 LEFT JOIN CUS_CTM C2 ON CUST.CUST_DSCNO = C2.CTM_DSCNO
 -- CMS_CTMNO 매핑 (CTMNO → CMS 경로)
+-- 검증: M_DABRD_CMPG에 TASK_NO 컬럼 없으면 TASK_NO 조인 조건 제거
 LEFT JOIN M_CMS_INR_CHN_CMPG_DB_CLS X
-    ON A.LIST_NO    = X.LIST_NO
+    ON A.LIST_NO     = X.LIST_NO
     AND A.LIST_SEQNO = X.LIST_SEQNO
-    AND A.TASK_NO   = X.TASK_NO
+    AND A.TASK_NO    = X.TASK_NO
 -- 배정 후 90일 내 체결 여부
 LEFT JOIN M_CMS_CMPG_CMN_CR_AV_CLS R
     ON X.CMS_CTMNO    = R.CMS_CTMNO
