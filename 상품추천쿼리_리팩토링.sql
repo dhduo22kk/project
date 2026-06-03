@@ -180,24 +180,11 @@ SELECT A.*
 FROM GDRES_SYS_YYMM_PRED T
 INNER JOIN M_CRM_MTHY_PS_CR A ON A.CLS_YYMM = T.CLS_YYMM
 WHERE A.IKD_GRPCD = 'LA'
-  AND EXISTS (
-      SELECT 1
-      FROM M_ORG_MTHY_BZ_ORGN B
-      WHERE A.DH_STFNO   = B.STFNO
-        AND B.CLS_YYMM   = A.CLS_YYMM
-        AND B.STF_BZ_STCD = '01'
-        AND (   B.HDQT_ORGCD IN ('1300012','1301363','1303053')
-             OR B.BR_ORGCD   IN ('1300280','1301363','1303054','1303055') )
-        -- 우선순위 높은 채널 제외
-        AND B.BZ_ATRCD        NOT IN ('30','31')          -- LIFE WITH
-        AND B.BRNM            NOT LIKE '%LIFE%'
-        AND B.TMNM            NOT LIKE '%교차%'
-        AND B.BR_ORGCD        NOT IN ('1301406','1301908','1302142')
-        AND NVL(B.BZ_FML_QUFCD,'X') NOT IN ('G01','39','47','56')  -- GA/교차 직책
-        AND B.TMNM            NOT LIKE '%한생GA팀%'
-        AND B.BZ_ATRCD        NOT IN ('15','16','18','97','27')     -- 교차 속성
-        AND B.HDQT_ORGCD      NOT IN ('1300013','1300287','1300288') -- 방카
-        AND B.STFNO           NOT IN ('8066063','8066059','6010186','3449868')
+  AND A.DH_STFNO IN (
+      SELECT STFNO FROM M_ORG_BZ_ORGN
+      WHERE HDQT_ORGCD = '1300012'
+        AND BRNM LIKE '%장기%'
+        AND STF_FLGCD = '02'
   );
 
 
