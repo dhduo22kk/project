@@ -199,36 +199,18 @@ SELECT
     A2.CLS_YYMM, A2.PLYNO, A2.CTMNO, A2.RELPC_SEQNO
     , A2.STFNO, A2.USRNO, A2.GDCD, A2.INS_ST, A2.INS_CLSTR, A2.BRTH
     , CASE
-        WHEN F_ISDATE(A2.BRTH) = 'T' AND A2.CTM_TPCD = '01'
-        -- CROSS APPLY로 AGE값 1회 계산 후 재사용 (아래 APPLY_AGE 참조)
-        THEN A2.AGE_YEAR - CASE
-               WHEN A2.AGE_MONTH = 1
-                AND SUBSTR(A2.BASE_DT, 6, 2) = SUBSTR(A2.BRTH, 6, 2) THEN 1
-               ELSE 0
-             END
+        WHEN F_ISDATE(A2.BRTH) = 'T'
+        THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A2.CLS_YYMM),
+                   TO_DATE(A2.BRTH, 'YYYYMMDD')) / 12)
       END AS INS_AGE
 FROM (
-    SELECT 
+    SELECT
         T.CLS_YYMM
         , A1.PLYNO, B1.CTMNO, B1.RELPC_SEQNO
         , A1.DH_STFNO                       AS STFNO
         , COALESCE(A1.DH_USR_NO, '9999999') AS USRNO
         , A1.GDCD, A1.INS_ST, A1.INS_CLSTR
         , F_BIRTH_DAY_DEC(B1.CTM_DSCNO)    AS BRTH
-        , C.CTM_TPCD
-        -- 기준일(가입월+6개월) 1회 계산
-        , TO_CHAR(ADD_MONTHS(F_LAST_DAY(A1.CLS_YYMM), 6)) AS BASE_DT
-        -- AGE 결과를 한 번만 계산 → 연/월 추출에 재사용
-        , EXTRACT(YEAR FROM
-            TO_YMINTERVAL(AGE(ADD_MONTHS(F_LAST_DAY(A1.CLS_YYMM), 6),
-                              TO_DATE(F_BIRTH_DAY_DEC(B1.CTM_DSCNO),'YYYYMMDD'))
-                          DEFAULT '000-00' ON CONVERSION ERROR)
-          ) AS AGE_YEAR
-        , EXTRACT(MONTH FROM
-            TO_YMINTERVAL(AGE(ADD_MONTHS(F_LAST_DAY(A1.CLS_YYMM), 6),
-                              TO_DATE(F_BIRTH_DAY_DEC(B1.CTM_DSCNO),'YYYYMMDD'))
-                          DEFAULT '000-00' ON CONVERSION ERROR)
-          ) AS AGE_MONTH
         , ROW_NUMBER() OVER (
             PARTITION BY A1.PLYNO, B1.CTMNO, T.CLS_YYMM
             ORDER BY B1.RELPC_SEQNO
@@ -236,21 +218,19 @@ FROM (
     FROM (
         SELECT A.*, B.GDNM_CLEAN
         FROM   GDREC_ORIGIN_INS_CR_PRED A
-        LEFT JOIN M_DS_CRM_REC_GDNM_TM     B ON A.GDCD = B.GDCD
+        LEFT JOIN M_DS_CRM_REC_GDNM_TM B ON A.GDCD = B.GDCD
         WHERE  TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
-        -- ※ IKD_GRPCD='LA' 필터 제거: 소스 테이블이 이미 LA 전용
     ) A1
     INNER JOIN GDRES_SYS_YYMM_PRED T  ON A1.CLS_YYMM = T.CLS_YYMM
     INNER JOIN INS_CR_RELPC         B1
         ON  A1.PLYNO            = B1.PLYNO
         AND B1.IKD_GRPCD        IN ('LA')
-        AND B1.RELPC_STCD       IN ('01','04')   -- 정상, 납입면제
-        AND B1.RELPC_TPCD        = '02'          -- 피보험자
+        AND B1.RELPC_STCD       IN ('01','04')
+        AND B1.RELPC_TPCD        = '02'
         AND B1.VALD_NDS_YN       = '1'
         AND B1.NDS_AP_STR_DTHMS <= T.CLS_NDDT
         AND B1.NDS_AP_ND_DTHMS   > T.CLS_NDDT
         AND B1.CTMNO            IS NOT NULL
-    LEFT JOIN CUS_CTM C ON B1.CTMNO = C.CTMNO
 ) A2
 WHERE A2.RN = 1;
 
