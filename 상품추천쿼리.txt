@@ -165,80 +165,39 @@ WHERE THCP_INSTR_CSFNM = '만기'
 
 
 /* ============================================================================
-   [05] TM 채널 직원 세팅
-============================================================================ */
-DROP TABLE GDREC_SYS_STF_PRED PURGE;
-CREATE TABLE GDREC_SYS_STF_PRED AS
-SELECT
-    B.CLS_YYMM
-    , B.STFNO
-    , CASE
-        WHEN B.STFNO = '8901911'                                            THEN '61'
-        WHEN B.STFNO = '6009607'                                            THEN '11'
-        WHEN B.BZ_ATRCD IN ('30','31')                                      THEN '62'  -- LIFE WITH
-        WHEN B.BRNM LIKE '%LIFE%'                                           THEN '62'
-        WHEN B.TMNM LIKE '%교차%'                                            THEN '12'
-        WHEN B.BR_ORGCD IN ('1301406','1301908','1302142')                   THEN '12'
-        WHEN B.TMNM LIKE '%한생GA팀%'                                        THEN '20'
-        WHEN B.BZ_FML_QUFCD IN ('G01')                                      THEN '20'  -- 생보형GA
-        WHEN B.BZ_ATRCD IN ('15','16','18','97','27')                       THEN '12'
-        WHEN B.BZ_FML_QUFCD IN ('39','47','56')                             THEN '12'  -- 교차 직책
-        WHEN B.BZ_PART_FLGCD = '06'
-             AND COALESCE(B.BZ_ATRCD,'00') NOT IN ('15','16','18','97','27')
-             AND B.BRNM NOT LIKE '%TM%'                                     THEN '11'
-        WHEN B.BZ_PART_FLGCD = '06'
-             AND B.BZ_FML_QUFCD IS NULL
-             AND B.BRNM NOT LIKE '%TM%'                                     THEN '11'
-        WHEN B.BRNM LIKE '%지역단%'                                          THEN '11'
-        WHEN B.BRNM LIKE '%GA사업단%' OR B.BRNM LIKE '%HF%'                 THEN '20'
-        WHEN B.HDQT_ORGCD IN ('1300011','1302011','1303011')
-          OR (B.HDQT_ORGCD='1301318' AND B.BR_ORGCD='1301321')
-          OR (B.HDQT_ORGCD='1300007' AND B.BR_ORGCD='1301040')
-          OR (B.HDQT_ORGCD='1300008' AND B.BR_ORGCD='1301322')
-          OR  B.BR_ORGCD = '1301409'
-          OR (B.BR_ORGCD = '1300163' AND B.BZP_ORGCD='1301383')
-          OR (B.BR_ORGCD = '1301040' AND B.BZP_ORGCD='1301396')
-          OR (B.BR_ORGCD = '1300090' AND B.BZP_ORGCD='1301384')            THEN '20'  -- GA 계열
-        WHEN B.STFNO = '8066063' AND B.BZP_ORGCD = '1301581'               THEN '31'
-        WHEN B.STFNO IN ('8066063','8066059','6010186','3449868')           THEN '32'
-        WHEN B.HDQT_ORGCD IN ('1300013','1300287','1300288')                THEN '40'  -- 방카
-        WHEN B.HDQT_ORGCD IN ('1300012','1301363','1303053')                THEN '31'  -- 장기TM
-        WHEN B.BR_ORGCD   IN ('1300280','1301363','1303054','1303055')      THEN '31'
-        WHEN B.BR_ORGCD   IN ('1300287','1201452')                          THEN '40'
-        WHEN B.HDQT_ORGCD IN ('1301776','1301362','1301828')                THEN '50'
-        WHEN B.BZ_PART_FLGNM = '법인영업' AND B.BZP_NM NOT LIKE '%신채널%'  THEN '50'
-        WHEN B.BZP_ORGCD IN (
-              '1301364','1301365','1301366','1301367','1301368','1301369',
-              '1301370','1301371','1301372','1301373','1301618','1301750',
-              '1301751','1301752','1301753','1301754','1301755','1301756',
-              '1301757','1301758','1301786','1301968','1302015','1302016')   THEN '50'
-        WHEN B.BZP_NM  LIKE '%기업영업%' OR B.BZP_NM  LIKE '%법인영업%'
-          OR B.BRNM    LIKE '%기업영업%' OR B.BRNM    LIKE '%법인영업%'
-          OR B.HDQNM   LIKE '%기업영업%' OR B.HDQNM   LIKE '%법인영업%'
-          OR B.BRNM    LIKE '%전략영업%' OR B.BRNM    LIKE '%GA영업%'       THEN '50'
-        WHEN B.BZ_PART_FLGNM = '본사/기타' AND B.BRNM NOT LIKE '%TM%'      THEN '61'
-        ELSE '61'
-      END AS CHNL
-    , B.CHN_CL_ATRCD
-FROM GDRES_SYS_YYMM_PRED T
-INNER JOIN M_ORG_MTHY_BZ_ORGN B ON T.CLS_YYMM = B.CLS_YYMM
-WHERE B.STF_BZ_STCD = '01';
-
-
-/* ============================================================================
-   [06] 장기 TM 취급 계약 (핵심 소스 테이블)
-   ※ IKD_GRPCD='LA' + 장기TM 채널(CHNL='31') 필터
-   ※ 이 테이블 이후에 T02~T06, 고객 피처 테이블들 생성 가능
+   [05→06 통합] 장기 TM 취급 계약 (핵심 소스 테이블)
+   ※ [최적화] GDREC_SYS_STF_PRED 중간 테이블 제거
+              → 장기TM(CHNL='31') 조건을 EXISTS 인라인으로 직접 처리
+   ※ 소스: M_ORG_MTHY_BZ_ORGN (월별 스냅샷, CLS_YYMM 매칭)
+   ※ CHNL='31' 조건: HDQT_ORGCD IN ('1300012','1301363','1303053')
+                      OR BR_ORGCD IN ('1300280','1301363','1303054','1303055')
+      우선순위 높은 타 채널 제외: LIFE WITH(BZ_ATRCD 30/31), 교차(TMNM '%교차%'),
+                                  GA(BZ_FML_QUFCD 'G01'), 방카(HDQT_ORGCD 1300013 등)
 ============================================================================ */
 DROP TABLE GDREC_ORIGIN_INS_CR_PRED PURGE;
 CREATE TABLE GDREC_ORIGIN_INS_CR_PRED AS
-SELECT  A.*
+SELECT A.*
 FROM GDRES_SYS_YYMM_PRED T
 INNER JOIN M_CRM_MTHY_PS_CR A ON A.CLS_YYMM = T.CLS_YYMM
 WHERE A.IKD_GRPCD = 'LA'
   AND EXISTS (
-      SELECT 1 FROM GDREC_SYS_STF_PRED B
-      WHERE A.DH_STFNO = B.STFNO AND A.CLS_YYMM = B.CLS_YYMM AND B.CHNL = '31'
+      SELECT 1
+      FROM M_ORG_MTHY_BZ_ORGN B
+      WHERE A.DH_STFNO   = B.STFNO
+        AND B.CLS_YYMM   = A.CLS_YYMM
+        AND B.STF_BZ_STCD = '01'
+        AND (   B.HDQT_ORGCD IN ('1300012','1301363','1303053')
+             OR B.BR_ORGCD   IN ('1300280','1301363','1303054','1303055') )
+        -- 우선순위 높은 채널 제외
+        AND B.BZ_ATRCD        NOT IN ('30','31')          -- LIFE WITH
+        AND B.BRNM            NOT LIKE '%LIFE%'
+        AND B.TMNM            NOT LIKE '%교차%'
+        AND B.BR_ORGCD        NOT IN ('1301406','1301908','1302142')
+        AND NVL(B.BZ_FML_QUFCD,'X') NOT IN ('G01','39','47','56')  -- GA/교차 직책
+        AND B.TMNM            NOT LIKE '%한생GA팀%'
+        AND B.BZ_ATRCD        NOT IN ('15','16','18','97','27')     -- 교차 속성
+        AND B.HDQT_ORGCD      NOT IN ('1300013','1300287','1300288') -- 방카
+        AND B.STFNO           NOT IN ('8066063','8066059','6010186','3449868')
   );
 
 
