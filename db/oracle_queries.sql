@@ -319,15 +319,121 @@ WHERE NVL(B.DELYN,'N')   <> 'Y'
 
 
 -- ============================================================
+-- [11] 연락 제외 고객  →  AI_CONTACT_EXCLUSION  (tbl_ds_contact_exclusion)
+--      두낫콜 / 전화임시거절 / 결번 / 인수유의자 / 스케줄 예약
+--      소스: 대상.txt 제외 조건 취합
+--      ※ AI_INELIGIBLE(상품 가입 불가)과 다른 개념 — 이 테이블은 "연락 불가"
+-- ============================================================
+DROP TABLE AI_CONTACT_EXCLUSION PURGE;
+
+CREATE TABLE AI_CONTACT_EXCLUSION AS
+-- 두낫콜
+SELECT A.CTMNO, '두낫콜' AS EXCL_REASON
+FROM CUS_CTM A
+INNER JOIN CUS_PSN_CRDIF_UTAGR_CRR B
+    ON A.CTMNO = B.CTMNO
+    AND B.CRDIF_UTL_AGRE_FLGCD = '14'
+    AND B.AP_ND_DTHMS = TO_DATE('99991231','YYYYMMDD')
+
+UNION
+
+-- 전화임시거절 (취소/거절 이력 있는 고객)
+SELECT C2.CTMNO, '전화임시거절' AS EXCL_REASON
+FROM TB_INFOAGREE A
+LEFT JOIN TB_CUSTOMER B ON A.CUSTID = B.CUSTID
+INNER JOIN CUS_CTM C2 ON B.CUST_DSCNO = C2.CTM_DSCNO
+WHERE (    A.TEMP_CANCEL_END_DATE >= TO_CHAR(SYSDATE,'YYYYMMDD')
+        OR A.CANCEL_DATE IS NOT NULL
+        OR A.CALL_CANCEL_DATE IS NOT NULL
+        OR A.ATC33_CANCEL_DATE IS NOT NULL)
+
+UNION
+
+-- 결번 (최근 상담이력 기준, 장기TM 센터)
+SELECT C2.CTMNO, '결번' AS EXCL_REASON
+FROM (
+    SELECT A.CUST_DSCNO
+    FROM (
+        SELECT A.CUST_DSCNO, A.CONTACTMINORCD,
+               ROW_NUMBER() OVER (PARTITION BY A.CUSTID
+                                  ORDER BY A.INDATE DESC, A.INTIME DESC) AS RN
+        FROM TB_CONTACT A
+        INNER JOIN TB_USERMAST_CMT B ON A.USERID = B.USERID
+        WHERE B.CENTERCD IN ('1300286','1303016','1303199')
+          AND A.INDATE >= '20150101'
+    ) WHERE RN = 1 AND CONTACTMINORCD IN ('020206','030202')
+) X
+INNER JOIN CUS_CTM C2 ON X.CUST_DSCNO = C2.CTM_DSCNO
+
+UNION
+
+-- 인수유의자
+SELECT C2.CTMNO, '인수유의자' AS EXCL_REASON
+FROM INS_UTATP A
+INNER JOIN CUS_CTM C2 ON A.UTATP_DSCNO = C2.CTM_DSCNO
+WHERE A.RGT_RS_IKDCD IN ('01','02','03')
+  AND A.UTATP_FNL_STCD = '01'
+
+UNION
+
+-- 스케줄 예약 (향후 방문/통화 예약 있는 고객)
+SELECT C2.CTMNO, '스케줄예약' AS EXCL_REASON
+FROM TB_SCHEDULER A
+INNER JOIN TB_CUSTOMER B ON A.CUSTID = B.CUSTID
+INNER JOIN CUS_CTM C2 ON B.CUST_DSCNO = C2.CTM_DSCNO
+WHERE A.EVENTDATE >= TO_CHAR(SYSDATE,'YYYYMMDD');
+
+
+-- ============================================================
+-- [12] 캠페인 실적 이력  →  AI_CMPG_RESULT  (tbl_ds_cmpg_result)
+--      배정(M_DABRD_CMPG) + 체결(M_CMS_CMPG_CMN_CR_AV_CLS)
+--      Tab2 "과거 실적 기반" 전략: 배정일+90일 내 체결 여부로 성공 세그먼트 판별
+--      최근 3년 기준
+-- ============================================================
+DROP TABLE AI_CMPG_RESULT PURGE;
+
+CREATE TABLE AI_CMPG_RESULT AS
+SELECT
+    C2.CTMNO,
+    A.CMS_CMPG_NM                                          AS CAMPAIGN_NM,
+    TRUNC(TO_DATE(A.ASDT,'YYYYMMDD'))                      AS ASSIGN_DT,
+    CASE WHEN R.CMS_CTMNO IS NOT NULL THEN 1 ELSE 0 END    AS CONTRACT_YN,
+    TRUNC(R.PPDT)                                          AS CONTRACT_DT,
+    R.LTRM_CRCC_MPY_CVPRM                                  AS CONTRACT_PRM
+FROM M_DABRD_CMPG A
+LEFT JOIN TB_LIST B
+    ON A.LIST_NO = B.LISTID AND A.LIST_SEQNO = B.LISTSEQID
+LEFT JOIN TB_CUSTOMER CUST ON B.CUSTID = CUST.CUSTID
+LEFT JOIN CUS_CTM C2 ON CUST.CUST_DSCNO = C2.CTM_DSCNO
+-- CMS_CTMNO 매핑 (CTMNO → CMS 경로)
+LEFT JOIN M_CMS_INR_CHN_CMPG_DB_CLS X
+    ON A.LIST_NO    = X.LIST_NO
+    AND A.LIST_SEQNO = X.LIST_SEQNO
+    AND A.TASK_NO   = X.TASK_NO
+-- 배정 후 90일 내 체결 여부
+LEFT JOIN M_CMS_CMPG_CMN_CR_AV_CLS R
+    ON X.CMS_CTMNO    = R.CMS_CTMNO
+    AND A.CMS_CMPG_ID = R.CMS_CMPG_ID
+    AND R.PPDT BETWEEN TO_DATE(A.ASDT,'YYYYMMDD')
+                   AND TO_DATE(A.ASDT,'YYYYMMDD') + 90
+WHERE NVL(B.DELYN,'N')   <> 'Y'
+  AND A.CMPG_ALLCT_STFNO IS NOT NULL
+  AND C2.CTMNO            IS NOT NULL
+  AND A.ASDT             >= TO_CHAR(ADD_MONTHS(SYSDATE,-36),'YYYYMMDD');
+
+
+-- ============================================================
 -- 실행 완료 확인
 -- ============================================================
-SELECT 'AI_CUSTOMER'  AS TBL, COUNT(*) AS CNT FROM AI_CUSTOMER   UNION ALL
-SELECT 'AI_COVERAGE',          COUNT(*)         FROM AI_COVERAGE   UNION ALL
-SELECT 'AI_CONTRACT',          COUNT(*)         FROM AI_CONTRACT   UNION ALL
-SELECT 'AI_DESIGN',            COUNT(*)         FROM AI_DESIGN     UNION ALL
-SELECT 'AI_NEW_CVR',           COUNT(*)         FROM AI_NEW_CVR    UNION ALL
-SELECT 'AI_RECOMM',            COUNT(*)         FROM AI_RECOMM     UNION ALL
-SELECT 'AI_INELIGIBLE',        COUNT(*)         FROM AI_INELIGIBLE UNION ALL
-SELECT 'AI_PRODUCT',           COUNT(*)         FROM AI_PRODUCT    UNION ALL
-SELECT 'AI_CALL_DETAIL',       COUNT(*)         FROM AI_CALL_DETAIL UNION ALL
-SELECT 'AI_CAMPAIGN',          COUNT(*)         FROM AI_CAMPAIGN;
+SELECT 'AI_CUSTOMER'          AS TBL, COUNT(*) AS CNT FROM AI_CUSTOMER          UNION ALL
+SELECT 'AI_COVERAGE',                  COUNT(*)         FROM AI_COVERAGE          UNION ALL
+SELECT 'AI_CONTRACT',                  COUNT(*)         FROM AI_CONTRACT          UNION ALL
+SELECT 'AI_DESIGN',                    COUNT(*)         FROM AI_DESIGN            UNION ALL
+SELECT 'AI_NEW_CVR',                   COUNT(*)         FROM AI_NEW_CVR           UNION ALL
+SELECT 'AI_RECOMM',                    COUNT(*)         FROM AI_RECOMM            UNION ALL
+SELECT 'AI_INELIGIBLE',                COUNT(*)         FROM AI_INELIGIBLE        UNION ALL
+SELECT 'AI_PRODUCT',                   COUNT(*)         FROM AI_PRODUCT           UNION ALL
+SELECT 'AI_CALL_DETAIL',               COUNT(*)         FROM AI_CALL_DETAIL       UNION ALL
+SELECT 'AI_CAMPAIGN',                  COUNT(*)         FROM AI_CAMPAIGN          UNION ALL
+SELECT 'AI_CONTACT_EXCLUSION',         COUNT(*)         FROM AI_CONTACT_EXCLUSION UNION ALL
+SELECT 'AI_CMPG_RESULT',               COUNT(*)         FROM AI_CMPG_RESULT;

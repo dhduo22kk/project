@@ -93,6 +93,24 @@ CREATE TABLE IF NOT EXISTS tbl_ds_ineligible (
     -- 쿼리 타임에 이 테이블로 추천 제외 필터 적용
 );
 
+CREATE TABLE IF NOT EXISTS tbl_ds_contact_exclusion (
+    CTMNO       VARCHAR,
+    EXCL_REASON VARCHAR  -- '두낫콜' | '전화임시거절' | '결번' | '인수유의자' | '스케줄예약'
+    -- Tab2 캠페인 추출 시 연락 불가 고객 제외 필터
+    -- AI_INELIGIBLE(상품 가입 불가)과 다른 개념
+);
+
+CREATE TABLE IF NOT EXISTS tbl_ds_cmpg_result (
+    CTMNO        VARCHAR,
+    CAMPAIGN_NM  VARCHAR,
+    ASSIGN_DT    DATE,
+    CONTRACT_YN  INTEGER,   -- 배정일 기준 90일 내 체결: 1=성공, 0=미체결
+    CONTRACT_DT  DATE,      -- 체결일 (미체결이면 NULL)
+    CONTRACT_PRM BIGINT     -- 체결 월납보험료 (미체결이면 NULL)
+    -- Tab2 "과거 실적 기반" 전략: 성공 세그먼트 조건 재현에 사용
+    -- CAMPAIGN_SUCCESS_DAYS = 90 (settings.py 상수)
+);
+
 CREATE TABLE IF NOT EXISTS tbl_ds_product_master (
     GDCD        VARCHAR PRIMARY KEY,
     GD_TYPE     VARCHAR,

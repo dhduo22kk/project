@@ -22,6 +22,8 @@ QUERIES: dict[str, str | None] = {
     "tbl_ds_ineligible":       "SELECT * FROM AI_INELIGIBLE",
     "tbl_ds_product_master":   "SELECT * FROM AI_PRODUCT",
     "tbl_ds_call_detail":      "SELECT * FROM AI_CALL_DETAIL",
-    "tbl_ds_campaign_history": "SELECT * FROM AI_CAMPAIGN",
-    "tbl_ds_msg_history":      None,   # TODO: AI_MSG_HISTORY 소스 확인 후 추가
+    "tbl_ds_campaign_history":    "SELECT * FROM AI_CAMPAIGN",
+    "tbl_ds_contact_exclusion":  "SELECT * FROM AI_CONTACT_EXCLUSION",
+    "tbl_ds_cmpg_result":        "SELECT * FROM AI_CMPG_RESULT",
+    "tbl_ds_msg_history":        None,   # TODO: AI_MSG_HISTORY 소스 확인 후 추가
 }
