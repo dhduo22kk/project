@@ -1,11 +1,11 @@
 -- DuckDB 스키마 정의
 -- 모든 테이블명: tbl_ds_* 패턴
--- Oracle 소스 테이블명: 기존명에 _DS_ 삽입 (oracle_queries.py 참고)
+-- Oracle 소스: oracle_queries.sql → AI_* 테이블 → pipeline_c_duckdb.py → DuckDB
 
 CREATE TABLE IF NOT EXISTS tbl_ds_customer (
     CTMNO            VARCHAR PRIMARY KEY,
     CTM_AGE          INTEGER,
-    CTM_SEX          VARCHAR,   -- Oracle 원본값 그대로 (예: '1.M', '2.F')
+    CTM_SEX          VARCHAR,   -- Oracle 원본값 그대로 ('1.M', '2.F')
     REGION           VARCHAR,
     REG_DT           DATE,
     INFLOW_CAMPAIGN_NM VARCHAR,
@@ -35,29 +35,29 @@ CREATE TABLE IF NOT EXISTS tbl_ds_coverage (
 CREATE TABLE IF NOT EXISTS tbl_ds_call_detail (
     CALL_ID       VARCHAR PRIMARY KEY,
     CTMNO         VARCHAR,
-    CALL_DT       TIMESTAMP,  -- 시:분 포함 (시간대 분석용)
-    CALL_DURATION INTEGER,    -- 통화시간(초), 30초 기준으로 UI 표시 분기
-    RESULT_CD     VARCHAR,    -- "미연결" | "연결성공" (ETL 시 번역 적재)
+    CALL_DT       TIMESTAMP,  -- 통화 일시
+    CALL_DURATION INTEGER,    -- 통화시간(초): TB_CONTACT.INTIME
+    RESULT_CD     VARCHAR,    -- '미연결' | '연결성공' | '결번' | '타인통화' (ETL 시 번역)
     CAMPAIGN_NM   VARCHAR,
-    CHANNEL_TYPE  VARCHAR     -- TM/CM/POM 등 (Chroma RAG 필터용)
+    CHANNEL_TYPE  VARCHAR     -- TM/CM/POM (Chroma RAG 필터용)
 );
 
 CREATE TABLE IF NOT EXISTS tbl_ds_contract_history (
     CTMNO      VARCHAR,
-    PLYNO      VARCHAR,   -- 증권번호
-    GDCD       VARCHAR,   -- 상품코드
-    GDNM       VARCHAR,   -- 상품명
-    INS_ST     DATE,      -- 보험시기
-    INS_CLSTR  DATE,      -- 보험종기
+    PLYNO      VARCHAR,
+    GDCD       VARCHAR,
+    GDNM       VARCHAR,
+    INS_ST     DATE,
+    INS_CLSTR  DATE,
     AP_PRM     BIGINT,    -- 월 납입 보험료
-    CR_STCD    VARCHAR    -- 계약상태코드 (정상 계약 필터용)
+    CR_STCD    VARCHAR
 );
 
 CREATE TABLE IF NOT EXISTS tbl_ds_campaign_history (
     CTMNO           VARCHAR,
     CAMPAIGN_NM     VARCHAR,
     ASSIGN_DT       DATE,
-    MSG_SEND_DT     DATE,     -- null = 문자 미발송
+    MSG_SEND_DT     DATE,
     CAMPAIGN_TYPE   VARCHAR   -- TM/CM
 );
 
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS tbl_ds_design_history (
     DESIGN_DT   DATE,
     GDCD        VARCHAR,
     GDNM        VARCHAR,
-    DESIGN_PRM  BIGINT,   -- 설계보험료
-    RESULT_CD   VARCHAR   -- 체결/미체결
+    DESIGN_PRM  BIGINT,
+    RESULT_CD   VARCHAR   -- '체결' | '미체결'
 );
 
 CREATE TABLE IF NOT EXISTS tbl_ds_new_coverage (
@@ -80,31 +80,35 @@ CREATE TABLE IF NOT EXISTS tbl_ds_new_coverage (
 
 CREATE TABLE IF NOT EXISTS tbl_ds_recommendation (
     CTMNO      VARCHAR,
-    REC_RANK   INTEGER,  -- 추천순위 1/2/3
+    REC_RANK   INTEGER,
     REC_GDCD   VARCHAR,
     REC_GDNM   VARCHAR,
-    REC_POCT   FLOAT    -- 구매확률 0~1
+    REC_POCT   FLOAT
 );
 
--- tbl_ds_campaign_score 제거: ML 점수 테이블 MVP 스코프 제외
--- 활성도 기반 DuckDB 집계로 대체 (tbl_ds_call_detail + tbl_ds_campaign_history)
+CREATE TABLE IF NOT EXISTS tbl_ds_ineligible (
+    CTMNO  VARCHAR,
+    GDCD   VARCHAR
+    -- 소스: GDREC_CTM_FILTER_1(나이/성별/고지포기) + GDREC_CTM_FILTER_2(보장충족)
+    -- 쿼리 타임에 이 테이블로 추천 제외 필터 적용
+);
 
 CREATE TABLE IF NOT EXISTS tbl_ds_product_master (
     GDCD        VARCHAR PRIMARY KEY,
-    GD_TYPE     VARCHAR,   -- L01, L03, L04, SS, 유병자 등
+    GD_TYPE     VARCHAR,
     GDNM        VARCHAR,
-    GDNM_CLEAN  VARCHAR    -- 괄호/연월 제거된 상품명 (gd_filter_func 반환값과 매칭)
+    GDNM_CLEAN  VARCHAR
 );
 
 CREATE TABLE IF NOT EXISTS tbl_ds_sales_focus (
-    FOCUS_YM    VARCHAR PRIMARY KEY,  -- '2026-06' (월 단위 키)
-    FOCUS_TEXT  VARCHAR,              -- 자유형식 전문 (주력상품/이슈/제외상품 등)
-    UPDATED_AT  TIMESTAMP             -- 마지막 수정 시각
+    FOCUS_YM    VARCHAR PRIMARY KEY,  -- 'YYYYMM'
+    FOCUS_TEXT  VARCHAR,
+    UPDATED_AT  TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS tbl_ds_msg_history (
     CTMNO       VARCHAR,
-    SEND_DT     TIMESTAMP,  -- 발송일시
-    MSG_CONTENT VARCHAR,    -- 문자 내용 (SMS/LMS 텍스트)
-    MSG_TYPE    VARCHAR     -- 'SMS' | 'LMS' | 'MMS'
+    SEND_DT     TIMESTAMP,
+    MSG_CONTENT VARCHAR,
+    MSG_TYPE    VARCHAR   -- 'SMS' | 'LMS' | 'MMS'
 );

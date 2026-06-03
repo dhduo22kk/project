@@ -25,7 +25,7 @@
 | 파일 | 상태 | 설명 |
 |------|------|------|
 | `config/settings.py` | ✅ | **전체 설정 중앙 관리.** 경로(DuckDB/Chroma/WAV/docs), Ollama 모델명, Oracle 접속정보, 테이블명 상수. 모든 파일이 이것을 import함 |
-| `config/allowed_ips.txt` | 🔲 | 허용 IP 목록 (한 줄에 IP 하나). ui/middleware.py가 읽음 |
+| `config/allowed_ips.txt` | — | 불필요 — 접근 제어는 네트워크 레벨(정보보호 파트). middleware.py 제거됨 |
 
 ---
 
@@ -35,7 +35,8 @@
 |------|------|------|
 | `db/schema.sql` | ✅ | **DuckDB DDL.** 9개 테이블 정의 (`tbl_ds_*`). db/manager.py가 서비스 시작 시 자동 실행 |
 | `db/manager.py` | ✅ | **DuckDB 연결 헬퍼.** `query_df()` `query_one()` `atomic_replace()` 제공. 에이전트/파이프라인 전 범위에서 import해서 사용 |
-| `db/oracle_queries.py` | 🔲 | **Oracle → DuckDB 적재 쿼리.** 테이블별 SELECT 쿼리 함수 모음. CASE WHEN으로 RESULT_CD 번역 포함. 6/1 사용자 제공 쿼리 기반으로 작성 |
+| `db/oracle_queries.py` | ✅ | **DuckDB 테이블명 ↔ Oracle AI_* 매핑.** `QUERIES` dict만 관리. 복잡한 ETL 로직은 oracle_queries.sql에서 처리 |
+| `db/oracle_queries.sql` | ✅ | **Oracle AI_* 추출 테이블 생성 스크립트.** SQL Developer에서 실행. 10개 AI_* 테이블 CTAS (PARALLEL(8), NOLOGGING). AI_INELIGIBLE/AI_CALL_DETAIL/AI_CAMPAIGN 포함 |
 | `db/TABLE_SPEC.md` | ✅ | DuckDB 테이블 명세 (컬럼/타입/Oracle 소스). Oracle 쿼리 작성 참고용 |
 | `db/DUCKDB_LOADING_GUIDE.md` | ✅ | DuckDB 적재 절차 가이드 (Jupyter 검증 → LLM 컨테이너 실행) |
 
@@ -49,7 +50,7 @@
 |------|------|------|
 | `pipelines/pipeline_a_stt.py` | 🔲 | **STT 인덱싱 (1회성).** WAV → faster-whisper → 마스킹+분석(Qwen3.6) → nomic-embed-text → Chroma `calls`. CALL_ID 단위 resume 지원. Day 3 시작, 약 41~83시간 소요 |
 | `pipelines/pipeline_b_docs.py` | 🔲 | **문서 인덱싱 (1회성).** DOCX/PPTX/PDF → 마크다운 → nomic-embed-text → Chroma `products`. 문서명 단위 resume 지원 |
-| `pipelines/pipeline_c_duckdb.py` | 🔲 | **DuckDB 마트 갱신 (매일 cron).** cx_Oracle → oracle_queries.py → mart_new.db 적재 → atomic rename. `os.makedirs` 자동 생성 포함 |
+| `pipelines/pipeline_c_duckdb.py` | ✅ | **DuckDB 마트 갱신 (매일 cron).** cx_Oracle → AI_* SELECT * → mart_new.db 청크 적재(50,000행) → atomic rename. 장애 복구: mart_new.db 존재 시 삭제 후 재시작 |
 
 ---
 
@@ -76,7 +77,7 @@ Gradio 앱. 사내망 IP 접근.
 | 파일 | 상태 | 설명 |
 |------|------|------|
 | `ui/app.py` | 🔲 | **Gradio 메인 앱.** Tab1(콜 전 준비) + Tab2(영업지원 Agent) 2탭. Tab1: gr.Markdown 즉시 + gr.Textbox 스트리밍. DuckDB 수동 갱신 버튼 + 마지막 갱신 시각 표시 |
-| `ui/middleware.py` | 🔲 | **FastAPI IP 필터 미들웨어.** allowed_ips.txt 읽어서 허용 IP 검사. Gradio를 FastAPI로 마운트해서 적용 |
+| `ui/middleware.py` | — | 불필요 — 접근 제어 네트워크 레벨 위임. demo.launch(server_name="0.0.0.0") 직접 실행 |
 
 ---
 
@@ -87,7 +88,7 @@ Gradio 앱. 사내망 IP 접근.
 | 파일 | 상태 | 설명 |
 |------|------|------|
 | `utils/masking.py` | 🔲 | **개인정보 마스킹 1단계 (Regex).** 전화번호/주민번호/계좌번호/카드번호 패턴 치환. STT 원문에 먼저 적용 후 Qwen3.6 전달 |
-| `utils/eligibility.py` | 🔲 | **상품 가입 가능 여부 체크 (gd_filter_func).** `상품추천py.txt`의 GDREC_GD_filter.py 포팅. L01/L04/L03/SS: 나이+성별 분기. 유병자: 병력 4개 컬럼 min값 분기 |
+| `utils/eligibility.py` | — | 불필요 — tbl_ds_ineligible(레거시 FILTER_1/2 결과)로 대체. 쿼리 타임 gd_filter_func 실행 없음 |
 
 ---
 

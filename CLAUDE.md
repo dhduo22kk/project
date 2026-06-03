@@ -406,7 +406,7 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **Tab1 출력 순서 확정**: 계약 현황(가입 상품 수, 월 납입 보험료, 최근 가입 시점, 3개월 내 신규 담보, 통화 추천/피해야 할 시간) → 현재 보장 현황 → 추천 상품 → 스크립트
 - **Tab2 캠페인 Q&A UX**: Step0(상품/채널/성별/연령 칩) → Step1(신규여부) → Step2(목표인원 숫자입력) → Step3(추출방식 2선택지: 과거실적/활성도기반, 데이터 없으면 비활성화) → Step4(직전 캠페인 비교 카드 — 기존 캠페인 이력 있을 때만 표시, ML 예측 아님 명시) → 추출 → Excel. 캠페인 리스트에 체결율 미표시
 - **Pipeline B MVP 복귀**: 상품 설명서 PDF가 Tab1 스크립트에 필수 — 비갱신형/납입기간/특약 등 상품 특징을 스크립트에 반영하려면 products RAG 필요. 이월 취소
-- **gd_filter_func 재사용**: 기존 `GDREC_GD_filter.py` 코드 그대로 `utils/eligibility.py`에 포팅 — L01/L04/L03/SS는 나이+성별 분기, 유병자는 병력 4개 컬럼(입원청구/입원고지/중대질환고지/중대질환청구) min값 기반 분기
+- **gd_filter_func 제거**: `utils/eligibility.py` 불필요 — 쿼리 타임 실행 대신 레거시 배치(GDREC_CTM_FILTER_1/2)가 미리 계산한 `tbl_ds_ineligible (CTMNO, GDCD)` 테이블로 대체. `tbl_ds_recommendation` row 있는 고객은 ML 결과 직접 사용(재필터링 불필요)
 - **병력 컬럼 DuckDB 적재**: 유병자 판단용 4개 컬럼을 tbl_customer에 포함 — 컴플라이언스 승인 완료, GDREC_ORIGIN_MAIN_FIN_PRED에서 가져옴
 - **통화이력 30초 기준**: STT 없는 고객의 통화이력 표시에서 CALL_DURATION 30초 이상이면 "대화 진행됨" 표시, 미만은 시간만 표시 — 주관적 판단 없이 사실만 기재
 - **콜드스타트 전략**: Tab1 1차 DB 플로우에 통합 — 별도 탭 없음
@@ -421,9 +421,12 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **Tab1 스트리밍**: Gradio gr.Markdown(즉시) + gr.Textbox 스트리밍 조합. langchain-ollama 네이티브 스트리밍 지원
 - **WAV 파일명 확정**: CALL_ID.wav 형식 — Path.stem = CALL_ID 그대로 사용
 - **tbl_coverage Oracle 소스**: GDREC_ORIGIN_MAIN_FIN_PRED 최종 마트, 단순 SELECT. 9단계 중간 계산 불필요
-- **RESULT_CD ETL 번역**: Oracle 원본 코드 저장 안 함 — oracle_queries.py CASE WHEN으로 "미연결"/"연결성공" 번역 적재. 애플리케이션 코드에서 Oracle 코드 상수 불필요
+- **RESULT_CD ETL 번역**: Oracle 원본 코드 저장 안 함 — oracle_queries.sql CASE WHEN으로 "미연결"/"연결성공"/"결번"/"타인통화" 4단계 번역 적재. CONTACTMINORCD('020206','030202')→결번, DIALRESULTCD('02')→타인통화, 나머지 연결→연결성공, TB_CALL_LOG만 있고 TB_CONTACT 없음→미연결
+- **CALL_DURATION 소스**: TB_CONTACT.INTIME = 통화시간(초). TB_CALL_LOG에 별도 통화시간 컬럼 없음
+- **CALL_ID 소스**: TB_CALL_LOG 자체 컬럼(CALLID). WAV 파일명 CALL_ID.wav와 1:1 대응
+- **oracle_queries.py 아키텍처**: 복잡한 ETL 로직은 oracle_queries.sql(Oracle 실행)에서 처리 → AI_* 테이블 생성. oracle_queries.py는 DuckDB 테이블명 ↔ "SELECT * FROM AI_*" 매핑만 관리
 - **CHANNEL_TYPE 추가**: tbl_call_detail + Chroma calls 메타데이터에 CHANNEL_TYPE 포함 — RAG 필터 기준 (채널×캠페인 조합이 다양해 채널 필터 필수)
-- **Oracle 테이블명 _DS_ 패턴**: 기존 테이블명에 _DS_ 삽입. oracle_queries.py 쿼리는 2026-06-01 사용자 제공 예정
+- **Oracle 테이블명**: 레거시 원본 테이블명 그대로 사용(CUS_CTM, INS_CR_CVR 등). AI_* 추출 테이블은 oracle_queries.sql에서 생성. _DS_ 패턴 일부 테이블(GDREC_DS_*, M_DS_CRM_*)에만 적용됨
 - **Pipeline A 5000건 일괄**: 캠페인×채널 조합이 수십~수백개라 수동 선별 불가 — 5,000건 전체 일괄 인덱싱. Day 3 시작, 41~83시간 소요. 개발 기간에는 Chroma 없이 DuckDB+products RAG만으로 Tab1 개발, Pipeline A 완료 시 calls RAG 자동 활성화
 - **개발 환경 2컨테이너**: Jupyter 컨테이너(Oracle 쿼리 검증 전용) + LLM 컨테이너(VS Code, DuckDB 생성/운영/Gradio 앱). Shared volume 불가 — DuckDB는 LLM 컨테이너에서만 관리. Jupyter에서 검증된 쿼리 → oracle_queries.py 복사 → LLM 컨테이너 터미널 실행
 - **비전 LLM**: 인덱싱 시에만 사용 (Qwen3.6 언로드 후 순차), 쿼리 타임에는 불필요 — 모델 미정
@@ -431,7 +434,9 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **마트 갱신**: 매일 cron 자동 실행
 - **script_angle 3분기**: 체결이력 있음(설계이력 유무 무관) → `complement`(담보 gap 기반 보완), 체결이력 없음+설계이력만 있음 → `followup`(설계 건 팔로업), 둘 다 없음 → `new_product`(신상품 공략). 우선순위: complement > followup > new_product. 설계이력은 타 상담사 진행 가능성 높으므로 체결이력이 있으면 complement 우선. Qwen3.6 프롬프트에 명시 전달
 - **이미 가입 상품 GDCD 필터 불필요**: 담보 gap(tbl_coverage)이 이미 "무엇이 부족한지" 나타냄 → 중복 가입 방향 자연 차단
-- **gd_filter_func 적용 범위**: 신규 고객 한정 아님 — ML 추천 결과가 있어도 eligibility 체크 통과해야 추천. tbl_ds_recommendation + gd_filter_func 항상 조합
+- **tbl_ds_ineligible 추가**: GDREC_CTM_FILTER_1(나이/성별/고지포기) + GDREC_CTM_FILTER_2(보장충족 CV_CNT2/CV_CNT≥0.4) UNION → AI_INELIGIBLE → tbl_ds_ineligible. 레거시 배치 결과 재활용, 별도 재계산 없음
+- **레거시 ML 배치 유지**: 상품추천시스템(AutoGluon+gd_filter_func)은 그대로 운영 — M_CRM_REC_RLT_BIZ를 tbl_ds_recommendation으로 적재해서 INPUT으로만 사용. 이 프로젝트가 ML 배치를 대체하지 않음
+- **레거시 코드 수정 가능**: sql.txt/상품추천py.txt는 참고용이면서 수정 대상이기도 함. 프로젝트 목적에 맞게 레거시 SQL/Python 재구성·최적화 가능 — 레거시 구조에 맞추는 게 아님
 - **tbl_ds_product_master 추가**: GDCD → GD_TYPE → GDNM_CLEAN 매핑 테이블. Oracle 소스: GDREC_TMGD_LIST와 동일 마스터(현재 판매 TM 상품만). gd_filter_func 반환 상품명 → GDCD 역매핑에 사용
 - **CTM_SEX Oracle 코드 원본 적재**: `'1.M'`/`'2.F'` 변환 없이 DuckDB에 그대로 적재. eligibility.py에서도 동일 코드 사용
 - **Chroma embedded_text 포맷 확정**: `f"[고객: {age}세 {sex}, {campaign_nm}] {summary}"` — Pipeline A에서 tbl_customer(CTM_AGE, CTM_SEX) 추가 조회 후 구성. 신규/미연결 RAG 쿼리와 동일 시맨틱 공간
