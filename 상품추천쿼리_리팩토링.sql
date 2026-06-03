@@ -239,13 +239,15 @@ WHERE A2.RN = 1;
 ============================================================================ */
 DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 PURGE;
 CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 AS
-SELECT 
+-- ※ [최적화] GDRES_SYS_YYMM_PRED 조인 제거: 날짜 조건을 INS_CR_CVR WHERE에 선행 적용
+--            → INS_CR_CVR 풀스캔 전에 현재 유효 담보만 필터, 대상 건수 대폭 감소
+SELECT
     A1.CLS_YYMM, A1.PLYNO, B1.CVRCD, B1.CVR_SEQNO
     , A1.CTMNO, A1.RELPC_SEQNO, A1.STFNO, A1.USRNO
     , A1.INS_ST, A1.INS_CLSTR, A1.GDCD, A1.BRTH, A1.INS_AGE
     , B1.CVR_STCD
-    , B1.INS_ST                                         AS CVR_INS_ST
-    , B1.INS_CLSTR                                      AS CVR_INS_CLSTR
+    , B1.INS_ST                                             AS CVR_INS_ST
+    , B1.INS_CLSTR                                          AS CVR_INS_CLSTR
     , F_DIFF_DATE('MM', TO_CHAR(B1.INS_CLSTR,'YYYYMMDD'),
                         TO_CHAR(F_LAST_DAY(A1.CLS_YYMM),'YYYYMMDD')) AS CVR_CLSTR_ST_RNDMC
     , F_DIFF_DATE('MM', TO_CHAR(B1.INS_ST,'YYYYMMDD'),
@@ -255,10 +257,9 @@ SELECT
     , C1.MDCS_RGT_BJ_YN, C1.RLPMI_CVR_YN
 FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 A1
 INNER JOIN (
-    SELECT
-        T.CLS_YYMM, B1.*
+    SELECT B1.*
         , ROW_NUMBER() OVER (
-            PARTITION BY T.CLS_YYMM, B1.PLYNO, B1.RELPC_OJ_SEQNO, B1.CVRCD, B1.CVR_SEQNO
+            PARTITION BY B1.PLYNO, B1.RELPC_OJ_SEQNO, B1.CVRCD, B1.CVR_SEQNO
             ORDER BY B1.NDSNO DESC
           ) AS RN
     FROM (
@@ -268,28 +269,25 @@ INNER JOIN (
             , RELPC_OJ_SEQNO, PLYNO, CVRCD, CVR_SEQNO
             , NDS_AP_STR_DTHMS, NDS_AP_ND_DTHMS, NDSNO
         FROM INS_CR_CVR
-        -- [성능] EXISTS → INNER JOIN: 옵티마이저가 NL/Hash 선택 가능
         INNER JOIN (SELECT DISTINCT THCP_CVRCD FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T01) T01
             ON CVRCD = T01.THCP_CVRCD
-        WHERE IKD_GRPCD     = 'LA'
-          AND VALD_NDS_YN   = '1'
-          AND CVR_STCD      IN ('01','07','08')   -- 정상, 완납, 납입면제
-          AND CVR_BJ_FLGCD  IN ('01','03')        -- 인담보, 적립담보
+        WHERE IKD_GRPCD             = 'LA'
+          AND VALD_NDS_YN           = '1'
+          AND CVR_STCD              IN ('01','07','08')
+          AND CVR_BJ_FLGCD          IN ('01','03')
+          AND NDS_AP_STR_DTHMS      <= F_LAST_DAY(TO_CHAR(SYSDATE,'YYYYMM'))  -- 날짜 조건 선행
+          AND NDS_AP_ND_DTHMS        > F_LAST_DAY(TO_CHAR(SYSDATE,'YYYYMM'))
     ) B1
-    INNER JOIN GDRES_SYS_YYMM_PRED T
-        ON  B1.NDS_AP_STR_DTHMS <= T.CLS_NDDT
-        AND B1.NDS_AP_ND_DTHMS   > T.CLS_NDDT
 ) B1
     ON  A1.PLYNO        = B1.PLYNO
     AND A1.RELPC_SEQNO  = B1.RELPC_OJ_SEQNO
-    AND A1.CLS_YYMM     = B1.CLS_YYMM
-    AND B1.INS_CLSTR   >= F_LAST_DAY(B1.CLS_YYMM)
+    AND B1.INS_CLSTR   >= F_LAST_DAY(A1.CLS_YYMM)
     AND B1.RN           = 1
 LEFT JOIN IGD_GD_CVR C1
-    ON  B1.CVRCD    = C1.CVRCD
-    AND A1.GDCD     = C1.GDCD
-    AND C1.AP_NDDT   > F_LAST_DAY(B1.CLS_YYMM)
-    AND C1.AP_STRDT <= F_LAST_DAY(B1.CLS_YYMM);
+    ON  B1.CVRCD        = C1.CVRCD
+    AND A1.GDCD         = C1.GDCD
+    AND C1.AP_NDDT       > F_LAST_DAY(A1.CLS_YYMM)
+    AND C1.AP_STRDT     <= F_LAST_DAY(A1.CLS_YYMM);
 
 
 /* ============================================================================
