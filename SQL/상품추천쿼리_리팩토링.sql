@@ -7,13 +7,16 @@
   
   [실행 순서]
   01. GDRES_SYS_YYMM_PRED          기준 날짜
-  02. GDREC_TMGD_LIST               판매중 상품 목록
+  01-0. TBL_DS_CTM_LIST            장기TM 보유+가망고객 대상자 (oracle_queries.sql [0]에서 이동)
+  01-1. GDREC_GD_LIST              전체 상품 GD_TYPE 매핑 (전채널, 판매중단 포함)
+  02. GDREC_TMGD_LIST               TM 판매중 상품 목록 (추천 가입조건 기준)
   03. GDREC_TMGD_LIST_INFO          상품/담보 가입조건
   04. M_BIZ_CTM_INFO_CVR_LIST_RECT_T01  담보보장조건 코드
   05. GDREC_SYS_STF_PRED            TM 채널 직원
   06. GDREC_ORIGIN_INS_CR_PRED      장기TM 취급 계약 (핵심 소스)
   07. M_BIZ_CTM_INFO_CVR_LIST_RECT_T02  보유고객 (보험나이 계산)
-  08. M_BIZ_CTM_INFO_CVR_LIST_RECT_T03  담보 가입금액
+  08. M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_1  INS_CR_CVR 물리화 (T01 필터 + 중복제거, T02 조인 전)
+      M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_2  T03_1 ⋈ T02 ⋈ IGD_GD_CVR 통합
   09. M_BIZ_CTM_INFO_CVR_LIST_RECT_T04  담보보장조건 매핑
   10. M_BIZ_CTM_INFO_CVR_LIST_RECT_T06  가입금액 보정
   -- ※ T09(PIVOT), M_BIZ_RECT_GDINFO_* 는 T06 이후 (원본 파일 참조)
@@ -56,7 +59,8 @@
        WHEN REGEXP_LIKE(GDNM,'참 편한|WELL100|간편|3N5|355') THEN '유병자'
        WHEN MKTG_GD_CSFCD IN ('L12','L13') THEN 'L123'
        ELSE 'ETC' END AS GD_TYPE
-  ※ 운영 환경에서 M_CRM_GD_CSF_INFO 기반 VIEW(GD_TYPE_V)로 중앙화 권장
+  ※ GDREC_GD_LIST(step 01-1)로 중앙화 — M_CRM_GD_CSF_INFO 기반, 전채널/판매중단 포함
+  ※ GDREC_TMGD_LIST(step 02)는 TM 추천 가입조건 전용 → GD_TYPE 조회는 GDREC_GD_LIST 사용
   ※ 'SI' vs '유병자' 혼용 → 담당자 확인 후 통일 필요
 ================================================================================
 */
@@ -80,6 +84,179 @@ SELECT
     , LEAST(CAST(F_LAST_DAY(YYMM) AS DATE), SYSDATE)                       AS CLS_NDDT_LD
 FROM M_COD_YYMM
 WHERE YYMM = TO_CHAR(SYSDATE, 'YYYYMM');
+
+
+/* ============================================================================
+   [01-0] 장기TM 보유+가망고객 대상자  →  TBL_DS_CTM_LIST
+   ※ oracle_queries.sql [0] 섹션에서 이동 — 상품 모델 + DuckDB ETL 공통 소스
+   ※ GDRES_SYS_YYMM_PRED([01]) 의존: 반드시 [01] 이후 실행
+   ※ 보유고객: 장기 TM 계약 보유 + 마케팅 동의(전화)
+   ※ 가망고객: TB_CUSTOMER 등록(비대면) 또는 1년 내 캠페인 배정 + 마케팅 동의(전화)
+============================================================================ */
+
+-- 보유고객 1단계: 장기 TM 계약 보유
+DROP TABLE TBL_DS_CRLIST PURGE;
+CREATE TABLE TBL_DS_CRLIST AS (
+    SELECT
+        LCA.CLS_YYMM,
+        'LA'              AS IKD_GRPCD,
+        LCA.PLYNO,
+        LCA.CNRDT,
+        LCA.CRT_CTMNO     AS CTMNO,
+        LCA.DH_STFNO
+    FROM HWMRT.M_LCR_MTHY_LTINS_CR LCA
+    INNER JOIN GDRES_SYS_YYMM_PRED T
+        ON T.CLS_YYMM = LCA.CLS_YYMM
+    INNER JOIN M_BIZ_MTHY_PS_CR PCA
+        ON LCA.CLS_YYMM = PCA.CLS_YYMM
+        AND LCA.PLYNO   = PCA.PLYNO
+    WHERE LCA.DH_STFNO IN (
+        SELECT STFNO FROM M_ORG_BZ_ORGN
+        WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02'
+    )
+);
+
+-- 보유고객 2단계: CMS 매핑 + 마케팅 동의
+DROP TABLE TBL_DS_CUSLIST PURGE;
+CREATE TABLE TBL_DS_CUSLIST AS (
+    SELECT DISTINCT
+        LCB.CLS_YYMM,
+        LCB.IKD_GRPCD,
+        LCB.PLYNO,
+        LCB.CNRDT,
+        LCB.CTMNO,
+        LCB.DH_STFNO,
+        LPA.CMS_CTMNO,
+        MCA.PRS_TM_CTMNO,
+        MCA.FNL_MKTG_AGRYN,
+        MCA.MKTG_TL_RCV_YN,
+        MCA.FNL_MKTG_AGRE_NDDT
+    FROM TBL_DS_CRLIST LCB
+    LEFT JOIN HWMRT.M_CMS_LGSYS_CTM_CMS_MPP LPA
+        ON LCB.CTMNO = LPA.CTMNO
+    LEFT JOIN HWMRT.M_CMS_CTM_CLS MCA
+        ON LCB.CLS_YYMM   = MCA.CLS_YYMM
+        AND LPA.CMS_CTMNO = MCA.CMS_CTMNO
+    WHERE LPA.CMS_CTMNO IS NOT NULL
+);
+
+-- 가망고객: 비대면 등록 또는 1년 내 캠페인 배정 (보유고객 제외)
+DROP TABLE TBL_DS_PSSLIST PURGE;
+CREATE TABLE TBL_DS_PSSLIST AS (
+    SELECT DISTINCT *
+    FROM (
+        -- 비대면 등록 + 마케팅 동의(전화)
+        SELECT
+            B.CLS_YYMM,
+            B.INP_DTHMS,
+            A.CMS_CTMNO,
+            A.PRS_CTMNO                AS CTMNO,
+            A.PRS_TM_CTMNO             AS TM_CUSTID,
+            B.INP_USR_ID,
+            '비대면등록_CUSTID'         AS INP_SEG,
+            A.FNL_MKTG_AGRYN,
+            A.MKTG_TL_RCV_YN,
+            A.FNL_MKTG_AGRE_NDDT
+        FROM HWMRT.M_CMS_CTMCS A
+        INNER JOIN (
+            SELECT T.CLS_YYMM, A.*
+            FROM GDRES_SYS_YYMM_PRED T
+            INNER JOIN TB_CUSTOMER A ON A.INP_DTHMS <= T.CLS_NDDT_TS
+            WHERE INP_USR_ID IN (
+                SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012'
+            )
+        ) B ON A.PRS_TM_CTMNO = B.CUSTID
+        WHERE A.FNL_MKTG_AGRYN = 1
+          AND A.MKTG_TL_RCV_YN = 1
+
+        UNION ALL
+
+        -- 1년 내 캠페인 배정 + 마케팅 동의(전화)
+        SELECT DISTINCT
+            T.CLS_YYMM,
+            X2.ASDT              AS INP_DTHMS,
+            X2.CMS_CTMNO,
+            X2.PRS_CTMNO         AS CTMNO,
+            X2.PRS_TM_CTMNO      AS TM_CUSTID,
+            CMPG_ALLCT_STFNO     AS INP_USR_ID,
+            '캠페인배정'          AS INP_SEG,
+            X3.FNL_MKTG_AGRYN,
+            X3.MKTG_TL_RCV_YN,
+            X3.FNL_MKTG_AGRE_NDDT
+        FROM GDRES_SYS_YYMM_PRED T
+        INNER JOIN HWMRT.M_CMS_CTM_CLS X1
+            ON T.CLS_YYMM = X1.CLS_YYMM
+        INNER JOIN HWMRT.M_CMS_INR_CHN_CMPG_DB_CLS X2
+            ON X1.CMS_CTMNO = X2.CMS_CTMNO
+            AND X1.CLS_YYMM = X2.CLS_YYMM
+            AND X2.ASDT >= CLS_NDDT_TS - INTERVAL '1' YEAR
+        INNER JOIN HWMRT.M_CMS_CTMCS X3
+            ON X1.CMS_CTMNO = X3.CMS_CTMNO
+        WHERE CMPG_LCLCD IN ('C')
+          AND X3.FNL_MKTG_AGRYN = 1
+          AND X3.MKTG_TL_RCV_YN = 1
+    ) SRC
+    WHERE NOT EXISTS (
+        SELECT 1 FROM TBL_DS_CUSLIST C WHERE C.CMS_CTMNO = SRC.CMS_CTMNO
+    )
+);
+
+-- 대상자 종합
+DROP TABLE TBL_DS_CTM_LIST PURGE;
+CREATE TABLE TBL_DS_CTM_LIST AS
+SELECT DISTINCT
+    CLS_YYMM,
+    CTMNO,
+    DH_STFNO,
+    CMS_CTMNO,
+    PRS_TM_CTMNO,
+    FNL_MKTG_AGRYN,
+    MKTG_TL_RCV_YN,
+    FNL_MKTG_AGRE_NDDT,
+    '보유고객' AS INP_SEG
+FROM TBL_DS_CUSLIST
+UNION ALL
+SELECT DISTINCT
+    CLS_YYMM,
+    CTMNO,
+    INP_USR_ID  AS DH_STFNO,
+    CMS_CTMNO,
+    TM_CUSTID   AS PRS_TM_CTMNO,
+    FNL_MKTG_AGRYN,
+    MKTG_TL_RCV_YN,
+    FNL_MKTG_AGRE_NDDT,
+    INP_SEG
+FROM TBL_DS_PSSLIST;
+
+
+/* ============================================================================
+   [01-1] 전체 상품 GD_TYPE 매핑  →  GDREC_GD_LIST
+   ※ M_CRM_GD_CSF_INFO 기반: 전채널 + 판매중단 상품 포함
+   ※ 기존 GDREC_TMGD_LIST는 TM 현재 판매중 상품만 → 타채널 계약/설계 GD_TYPE = NULL 문제
+   ※ GDREC_ORIGIN_INS_CR_PRED / PRVGD_PRED / PL_PRED 의 GD_TYPE 조회는 이 테이블 사용
+============================================================================ */
+DROP TABLE GDREC_GD_LIST PURGE;
+CREATE TABLE GDREC_GD_LIST AS
+SELECT DISTINCT
+    A.GDCD
+    , CASE
+        WHEN A.GDNM LIKE '%Young%'                                              THEN 'L04'
+        WHEN A.GDNM LIKE '%더건강 더실속%' OR A.MKTG_GD_CSFCD IN ('L02','L01') THEN 'L01'
+        WHEN A.GDNM LIKE '%더건강%'                                             THEN 'L01'
+        WHEN A.GDNM LIKE '%시그니처 여성 건강%'                                   THEN 'L01'
+        WHEN A.MKTG_GD_CSFCD = 'L03' THEN 'L03'
+        WHEN A.MKTG_GD_CSFCD = 'L04' THEN 'L04'
+        WHEN A.MKTG_GD_CSFCD = 'L06' THEN 'L06'
+        WHEN A.MKTG_GD_CSFCD = 'L11' THEN 'L11'
+        WHEN A.MKTG_GD_CSFCD = 'L08' THEN 'L08'
+        WHEN A.GDNM LIKE '%세이프투게더%'                                        THEN 'SAFE'
+        WHEN A.GDNM LIKE '%실손의료보험%'                                        THEN 'SS'
+        WHEN REGEXP_LIKE(A.GDNM,'참 편한|WELL100|간편|3N5|355')                 THEN '유병자'
+        WHEN A.MKTG_GD_CSFCD IN ('L12','L13')                                 THEN 'L123'
+        ELSE 'ETC'
+      END AS GD_TYPE
+FROM M_CRM_GD_CSF_INFO A
+WHERE A.GDCD LIKE '%LA%';
 
 
 /* ============================================================================
@@ -164,28 +341,25 @@ WHERE THCP_INSTR_CSFNM = '만기'
 
 
 /* ============================================================================
-   [05→06 통합] 장기 TM 취급 계약 (핵심 소스 테이블)
-   ※ [최적화] GDREC_SYS_STF_PRED 중간 테이블 제거
-              → 장기TM(CHNL='31') 조건을 EXISTS 인라인으로 직접 처리
-   ※ 소스: M_ORG_MTHY_BZ_ORGN (월별 스냅샷, CLS_YYMM 매칭)
-   ※ CHNL='31' 조건: HDQT_ORGCD IN ('1300012','1301363','1303053')
-                      OR BR_ORGCD IN ('1300280','1301363','1303054','1303055')
-      우선순위 높은 타 채널 제외: LIFE WITH(BZ_ATRCD 30/31), 교차(TMNM '%교차%'),
-                                  GA(BZ_FML_QUFCD 'G01'), 방카(HDQT_ORGCD 1300013 등)
+   [05→06 통합] 장기 TM 보유+가망고객 계약 (핵심 소스 테이블)
+   ※ [대상 변경] 장기TM 상담사 취급 계약(DH_STFNO) → TBL_DS_CTM_LIST 기준 보유+가망고객 전체 계약
+   ※ TBL_DS_CTM_LIST: oracle_queries.sql에서 생성 (보유고객 + 가망고객, 마케팅 동의 필터 포함)
+   ※ CRT_CTMNO 필터: TBL_DS_CTM_LIST.CMS_CTMNO → M_CMS_LGSYS_CTM_CMS_MPP.CTMNO 경유
 ============================================================================ */
 DROP TABLE GDREC_ORIGIN_INS_CR_PRED PURGE;
 -- ※ GD_TYPE을 여기서 1회 결정 → 하위 테이블(GD_PRED, PRVGD_PRED, PL_PRED) CASE WHEN 불필요
+-- ※ GDREC_GD_LIST 사용: 전채널/판매중단 포함 (GDREC_TMGD_LIST는 TM 현재 판매중만)
 CREATE TABLE GDREC_ORIGIN_INS_CR_PRED AS
 SELECT A.*, G.GD_TYPE
 FROM GDRES_SYS_YYMM_PRED T
 INNER JOIN M_CRM_MTHY_PS_CR A ON A.CLS_YYMM = T.CLS_YYMM
-LEFT JOIN GDREC_TMGD_LIST G ON A.GDCD = G.GDCD
+LEFT JOIN GDREC_GD_LIST G ON A.GDCD = G.GDCD
 WHERE A.IKD_GRPCD = 'LA'
-  AND A.DH_STFNO IN (
-      SELECT STFNO FROM M_ORG_BZ_ORGN
-      WHERE HDQT_ORGCD = '1300012'
-        AND BRNM LIKE '%장기%'
-        AND STF_FLGCD = '02'
+  AND A.CRT_CTMNO IN (
+      SELECT DISTINCT M.CTMNO
+      FROM TBL_DS_CTM_LIST T
+      LEFT JOIN M_CMS_LGSYS_CTM_CMS_MPP M ON T.CMS_CTMNO = M.CMS_CTMNO
+      WHERE M.CTMNO IS NOT NULL
   );
 
 
@@ -231,13 +405,47 @@ WHERE A2.RN = 1;
 
 
 /* ============================================================================
-   [08] 담보 가입금액 추출 (T03)
-   ※ [성능] EXISTS → INNER JOIN으로 변경 (대용량 INS_CR_CVR 스캔 시 더 효율적)
+   [08-1] INS_CR_CVR 물리화 (T03_1) — T01·T02 EXISTS 필터 + 중복제거
+   ※ T02 PLYNO EXISTS: 대상 고객 증권만 스캔 → INS_CR_CVR 접근 범위 대폭 축소 (핵심)
+   ※ T01 CVRCD EXISTS: 추천 담보코드만 semi-join 필터 (DISTINCT 서브쿼리 불필요)
+   ※ T02/IGD_GD_CVR 조인 전 물리화 → 중간 통계 확보 후 T03_2 플랜 수립
 ============================================================================ */
-DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 PURGE;
-CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 AS
--- ※ [최적화] GDRES_SYS_YYMM_PRED 조인 제거: 날짜 조건을 INS_CR_CVR WHERE에 선행 적용
---            → INS_CR_CVR 풀스캔 전에 현재 유효 담보만 필터, 대상 건수 대폭 감소
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_1 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_1 AS
+SELECT
+    CVR_STCD, INS_ST, INS_CLSTR, AP_PRM, ISAMT
+    , AUTO_RNW_AV_YN, AUTO_RNW_CVR_CNLDT, RNW_NDDT
+    , RELPC_OJ_SEQNO, PLYNO, CVRCD, CVR_SEQNO
+FROM (
+    SELECT
+        CVR.CVR_STCD, CVR.INS_ST, CVR.INS_CLSTR, CVR.AP_PRM, CVR.ISAMT
+        , CVR.AUTO_RNW_AV_YN, CVR.AUTO_RNW_CVR_CNLDT, CVR.RNW_NDDT
+        , CVR.RELPC_OJ_SEQNO, CVR.PLYNO, CVR.CVRCD, CVR.CVR_SEQNO
+        , ROW_NUMBER() OVER (
+            PARTITION BY CVR.PLYNO, CVR.RELPC_OJ_SEQNO, CVR.CVRCD, CVR.CVR_SEQNO
+            ORDER BY CVR.NDSNO DESC
+          ) AS RN
+    FROM INS_CR_CVR CVR
+    WHERE CVR.IKD_GRPCD         = 'LA'
+      AND CVR.VALD_NDS_YN       = '1'
+      AND CVR.CVR_STCD          IN ('01','07','08')
+      AND CVR.CVR_BJ_FLGCD      IN ('01','03')
+      AND CVR.NDS_AP_STR_DTHMS  <= F_LAST_DAY(TO_CHAR(SYSDATE,'YYYYMM'))
+      AND CVR.NDS_AP_ND_DTHMS    > F_LAST_DAY(TO_CHAR(SYSDATE,'YYYYMM'))
+      AND EXISTS (SELECT 1 FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 T02
+                  WHERE T02.PLYNO = CVR.PLYNO)
+      AND EXISTS (SELECT 1 FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 T01
+                  WHERE T01.THCP_CVRCD = CVR.CVRCD)
+)
+WHERE RN = 1;
+
+
+/* ============================================================================
+   [08-2] T03_1 ⋈ T02 ⋈ IGD_GD_CVR 통합 (T03_2) — T04 소스
+   ※ T03_1 통계 확보 후 T02(보유고객) 조인 + IGD_GD_CVR 메타 lookup
+============================================================================ */
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_2 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_2 AS
 SELECT
     A1.CLS_YYMM, A1.PLYNO, B1.CVRCD, B1.CVR_SEQNO
     , A1.CTMNO, A1.RELPC_SEQNO, A1.STFNO, A1.USRNO
@@ -253,38 +461,15 @@ SELECT
     , B1.AUTO_RNW_AV_YN, B1.AUTO_RNW_CVR_CNLDT, B1.RNW_NDDT
     , C1.MDCS_RGT_BJ_YN, C1.RLPMI_CVR_YN
 FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 A1
-INNER JOIN (
-    SELECT B1.*
-        , ROW_NUMBER() OVER (
-            PARTITION BY B1.PLYNO, B1.RELPC_OJ_SEQNO, B1.CVRCD, B1.CVR_SEQNO
-            ORDER BY B1.NDSNO DESC
-          ) AS RN
-    FROM (
-        SELECT
-            CVR_STCD, INS_ST, INS_CLSTR, AP_PRM, ISAMT
-            , AUTO_RNW_AV_YN, AUTO_RNW_CVR_CNLDT, RNW_NDDT
-            , RELPC_OJ_SEQNO, PLYNO, CVRCD, CVR_SEQNO
-            , NDS_AP_STR_DTHMS, NDS_AP_ND_DTHMS, NDSNO
-        FROM INS_CR_CVR
-        INNER JOIN (SELECT DISTINCT THCP_CVRCD FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T01) T01
-            ON CVRCD = T01.THCP_CVRCD
-        WHERE IKD_GRPCD             = 'LA'
-          AND VALD_NDS_YN           = '1'
-          AND CVR_STCD              IN ('01','07','08')
-          AND CVR_BJ_FLGCD          IN ('01','03')
-          AND NDS_AP_STR_DTHMS      <= F_LAST_DAY(TO_CHAR(SYSDATE,'YYYYMM'))  -- 날짜 조건 선행
-          AND NDS_AP_ND_DTHMS        > F_LAST_DAY(TO_CHAR(SYSDATE,'YYYYMM'))
-    ) B1
-) B1
+INNER JOIN M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_1 B1
     ON  A1.PLYNO        = B1.PLYNO
     AND A1.RELPC_SEQNO  = B1.RELPC_OJ_SEQNO
     AND B1.INS_CLSTR   >= F_LAST_DAY(A1.CLS_YYMM)
-    AND B1.RN           = 1
 LEFT JOIN IGD_GD_CVR C1
-    ON  B1.CVRCD        = C1.CVRCD
-    AND A1.GDCD         = C1.GDCD
-    AND C1.AP_NDDT       > F_LAST_DAY(A1.CLS_YYMM)
-    AND C1.AP_STRDT     <= F_LAST_DAY(A1.CLS_YYMM);
+    ON  B1.CVRCD     = C1.CVRCD
+    AND A1.GDCD      = C1.GDCD
+    AND C1.AP_NDDT  > F_LAST_DAY(A1.CLS_YYMM)
+    AND C1.AP_STRDT <= F_LAST_DAY(A1.CLS_YYMM);
 
 
 /* ============================================================================
@@ -318,7 +503,7 @@ FROM (
                          ORDER BY A1.INS_ST DESC)
             ELSE 1
           END AS RN
-    FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 A1
+    FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T03_2 A1
     INNER JOIN M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 B1
         ON  A1.CVRCD = B1.THCP_CVRCD
         AND (B1.THCP_GD_XCPT_MTT IS NULL OR B1.THCP_GD_XCPT_MTT LIKE '%'||A1.GDCD||'%')
@@ -622,7 +807,7 @@ GROUP BY CLS_YYMM, CLS_NDDT, MN_NRDPS_CTMNO, IKD_GRPCD, CLMDT;
    [21] 해지/해약 계약 이력
 ============================================================================ */
 DROP TABLE GDREC_ORIGIN_INS_PRVGD_PRED PURGE;
--- ※ CASE WHEN + M_CRM_GD_CSF_INFO 제거 → GDREC_TMGD_LIST.GD_TYPE 재사용
+-- ※ CASE WHEN + M_CRM_GD_CSF_INFO 제거 → GDREC_GD_LIST.GD_TYPE 재사용 (전채널/판매중단 포함)
 -- ※ DISTINCT→GROUP BY (드라이빙 서브쿼리)
 CREATE TABLE GDREC_ORIGIN_INS_PRVGD_PRED AS
 SELECT DISTINCT
@@ -648,7 +833,7 @@ INNER JOIN INS_CR_ST_CRR D
     ON  D.PLYNO              = B.PLYNO
     AND D.NDS_AP_STR_DTHMS  <= F_LAST_DAY(A.CLS_YYMM)
     AND D.NDS_AP_ND_DTHMS    > F_LAST_DAY(A.CLS_YYMM)
-LEFT JOIN GDREC_TMGD_LIST G ON C.GDCD = G.GDCD
+LEFT JOIN GDREC_GD_LIST G ON C.GDCD = G.GDCD
 WHERE D.CR_STCD NOT IN ('00','10');
 
 
@@ -735,7 +920,7 @@ FROM (
         , AA.PLNM, AA.GD_TYPE, AA.PL_FIN_CD
         , ROW_NUMBER() OVER (PARTITION BY AA.PLNO ORDER BY AA.PLDT DESC) AS RN
     FROM (
-        -- ※ CASE WHEN + M_CRM_GD_CSF_INFO 제거 → GDREC_TMGD_LIST.GD_TYPE 재사용
+        -- ※ CASE WHEN + M_CRM_GD_CSF_INFO 제거 → GDREC_GD_LIST.GD_TYPE 재사용 (전채널/판매중단 포함)
         SELECT
             TO_CHAR(A.PLDT,'YYYYMM') AS PL_YYMM, A.PLNO, A.PLDT, A.CGAF_CH_SEQNO
             , A.PL_STCD, A.PL_ST_CHDT, B.DH_STFNO, B.USRNO, C.PLNM
@@ -745,7 +930,7 @@ FROM (
         LEFT JOIN INS_PL_DH_STF  B ON A.PLNO=B.PLNO AND A.CGAF_CH_SEQNO=B.CGAF_CH_SEQNO
                                   AND B.DH_STF_TPCD='01' AND B.IKD_GRPCD='LA'
         LEFT JOIN INS_GD_CE_PL   C ON A.PLCD=C.PLCD AND A.GDCD=C.GDCD
-        LEFT JOIN GDREC_TMGD_LIST G ON A.GDCD=G.GDCD
+        LEFT JOIN GDREC_GD_LIST G ON A.GDCD=G.GDCD
         WHERE A.PL_FLGCD='01' AND A.IKD_GRPCD='LA' AND A.VALD_PL_YN='1'
     ) AA
     INNER JOIN INS_PL_RELPC BB

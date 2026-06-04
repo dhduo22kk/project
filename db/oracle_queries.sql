@@ -5,8 +5,9 @@
   실행 환경: Oracle SQL Developer / Toad (일반 사용자 권한)
   실행 순서:
     1. 레거시 배치 완료 후 실행 (M_CRM_REC_RLT_BIZ, GDREC_CTM_FILTER_1/2 최신 상태)
-    2. 이 스크립트 실행 → AI_* 테이블 생성
-    3. pipeline_c_duckdb.py 실행 → DuckDB 적재
+    2. 상품추천쿼리_리팩토링.sql 실행 → TBL_DS_CTM_LIST 생성 (보유+가망고객 대상자)
+    3. 이 스크립트 실행 → AI_* 테이블 생성
+    4. pipeline_c_duckdb.py 실행 → DuckDB 적재
 
   DROP 주의:
     테이블이 없으면 DROP 오류 발생 — SQL Developer 기본 설정에서는 오류 후 계속 진행됨
@@ -16,7 +17,167 @@
 
 
 -- ============================================================
+-- [0] 대상자 사전 정의  ※ 상품추천쿼리_리팩토링.sql [01-0] 섹션으로 이동됨
+--     이 섹션 비활성화 — oracle_queries.sql 실행 전 상품추천쿼리_리팩토링.sql 선행 실행
+--     (TBL_DS_CRLIST / TBL_DS_CUSLIST / TBL_DS_PSSLIST / TBL_DS_CTM_LIST)
+-- ============================================================
+/*
+-- 기준연월 (상품추천쿼리에서는 GDRES_SYS_YYMM_PRED로 대체됨)
+DROP TABLE TBL_DS_YYMM PURGE;
+CREATE TABLE TBL_DS_YYMM AS (
+    SELECT
+        YYMM                                                              AS CLS_YYMM,
+        F_ADD_MONTHS_A(F_LAST_DAY(YYMM), -6)                            AS CLS_YYMM_6MB,
+        F_ADD_MONTHS_A(F_LAST_DAY(YYMM), -2)                            AS CLS_YYMM_2MB,
+        F_ADD_MONTHS_A(F_LAST_DAY(YYMM), -1)                            AS CLS_YYMM_1MB,
+        FIRST_DAY(YYMM)                                                  AS CLS_STRDT,
+        LEAST(SYSDATE, YYMM_NDDT)                                        AS CLS_NDDT,
+        LEAST(SYSDATE, TO_DATE(TO_CHAR(YYMM_NDDT,'YYYY-MM-DD') || ' 23:59:59',
+              'YYYY-MM-DD HH24:MI:SS'))                                  AS CLS_NDDT_TS,
+        LEAST(CAST(F_LAST_DAY(YYMM) AS DATE), SYSDATE)                  AS CLS_NDDT_LD
+    FROM M_COD_YYMM
+    WHERE YYMM = TO_CHAR(SYSDATE,'YYYYMM')
+);
+
+-- 보유고객 1단계: 장기 TM 계약 보유
+DROP TABLE TBL_DS_CRLIST PURGE;
+CREATE TABLE TBL_DS_CRLIST AS (
+    SELECT
+        LCA.CLS_YYMM,
+        'LA'              AS IKD_GRPCD,
+        LCA.PLYNO,
+        LCA.CNRDT,
+        LCA.CRT_CTMNO     AS CTMNO,
+        LCA.DH_STFNO
+    FROM HWMRT.M_LCR_MTHY_LTINS_CR LCA
+    INNER JOIN SDADAM.TBL_DS_YYMM T
+        ON T.CLS_YYMM = LCA.CLS_YYMM
+    INNER JOIN M_BIZ_MTHY_PS_CR PCA
+        ON LCA.CLS_YYMM = PCA.CLS_YYMM
+        AND LCA.PLYNO   = PCA.PLYNO
+    WHERE LCA.DH_STFNO IN (
+        SELECT STFNO FROM M_ORG_BZ_ORGN
+        WHERE HDQT_ORGCD = '1300012' AND BRNM LIKE '%장기%' AND STF_FLGCD = '02'
+    )
+);
+
+-- 보유고객 2단계: CMS 매핑 + 마케팅 동의
+DROP TABLE TBL_DS_CUSLIST PURGE;
+CREATE TABLE TBL_DS_CUSLIST AS (
+    SELECT DISTINCT
+        LCB.CLS_YYMM,
+        LCB.IKD_GRPCD,
+        LCB.PLYNO,
+        LCB.CNRDT,
+        LCB.CTMNO,
+        LCB.DH_STFNO,
+        LPA.CMS_CTMNO,
+        MCA.PRS_TM_CTMNO,
+        MCA.FNL_MKTG_AGRYN,
+        MCA.MKTG_TL_RCV_YN,
+        MCA.FNL_MKTG_AGRE_NDDT
+    FROM TBL_DS_CRLIST LCB
+    LEFT JOIN HWMRT.M_CMS_LGSYS_CTM_CMS_MPP LPA
+        ON LCB.CTMNO = LPA.CTMNO
+    LEFT JOIN HWMRT.M_CMS_CTM_CLS MCA
+        ON LCB.CLS_YYMM   = MCA.CLS_YYMM
+        AND LPA.CMS_CTMNO = MCA.CMS_CTMNO
+    WHERE LPA.CMS_CTMNO IS NOT NULL
+);
+
+-- 가망고객: 비대면 등록 또는 1년 내 캠페인 배정 (보유고객 제외)
+DROP TABLE TBL_DS_PSSLIST PURGE;
+CREATE TABLE TBL_DS_PSSLIST AS (
+    SELECT DISTINCT *
+    FROM (
+        -- 비대면 등록 + 마케팅 동의(전화)
+        SELECT
+            B.CLS_YYMM,
+            B.INP_DTHMS,
+            A.CMS_CTMNO,
+            A.PRS_CTMNO                AS CTMNO,
+            A.PRS_TM_CTMNO             AS TM_CUSTID,
+            B.INP_USR_ID,
+            '비대면등록_CUSTID'         AS INP_SEG,
+            A.FNL_MKTG_AGRYN,
+            A.MKTG_TL_RCV_YN,
+            A.FNL_MKTG_AGRE_NDDT
+        FROM HWMRT.M_CMS_CTMCS A
+        INNER JOIN (
+            SELECT T.CLS_YYMM, A.*
+            FROM SDADAM.TBL_DS_YYMM T
+            INNER JOIN TB_CUSTOMER A ON A.INP_DTHMS <= T.CLS_NDDT_TS
+            WHERE INP_USR_ID IN (
+                SELECT STFNO FROM M_ORG_BZ_ORGN WHERE HDQT_ORGCD = '1300012'
+            )
+        ) B ON A.PRS_TM_CTMNO = B.CUSTID
+        WHERE A.FNL_MKTG_AGRYN = 1
+          AND A.MKTG_TL_RCV_YN = 1
+
+        UNION ALL
+
+        -- 1년 내 캠페인 배정 + 마케팅 동의(전화)
+        SELECT DISTINCT
+            T.CLS_YYMM,
+            X2.ASDT              AS INP_DTHMS,
+            X2.CMS_CTMNO,
+            X2.PRS_CTMNO         AS CTMNO,
+            X2.PRS_TM_CTMNO      AS TM_CUSTID,
+            CMPG_ALLCT_STFNO     AS INP_USR_ID,
+            '캠페인배정'          AS INP_SEG,
+            X3.FNL_MKTG_AGRYN,
+            X3.MKTG_TL_RCV_YN,
+            X3.FNL_MKTG_AGRE_NDDT
+        FROM SDADAM.TBL_DS_YYMM T
+        INNER JOIN HWMRT.M_CMS_CTM_CLS X1
+            ON T.CLS_YYMM = X1.CLS_YYMM
+        INNER JOIN HWMRT.M_CMS_INR_CHN_CMPG_DB_CLS X2
+            ON X1.CMS_CTMNO = X2.CMS_CTMNO
+            AND X1.CLS_YYMM = X2.CLS_YYMM
+            AND X2.ASDT >= CLS_NDDT_TS - INTERVAL '1' YEAR
+        INNER JOIN HWMRT.M_CMS_CTMCS X3
+            ON X1.CMS_CTMNO = X3.CMS_CTMNO
+        WHERE CMPG_LCLCD IN ('C')
+          AND X3.FNL_MKTG_AGRYN = 1
+          AND X3.MKTG_TL_RCV_YN = 1
+    ) SRC
+    WHERE NOT EXISTS (
+        SELECT 1 FROM SDADAM.TBL_DS_CUSLIST C WHERE C.CMS_CTMNO = SRC.CMS_CTMNO
+    )
+);
+
+-- 대상자 종합
+DROP TABLE TBL_DS_CTM_LIST PURGE;
+CREATE TABLE TBL_DS_CTM_LIST AS
+SELECT DISTINCT
+    CLS_YYMM,
+    CTMNO,
+    DH_STFNO,
+    CMS_CTMNO,
+    PRS_TM_CTMNO,
+    FNL_MKTG_AGRYN,
+    MKTG_TL_RCV_YN,
+    FNL_MKTG_AGRE_NDDT,
+    '보유고객' AS INP_SEG
+FROM TBL_DS_CUSLIST
+UNION ALL
+SELECT DISTINCT
+    CLS_YYMM,
+    CTMNO,
+    INP_USR_ID  AS DH_STFNO,
+    CMS_CTMNO,
+    TM_CUSTID   AS PRS_TM_CTMNO,
+    FNL_MKTG_AGRYN,
+    MKTG_TL_RCV_YN,
+    FNL_MKTG_AGRE_NDDT,
+    INP_SEG
+FROM TBL_DS_PSSLIST;
+*/
+
+
+-- ============================================================
 -- [1] 고객 기본정보  →  AI_CUSTOMER  (tbl_ds_customer)
+--     소스: TBL_DS_CTM_LIST (대상자) INNER JOIN CUS_CTM (인구통계)
 -- ============================================================
 DROP TABLE AI_CUSTOMER PURGE;
 
@@ -34,11 +195,13 @@ SELECT
     NULL                                  AS REGION,
     A.CTM_RGDT                            AS REG_DT,
     NULL                                  AS INFLOW_CAMPAIGN_NM,
+    T.INP_SEG,
     B.HOSP_CLAIM,
     B.HOSP_NOTI,
     B.MAJOR_DSAS_NOTI,
     B.MAJOR_DSAS_CLAIM
-FROM CUS_CTM A
+FROM TBL_DS_CTM_LIST T
+INNER JOIN CUS_CTM A ON T.CTMNO = A.CTMNO
 LEFT JOIN (
     SELECT
         MN_NRDPS_CTMNO,

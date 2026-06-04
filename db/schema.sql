@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS tbl_ds_customer (
     REGION           VARCHAR,
     REG_DT           DATE,
     INFLOW_CAMPAIGN_NM VARCHAR,
+    INP_SEG          VARCHAR,   -- '보유고객' | '가망고객(비대면등록_CUSTID)' | '가망고객(캠페인배정)'
     -- 유병자 판단용 (컴플라이언스 승인 완료)
     HOSP_CLAIM       VARCHAR,
     HOSP_NOTI        VARCHAR,
