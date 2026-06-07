@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 상담 에이전트 중간보고 - 한화손보</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Urbanist:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hanwha: {
+                            orange: '#f37321',
+                            dark: '#2d2926',
+                            gray: '#706e6b',
+                            lightBg: '#f8fafc',
+                            border: '#cbd5e1'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                        urban: ['Urbanist', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            .slide-container {
+                page-break-after: always;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-height-screen flex flex-col items-center py-10 gap-12 font-sans text-hanwha-dark antialiased">
+
+    <!-- SLIDE 1: COVER SLIDE (Crisp Light Cover Theme) -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area (한화 로고) -->
+        <div class="flex items-center gap-1">
+            <span class="text-hanwha-orange font-black text-xl tracking-tight">한화손보</span>
+        </div>
+
+        <!-- Center Main Title Area -->
+        <div class="flex flex-col gap-6 justify-center flex-grow -mt-10">
+            <span class="text-hanwha-gray font-urban font-bold text-lg tracking-wider">VIBE CODING COMPETITION</span>
+            <div class="flex flex-col gap-2">
+                <h1 class="text-5xl font-black text-hanwha-dark tracking-tight leading-tight">바이브코딩 경진대회</h1>
+                <h1 class="text-7xl font-black text-hanwha-orange tracking-tight leading-none mt-2">AI 상담 에이전트</h1>
+            </div>
+
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+
+            <div class="text-4xl font-urban font-black text-hanwha-orange">01</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 2: EXECUTIVE SUMMARY -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col p-10">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-3">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <span class="text-xs text-hanwha-gray font-medium">VIBE CODING COMPETITION — AI 상담 에이전트</span>
+        </div>
+
+        <!-- Title Row -->
+        <div class="flex items-center gap-4 mb-3">
+            <h2 class="text-2xl font-extrabold text-hanwha-dark shrink-0">Executive Summary</h2>
+            <div class="h-px flex-grow bg-slate-200"></div>
+            <p class="text-xs text-hanwha-gray shrink-0">상담사 생산성 + 캠페인 정밀도를 동시에 혁신하는 <b class="text-hanwha-dark">AI 투트랙 에이전트</b> · 10일 개발 · 폐쇄망 완결형</p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="flex-grow grid grid-cols-12 gap-3 min-h-0">
+
+            <!-- Col A: 문제/해결 + KPI -->
+            <div class="col-span-3 flex flex-col gap-2">
+                <div class="bg-red-50 border border-red-100 rounded-lg p-3 flex flex-col gap-1.5 flex-1">
+                    <div class="text-[10px] font-black text-red-700 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> 문제</div>
+                    <ul class="text-[10px] text-slate-600 flex flex-col gap-1 leading-relaxed">
+                        <li>• 콜 전 고객 맥락 조회 불가, 스크립트 없음</li>
+                        <li>• 캠페인 대상 수작업 추출 — ML 근거 불투명</li>
+                        <li>• 통화 녹취 5천 건 방치, 활용 체계 부재</li>
+                    </ul>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex flex-col gap-1.5 flex-1">
+                    <div class="text-[10px] font-black text-emerald-700 flex items-center gap-1"><i class="fa-solid fa-lightbulb"></i> 해결</div>
+                    <ul class="text-[10px] text-slate-600 flex flex-col gap-1 leading-relaxed">
+                        <li>• 고객번호 입력 → 즉시 맞춤 스크립트 생성</li>
+                        <li>• 4단계 폼 → 캠페인 대상 Excel 자동 추출</li>
+                        <li>• STT + RAG 로 녹취 맥락을 추천에 반영</li>
+                    </ul>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 shrink-0">
+                    <div class="bg-hanwha-orange text-white rounded-lg p-2 text-center">
+                        <div class="text-lg font-black leading-none">30만</div>
+                        <div class="text-[8px] opacity-90 mt-0.5">통합 고객 DB</div>
+                    </div>
+                    <div class="bg-violet-600 text-white rounded-lg p-2 text-center">
+                        <div class="text-lg font-black leading-none">5천</div>
+                        <div class="text-[8px] opacity-90 mt-0.5">STT 녹취 색인</div>
+                    </div>
+                    <div class="bg-emerald-600 text-white rounded-lg p-2 text-center">
+                        <div class="text-lg font-black leading-none">Day 9</div>
+                        <div class="text-[8px] opacity-90 mt-0.5">/ 10일 완성</div>
+                    </div>
+                    <div class="bg-slate-700 text-white rounded-lg p-2 text-center">
+                        <div class="text-lg font-black leading-none">100%</div>
+                        <div class="text-[8px] opacity-90 mt-0.5">폐쇄망 온프레미스</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Col B: 데이터 항목 & 기술 프로세스 -->
+            <div class="col-span-5 flex flex-col border border-slate-200 rounded-xl overflow-hidden">
+                <div class="bg-slate-700 text-white px-3 py-2 text-xs font-black flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-table-list"></i> 핵심 데이터 항목 &amp; 기술 프로세스
+                </div>
+                <div class="flex-grow flex flex-col overflow-hidden">
+                    <div class="grid grid-cols-12 gap-1 px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[9px] font-black text-slate-400 shrink-0">
+                        <div class="col-span-4">데이터 소스</div>
+                        <div class="col-span-4">처리 기술</div>
+                        <div class="col-span-4">에이전트 활용처</div>
+                    </div>
+                    <div class="flex-grow flex flex-col divide-y divide-slate-100 overflow-hidden">
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-database text-hanwha-orange text-xs shrink-0"></i><span class="font-semibold text-slate-700">Oracle 통화이력</span></div>
+                            <div class="col-span-4 text-slate-500">DuckDB 일배치 ETL</div>
+                            <div class="col-span-4 text-emerald-700 font-semibold">신규·미연결·이력 3분기 자동 분류</div>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center bg-slate-50/60">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-database text-hanwha-orange text-xs shrink-0"></i><span class="font-semibold text-slate-700">Oracle 보장현황</span></div>
+                            <div class="col-span-4 text-slate-500">DuckDB · 12개 담보 wide</div>
+                            <div class="col-span-4 text-orange-700 font-semibold">담보 GAP 탐지 → 스크립트 각도 결정</div>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-database text-hanwha-orange text-xs shrink-0"></i><span class="font-semibold text-slate-700">Oracle 계약·캠페인이력</span></div>
+                            <div class="col-span-4 text-slate-500">DuckDB 일배치 · 집계</div>
+                            <div class="col-span-4 text-slate-700 font-semibold">계약현황·납입료·캠페인 대상 추출</div>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center bg-slate-50/60">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-robot text-slate-500 text-xs shrink-0"></i><span class="font-semibold text-slate-700">ML 추천결과 (AutoGluon)</span></div>
+                            <div class="col-span-4 text-slate-500">DuckDB · tbl_recommendation</div>
+                            <div class="col-span-4 text-slate-700 font-semibold">추천 상품 INPUT · 근거 보완</div>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-microphone text-violet-600 text-xs shrink-0"></i><span class="font-semibold text-slate-700">TM 녹취 WAV (~5천 건)</span></div>
+                            <div class="col-span-4 text-slate-500">faster-whisper STT → Chroma calls</div>
+                            <div class="col-span-4 text-violet-700 font-semibold">고객 발화 맥락 · 유사 성공 콜 RAG</div>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center bg-slate-50/60">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-file-pdf text-orange-600 text-xs shrink-0"></i><span class="font-semibold text-slate-700">상품 설명서 (PDF·DOCX)</span></div>
+                            <div class="col-span-4 text-slate-500">pymupdf4llm → Chroma products</div>
+                            <div class="col-span-4 text-orange-700 font-semibold">상품 특징·특약·납입기간 RAG</div>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1 px-3 py-1.5 text-[9px] items-center">
+                            <div class="col-span-4 flex items-center gap-1.5"><i class="fa-solid fa-calendar-check text-blue-600 text-xs shrink-0"></i><span class="font-semibold text-slate-700">월별 영업 포커스</span></div>
+                            <div class="col-span-4 text-slate-500">tbl_sales_focus · 운영자 직접 입력</div>
+                            <div class="col-span-4 text-blue-700 font-semibold">매 요청 시 LLM 프롬프트 자동 주입</div>
+                        </div>
+                    </div>
+                    <div class="border-t border-slate-200 px-3 py-1.5 bg-slate-50 flex items-center gap-1.5 flex-wrap shrink-0">
+                        <span class="text-[8px] text-slate-500 font-black mr-0.5">기술:</span>
+                        <span class="bg-violet-100 text-violet-800 text-[8px] font-bold px-1.5 py-0.5 rounded">Qwen3.6-27B</span>
+                        <span class="bg-blue-100 text-blue-800 text-[8px] font-bold px-1.5 py-0.5 rounded">LangGraph</span>
+                        <span class="bg-orange-100 text-orange-800 text-[8px] font-bold px-1.5 py-0.5 rounded">DuckDB</span>
+                        <span class="bg-emerald-100 text-emerald-800 text-[8px] font-bold px-1.5 py-0.5 rounded">ChromaDB RAG</span>
+                        <span class="bg-slate-200 text-slate-700 text-[8px] font-bold px-1.5 py-0.5 rounded">faster-whisper</span>
+                        <span class="bg-pink-100 text-pink-800 text-[8px] font-bold px-1.5 py-0.5 rounded">Gradio</span>
+                        <span class="bg-amber-100 text-amber-800 text-[8px] font-bold px-1.5 py-0.5 rounded">cx_Oracle</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Col C: TRACK 1 + TRACK 2 stacked -->
+            <div class="col-span-4 flex flex-col gap-2">
+                <div class="border border-emerald-200 rounded-xl overflow-hidden flex-1">
+                    <div class="bg-emerald-600 text-white px-3 py-1.5 text-xs font-black flex items-center gap-2 shrink-0">
+                        <i class="fa-solid fa-headset"></i> TRACK 1 — 상담사 콜 전 준비
+                        <span class="ml-auto text-[9px] font-normal opacity-75">배정 즉시</span>
+                    </div>
+                    <div class="flex-grow bg-emerald-50/20 p-2.5 flex flex-col gap-1.5 overflow-hidden">
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-emerald-600 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">1</span>
+                            <span class="text-slate-700"><b>고객번호 입력</b> → 신규·미연결·이력 자동 분류</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-emerald-600 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">2</span>
+                            <span class="text-slate-700"><b>① DuckDB 즉시</b> 계약현황 · 담보GAP · 납입료</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-emerald-600 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">3</span>
+                            <span class="text-slate-700"><b>RAG 검색</b> 유사 통화 맥락 + 상품 설명서</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">4</span>
+                            <span class="text-slate-700"><b>② LLM 스트리밍</b> 담보보완·팔로업·신상품 각도</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="border border-blue-200 rounded-xl overflow-hidden flex-1">
+                    <div class="bg-blue-700 text-white px-3 py-1.5 text-xs font-black flex items-center gap-2 shrink-0">
+                        <i class="fa-solid fa-briefcase"></i> TRACK 2 — 캠페인 대상 추출
+                        <span class="ml-auto text-[9px] font-normal opacity-75">본사 스태프</span>
+                    </div>
+                    <div class="flex-grow bg-blue-50/20 p-2.5 flex flex-col gap-1.5 overflow-hidden">
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-blue-700 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">1</span>
+                            <span class="text-slate-700"><b>캠페인 선택</b> 기존/신규 · DuckDB 이력 로드</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-blue-700 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">2</span>
+                            <span class="text-slate-700"><b>4단계 폼</b> 상품·채널·성별·연령·목표인원</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-blue-700 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">3</span>
+                            <span class="text-slate-700"><b>추출 전략</b> 과거실적기반 / 활성도기반</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-[10px]">
+                            <span class="bg-blue-600 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[8px] shrink-0 mt-0.5">4</span>
+                            <span class="text-slate-700"><b>Excel 다운로드</b> CTMNO → 콜링 시스템</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-3 mt-3">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">02</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 3: AGENDA (목차) -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span class="text-hanwha-orange">02. 목차</span>
+                <span>03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span>06. 화면예시</span>
+                <span>07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col justify-center gap-12 pl-12">
+            <h2 class="text-4xl font-extrabold text-hanwha-dark">목차</h2>
+            
+            <div class="grid grid-cols-2 gap-x-16 gap-y-8 max-w-4xl">
+                <!-- 01. 기획 배경 (줄바꿈 적용) -->
+                <div class="flex items-start gap-6">
+                    <span class="font-urban font-black text-3xl text-hanwha-orange leading-none mt-1">01</span>
+                    <div>
+                        <span class="text-xl font-bold text-hanwha-dark block">기획 배경</span>
+                        <span class="text-sm text-hanwha-gray font-medium mt-1 block">(WHY - HOW - WHAT)</span>
+                    </div>
+                </div>
+                <!-- 04. 화면 설계 예시 (줄바꿈 적용) -->
+                <div class="flex items-start gap-6">
+                    <span class="font-urban font-black text-3xl text-hanwha-orange leading-none mt-1">04</span>
+                    <div>
+                        <span class="text-xl font-bold text-hanwha-dark block">화면 설계 예시</span>
+                        <span class="text-sm text-hanwha-gray font-medium mt-1 block">(상담사용 / 관리자용 투트랙 시스템)</span>
+                    </div>
+                </div>
+                <!-- 02. 기획 내용 (줄바꿈 적용) -->
+                <div class="flex items-start gap-6">
+                    <span class="font-urban font-black text-3xl text-hanwha-orange leading-none mt-1">02</span>
+                    <div>
+                        <span class="text-xl font-bold text-hanwha-dark block">기획 내용</span>
+                        <span class="text-sm text-hanwha-gray font-medium mt-1 block">(바이브 코딩 및 데이터 수집 흐름)</span>
+                    </div>
+                </div>
+                <!-- 05. 현재 진행 상황 (줄바꿈 적용) -->
+                <div class="flex items-start gap-6">
+                    <span class="font-urban font-black text-3xl text-hanwha-orange leading-none mt-1">05</span>
+                    <div>
+                        <span class="text-xl font-bold text-hanwha-dark block">현재 진행 상황</span>
+                        <span class="text-sm text-hanwha-gray font-medium mt-1 block">(상세 프로젝트 마일스톤)</span>
+                    </div>
+                </div>
+                <!-- 03. 전체 시스템 도해 (줄바꿈 적용) -->
+                <div class="flex items-start gap-6 col-span-2">
+                    <span class="font-urban font-black text-3xl text-hanwha-orange leading-none mt-1">03</span>
+                    <div>
+                        <span class="text-xl font-bold text-hanwha-dark block">전체 시스템 도해</span>
+                        <span class="text-sm text-hanwha-gray font-medium mt-1 block">(데이터 통합 및 기능별 핵심 흐름)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">02</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 3: 기획배경 - Golden Circle (WHY - HOW - WHAT) -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span class="text-hanwha-orange">03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span>06. 화면예시</span>
+                <span>07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col justify-center gap-5">
+            <h2 class="text-3xl font-extrabold text-hanwha-dark">기획 배경 : WHY - HOW - WHAT</h2>
+
+            <!-- 3 Columns -->
+            <div class="grid grid-cols-3 gap-6">
+                <!-- WHY -->
+                <div class="border-t-4 border-hanwha-orange bg-slate-50 p-5 rounded-b-xl flex flex-col gap-3">
+                    <span class="font-urban font-extrabold text-2xl text-hanwha-orange tracking-widest">WHY</span>
+                    <h3 class="text-base font-bold text-hanwha-dark">기존 ML 추천, 왜 상담사가 사용하지 않는가?</h3>
+                    <ul class="text-xs text-hanwha-gray leading-relaxed flex flex-col gap-1.5">
+                        <li>• 추천 결과: 상품명 + 고정 문구 → <b>맥락 없음</b></li>
+                        <li>• "왜 이 고객에게 이 상품인지" 근거 부재</li>
+                        <li>• 콜 전 참고 불가 → <b class="text-red-600">사실상 미사용</b></li>
+                        <li class="text-[10px] text-slate-400 mt-1">※ 기존 AutoGluon 배치는 유지 — 이 프로젝트는 보완·연동</li>
+                    </ul>
+                </div>
+                <!-- HOW -->
+                <div class="border-t-4 border-hanwha-dark bg-slate-50 p-5 rounded-b-xl flex flex-col gap-3">
+                    <span class="font-urban font-extrabold text-2xl text-hanwha-dark tracking-widest">HOW</span>
+                    <h3 class="text-base font-bold text-hanwha-dark">이종 데이터 통합으로 맥락을 주입</h3>
+                    <ul class="text-xs text-hanwha-gray leading-relaxed flex flex-col gap-1.5">
+                        <li>• 통화 녹취 STT → <b>고객 발화 맥락</b> 직접 참조</li>
+                        <li>• 보장 GAP 자동 탐지 → <b>누락 담보</b> 명시</li>
+                        <li>• 유사 성공 콜 RAG → <b>캠페인 패턴</b> 반영</li>
+                        <li>• Oracle → DuckDB 일배치 → <b>온디맨드 즉시 조회</b></li>
+                    </ul>
+                </div>
+                <!-- WHAT -->
+                <div class="border-t-4 border-hanwha-orange bg-slate-50 p-5 rounded-b-xl flex flex-col gap-3">
+                    <span class="font-urban font-extrabold text-2xl text-hanwha-orange tracking-widest">WHAT</span>
+                    <h3 class="text-base font-bold text-hanwha-dark">상담사가 실제로 쓸 수 있는 형태로 출력</h3>
+                    <ul class="text-xs text-hanwha-gray leading-relaxed flex flex-col gap-1.5">
+                        <li>• ① DuckDB 현황 즉시(&lt;1초) → ② LLM 스크립트 스트리밍</li>
+                        <li>• 스크립트 각도: <b>담보 보완 / 설계 팔로업 / 신상품</b> 자동 선택</li>
+                        <li>• 투트랙: 상담사 스크립트 / 관리자 캠페인 Excel</li>
+                        <li>• 이노스 레거시에 <b>Gradio API 주입</b> 방식 연동</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Before/After Comparison Table -->
+            <div class="border border-slate-200 rounded-xl overflow-hidden">
+                <div class="bg-slate-700 text-white text-xs font-black px-4 py-2 flex items-center gap-2">
+                    <i class="fa-solid fa-table-columns"></i> 기존 ML 추천시스템 (AutoGluon) 대비 핵심 개선 포인트
+                </div>
+                <table class="w-full text-xs">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-slate-500 font-bold w-1/5">구분</th>
+                            <th class="px-4 py-2 text-left text-slate-500 font-bold w-2/5">기존 ML 추천시스템</th>
+                            <th class="px-4 py-2 text-left text-hanwha-orange font-bold w-2/5">AI 상담 에이전트 (이 프로젝트)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-t border-slate-100">
+                            <td class="px-4 py-2 font-bold text-slate-600">추천 근거</td>
+                            <td class="px-4 py-2 text-slate-500">유사 고객 가입 이력만 (ML 점수)</td>
+                            <td class="px-4 py-2 text-slate-700 font-medium">가입 이력 + 담보 GAP + 과거 통화 맥락 + 캠페인 패턴</td>
+                        </tr>
+                        <tr class="border-t border-slate-100 bg-slate-50/50">
+                            <td class="px-4 py-2 font-bold text-slate-600">출력 형태</td>
+                            <td class="px-4 py-2 text-slate-500">상품명 + 고정 텍스트</td>
+                            <td class="px-4 py-2 text-slate-700 font-medium">왜 이 상품인지 근거 + 어떻게 말할지 스크립트</td>
+                        </tr>
+                        <tr class="border-t border-slate-100">
+                            <td class="px-4 py-2 font-bold text-slate-600">상담 활용</td>
+                            <td class="px-4 py-2 text-red-600 font-bold">맥락 없어 사실상 미사용</td>
+                            <td class="px-4 py-2 text-emerald-600 font-bold">콜 전 즉시 활용 가능한 형태로 출력</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">03</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 4: 기획내용 - 개발 방법론 및 데이터 수집 -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span>03. 기획배경</span>
+                <span class="text-hanwha-orange">04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span>06. 화면예시</span>
+                <span>07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col justify-center gap-4">
+            <h2 class="text-3xl font-extrabold text-hanwha-dark">기획 내용 : 개발 방법론 및 3대 배치 파이프라인</h2>
+
+            <div class="grid grid-cols-12 gap-4">
+                <!-- Left: 개발 방법론 -->
+                <div class="col-span-3 bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-hanwha-orange text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm">1</span>
+                        <h3 class="text-sm font-bold text-hanwha-dark">Agile Vibe Coding</h3>
+                    </div>
+                    <ul class="text-[11px] text-hanwha-gray flex flex-col gap-2 leading-relaxed">
+                        <li>• <b>Claude "Grill me" 활용:</b> 설계 단계부터 AI와 고강도 챌린지 — 예외 케이스·데이터 규칙 선제 정의</li>
+                        <li>• <b>레거시 전면 검토:</b> AutoGluon 복잡성 분리, 결합도 제거한 경량 아키텍처</li>
+                        <li>• <b>핵심 설계 결정:</b> 스크립트 각도 3분기 자동 선택
+                            <div class="mt-1.5 flex flex-col gap-0.5 text-[10px]">
+                                <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5"><b>담보 보완</b> — 체결이력 있음</span>
+                                <span class="bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5"><b>설계 팔로업</b> — 설계이력만 있음</span>
+                                <span class="bg-orange-50 text-orange-700 border border-orange-200 rounded px-1.5 py-0.5"><b>신상품 공략</b> — 둘 다 없음</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Right: 3 Pipelines -->
+                <div class="col-span-9 flex flex-col gap-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-hanwha-dark text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm">2</span>
+                        <h3 class="text-sm font-bold text-hanwha-dark">3대 배치 파이프라인 (1회성 또는 일배치)</h3>
+                    </div>
+
+                    <!-- Pipeline A: STT -->
+                    <div class="border border-violet-200 rounded-xl overflow-hidden">
+                        <div class="bg-violet-600 text-white px-3 py-1.5 text-[11px] font-black flex items-center gap-2">
+                            <i class="fa-solid fa-microphone"></i> Pipeline A — STT 인덱싱
+                            <span class="ml-auto font-normal opacity-75 text-[9px]">1회성 · ~5천 건 · resume 지원</span>
+                        </div>
+                        <div class="bg-violet-50/30 px-3 py-2 flex items-center gap-1.5">
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-violet-100 border-2 border-violet-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-headset text-violet-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">녹취 WAV</div><div class="text-slate-400 text-[8px]">CALL_ID.wav</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-violet-100 border-2 border-violet-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-waveform-lines text-violet-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">faster-whisper</div><div class="text-slate-400 text-[8px]">STT 변환</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-violet-100 border-2 border-violet-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-shield-halved text-violet-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">개인정보 마스킹</div><div class="text-slate-400 text-[8px]">Regex + LLM</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-violet-100 border-2 border-violet-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-brain text-violet-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">Qwen3.6 분석</div><div class="text-slate-400 text-[8px]">감성·키워드·요약</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-violet-500 border-2 border-violet-600 rounded-full flex items-center justify-center"><i class="fa-solid fa-magnifying-glass text-white text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-violet-700">Chroma calls</div><div class="text-slate-400 text-[8px]">벡터 색인 완료</div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pipeline B: Docs -->
+                    <div class="border border-orange-200 rounded-xl overflow-hidden">
+                        <div class="bg-orange-500 text-white px-3 py-1.5 text-[11px] font-black flex items-center gap-2">
+                            <i class="fa-solid fa-file-pdf"></i> Pipeline B — 상품 문서 인덱싱
+                            <span class="ml-auto font-normal opacity-75 text-[9px]">1회성 · PDF·DOCX·PPTX · resume 지원</span>
+                        </div>
+                        <div class="bg-orange-50/30 px-3 py-2 flex items-center gap-1.5">
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-orange-100 border-2 border-orange-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-file-lines text-orange-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">상품 리플렛</div><div class="text-slate-400 text-[8px]">PDF·DOCX·PPTX</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-orange-100 border-2 border-orange-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-code text-orange-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">마크다운 변환</div><div class="text-slate-400 text-[8px]">pymupdf4llm·mammoth</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-orange-100 border-2 border-orange-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-layer-group text-orange-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">청크 분할</div><div class="text-slate-400 text-[8px]">문서·페이지 단위</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-orange-100 border-2 border-orange-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-network-wired text-orange-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">nomic 임베딩</div><div class="text-slate-400 text-[8px]">Ollama API</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-orange-500 border-2 border-orange-600 rounded-full flex items-center justify-center"><i class="fa-solid fa-book-open text-white text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-orange-700">Chroma products</div><div class="text-slate-400 text-[8px]">벡터 색인 완료</div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pipeline C: DuckDB -->
+                    <div class="border border-emerald-200 rounded-xl overflow-hidden">
+                        <div class="bg-emerald-600 text-white px-3 py-1.5 text-[11px] font-black flex items-center gap-2">
+                            <i class="fa-solid fa-rotate"></i> Pipeline C — DuckDB 마트 갱신
+                            <span class="ml-auto font-normal opacity-75 text-[9px]">매일 cron · Oracle D-1 스냅샷 · 무중단 atomic 교체</span>
+                        </div>
+                        <div class="bg-emerald-50/30 px-3 py-2 flex items-center gap-1.5">
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-emerald-100 border-2 border-emerald-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-database text-emerald-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">Oracle OLTP</div><div class="text-slate-400 text-[8px]">고객·통화·계약</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-emerald-100 border-2 border-emerald-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-filter text-emerald-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">ETL 쿼리</div><div class="text-slate-400 text-[8px]">도메인별 AI_* 뷰</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-emerald-100 border-2 border-emerald-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-file-circle-plus text-emerald-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">mart_new.db 적재</div><div class="text-slate-400 text-[8px]">별도 파일에 먼저 쓰기</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-emerald-100 border-2 border-emerald-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-right-left text-emerald-600 text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-slate-700">Atomic rename</div><div class="text-slate-400 text-[8px]">조회 블로킹 없음</div></div>
+                            </div>
+                            <div class="text-slate-300 font-black text-xs pb-3 shrink-0">▶</div>
+                            <div class="flex flex-col items-center gap-0.5 flex-1">
+                                <div class="w-8 h-8 bg-emerald-500 border-2 border-emerald-600 rounded-full flex items-center justify-center"><i class="fa-solid fa-bolt text-white text-xs"></i></div>
+                                <div class="text-center text-[9px]"><div class="font-bold text-emerald-700">mart.db 교체 완료</div><div class="text-slate-400 text-[8px]">10개 도메인 테이블</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">04</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 5: 전체 시스템 도해 (System Diagram Flow) -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span>03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span class="text-hanwha-orange">05. 시스템도해</span>
+                <span>06. 화면예시</span>
+                <span>07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col gap-2.5 overflow-hidden">
+            <!-- Architecture Overview: 3-Layer Diagram -->
+            <div class="flex items-stretch gap-0 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0" style="min-height:190px">
+
+                <!-- Layer 1: 데이터 소스 -->
+                <div class="bg-slate-700 text-white p-3 flex flex-col gap-2 shrink-0" style="width:190px">
+                    <div class="text-[8px] font-black tracking-widest opacity-60 uppercase mb-0.5">데이터 소스</div>
+                    <div class="bg-white/10 rounded-lg p-1.5 flex items-center gap-2">
+                        <i class="fa-solid fa-database text-hanwha-orange text-base shrink-0 w-5 text-center"></i>
+                        <div class="text-[9px]"><div class="font-bold leading-tight">Oracle DB</div><div class="opacity-60 text-[8px]">30만 고객·통화·계약</div></div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-1.5 flex items-center gap-2">
+                        <i class="fa-solid fa-microphone text-violet-400 text-base shrink-0 w-5 text-center"></i>
+                        <div class="text-[9px]"><div class="font-bold leading-tight">TM 녹취 WAV</div><div class="opacity-60 text-[8px]">~5천 건</div></div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-1.5 flex items-center gap-2">
+                        <i class="fa-solid fa-file-lines text-orange-300 text-base shrink-0 w-5 text-center"></i>
+                        <div class="text-[9px]"><div class="font-bold leading-tight">상품 설명서</div><div class="opacity-60 text-[8px]">PDF · DOCX · PPTX</div></div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-1.5 flex items-center gap-2">
+                        <i class="fa-solid fa-robot text-emerald-400 text-base shrink-0 w-5 text-center"></i>
+                        <div class="text-[9px]"><div class="font-bold leading-tight">ML 추천 결과</div><div class="opacity-60 text-[8px]">AutoGluon OUTPUT</div></div>
+                    </div>
+                </div>
+
+                <!-- Connector 1 -->
+                <div class="bg-slate-600 flex flex-col items-center justify-center shrink-0 gap-1" style="width:44px">
+                    <i class="fa-solid fa-angles-right text-white text-base"></i>
+                    <div class="text-white text-[7px] opacity-50 text-center leading-tight">배치<br>파이프</div>
+                </div>
+
+                <!-- Layer 2: AI 처리 계층 -->
+                <div class="bg-amber-50 border-x border-orange-200 p-3 flex flex-col gap-2 flex-1">
+                    <div class="text-[9px] font-black text-hanwha-orange flex items-center gap-1.5">
+                        <i class="fa-solid fa-brain"></i> AI 처리 계층 — LangGraph 에이전트 조율
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 flex-1">
+                        <div class="bg-white border border-emerald-200 rounded-xl p-2 flex items-center gap-2.5">
+                            <div class="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-bolt text-emerald-500 text-base"></i>
+                            </div>
+                            <div class="text-[9px]"><div class="font-black text-emerald-700">DuckDB</div><div class="text-slate-400 text-[8px]">OLAP 고속 조회 · 10개 테이블</div></div>
+                        </div>
+                        <div class="bg-white border border-violet-200 rounded-xl p-2 flex items-center gap-2.5">
+                            <div class="w-9 h-9 bg-violet-100 rounded-full flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-magnifying-glass text-violet-500 text-base"></i>
+                            </div>
+                            <div class="text-[9px]"><div class="font-black text-violet-700">Chroma calls</div><div class="text-slate-400 text-[8px]">STT 녹취 벡터 RAG</div></div>
+                        </div>
+                        <div class="bg-white border border-orange-200 rounded-xl p-2 flex items-center gap-2.5">
+                            <div class="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-book-open text-orange-500 text-base"></i>
+                            </div>
+                            <div class="text-[9px]"><div class="font-black text-orange-700">Chroma products</div><div class="text-slate-400 text-[8px]">상품 문서 RAG</div></div>
+                        </div>
+                        <div class="bg-white border border-orange-300 rounded-xl p-2 flex items-center gap-2.5">
+                            <div class="w-9 h-9 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-brain text-hanwha-orange text-base"></i>
+                            </div>
+                            <div class="text-[9px]"><div class="font-black text-hanwha-orange">Qwen3.6-27B</div><div class="text-slate-400 text-[8px]">로컬 LLM · 스트리밍</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connector 2 -->
+                <div class="bg-slate-600 flex flex-col items-center justify-center shrink-0 gap-1" style="width:44px">
+                    <i class="fa-solid fa-angles-right text-white text-base"></i>
+                    <div class="text-white text-[7px] opacity-50 text-center leading-tight">온디맨드<br>생성</div>
+                </div>
+
+                <!-- Layer 3: 서비스 출력 -->
+                <div class="bg-slate-700 text-white p-3 flex flex-col gap-2 shrink-0" style="width:190px">
+                    <div class="text-[8px] font-black tracking-widest opacity-60 uppercase mb-0.5">서비스 출력</div>
+                    <div class="bg-emerald-500/20 border border-emerald-500 rounded-xl p-2.5 flex flex-col gap-1 flex-1">
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                            <i class="fa-solid fa-headset text-emerald-400 text-sm"></i>
+                            <span class="text-[10px] font-black text-emerald-300">TRACK 1 상담사</span>
+                        </div>
+                        <div class="text-[8px] opacity-75 leading-relaxed">① DB 현황 즉시 (&lt;1초)<br>② LLM 스크립트 스트리밍<br>이노스 레거시 API 연동</div>
+                    </div>
+                    <div class="bg-blue-500/20 border border-blue-500 rounded-xl p-2.5 flex flex-col gap-1 flex-1">
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                            <i class="fa-solid fa-briefcase text-blue-400 text-sm"></i>
+                            <span class="text-[10px] font-black text-blue-300">TRACK 2 관리자</span>
+                        </div>
+                        <div class="text-[8px] opacity-75 leading-relaxed">4단계 폼 → SQL 템플릿<br>DuckDB 집계 → Excel<br>콜링 시스템 업로드</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRACK 1 Flow: icon circle style -->
+            <div class="border border-emerald-200 rounded-xl overflow-hidden flex-shrink-0">
+                <div class="bg-emerald-600 text-white px-4 py-1.5 flex items-center justify-between">
+                    <span class="text-xs font-black flex items-center gap-2"><i class="fa-solid fa-headset"></i> TRACK 1 — 상담사 콜 전 준비</span>
+                    <span class="text-[9px] opacity-75">① DuckDB 즉시(&lt;1초) → ② LLM 스트리밍 · 상담사가 ①읽는 동안 ②완성</span>
+                </div>
+                <div class="bg-emerald-50/30 px-5 py-3 flex items-center gap-1">
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-emerald-100 border-2 border-emerald-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-user text-emerald-600 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">고객번호 입력</div><div class="text-[8px] text-slate-400">배정 즉시 조회</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-emerald-100 border-2 border-emerald-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-code-branch text-emerald-600 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">3분기 자동 분류</div><div class="text-[8px] text-slate-400">신규·미연결·이력</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-emerald-100 border-2 border-emerald-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-bolt text-emerald-600 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">① DB 현황 즉시</div><div class="text-[8px] text-slate-400">계약·GAP·납입료</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-emerald-100 border-2 border-emerald-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-magnifying-glass text-emerald-600 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">RAG 검색</div><div class="text-[8px] text-slate-400">이력:직접조회/신규:유사도</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-emerald-500 border-2 border-emerald-600 rounded-full flex items-center justify-center"><i class="fa-solid fa-keyboard text-white text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-emerald-700">② LLM 스트리밍</div><div class="text-[8px] text-slate-400">담보보완·팔로업·신상품</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRACK 2 Flow: icon circle style -->
+            <div class="border border-blue-200 rounded-xl overflow-hidden flex-shrink-0">
+                <div class="bg-blue-700 text-white px-4 py-1.5 flex items-center justify-between">
+                    <span class="text-xs font-black flex items-center gap-2"><i class="fa-solid fa-briefcase"></i> TRACK 2 — 캠페인 추천 대상 추출</span>
+                    <span class="text-[9px] opacity-75">LLM SQL 직접 생성 없음 · 폼 응답 → build_campaign_query() 템플릿 실행</span>
+                </div>
+                <div class="bg-blue-50/30 px-5 py-3 flex items-center gap-1">
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 border-2 border-blue-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-list text-blue-700 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">캠페인 선택</div><div class="text-[8px] text-slate-400">기존/신규</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 border-2 border-blue-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-sliders text-blue-700 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">타겟 조건 설정</div><div class="text-[8px] text-slate-400">상품·채널·성별·연령</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 border-2 border-blue-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-chess text-blue-700 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">추출 전략 선택</div><div class="text-[8px] text-slate-400">실적기반/활성도기반</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-blue-100 border-2 border-blue-400 rounded-full flex items-center justify-center"><i class="fa-solid fa-chart-bar text-blue-700 text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-slate-700">성과 참고치</div><div class="text-[8px] text-slate-400">직전 체결률 표시</div></div>
+                    </div>
+                    <div class="text-slate-300 font-black text-sm pb-4 shrink-0">▶</div>
+                    <div class="flex flex-col items-center gap-1 flex-1">
+                        <div class="w-10 h-10 bg-blue-600 border-2 border-blue-700 rounded-full flex items-center justify-center"><i class="fa-solid fa-file-excel text-white text-sm"></i></div>
+                        <div class="text-center"><div class="text-[9px] font-bold text-blue-700">Excel 다운로드</div><div class="text-[8px] text-slate-400">CTMNO 리스트</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">05</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 6: 화면예시 - TRACK 1. 상담사 지원 화면 예시 -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span>03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span class="text-hanwha-orange">06. 화면예시</span>
+                <span>07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col gap-2">
+            <div class="flex justify-between items-end">
+                <!-- "시제품 데모 예시" -> "데모 예시" 변경 -->
+                <h2 class="text-2xl font-extrabold text-hanwha-dark">TRACK 1. 상담사 지원 화면 (데모 예시)</h2>
+                <span class="text-xs text-hanwha-orange font-bold bg-orange-50 px-3 py-1 rounded border border-orange-200">고객 배정 시 자동 가동</span>
+            </div>
+
+            <!-- Light Web Application Mockup UI -->
+            <div class="w-full h-[400px] border border-slate-200 rounded-lg overflow-hidden shadow-lg bg-slate-50 flex flex-col">
+                <!-- Mockup Header -->
+                <div class="bg-slate-100 border-b border-slate-200 px-4 py-2 flex justify-between items-center text-xs">
+                    <span class="font-extrabold text-hanwha-dark flex items-center gap-2">
+                        <i class="fa-solid fa-headset text-hanwha-orange"></i> AI Consultation System v0.2
+                    </span>
+                    <div class="flex gap-2">
+                        <span class="bg-white px-3 py-1 rounded-t border-t border-x border-slate-200 font-bold text-hanwha-orange">Track 1. 콜전 준비 (상담사)</span>
+                        <span class="text-slate-400 px-3 py-1">Track 2. 캠페인 추천 생성</span>
+                    </div>
+                </div>
+
+                <!-- Mockup Content Grid -->
+                <div class="flex-grow grid grid-cols-12 p-3 gap-3 overflow-hidden text-[11px] bg-white">
+                    
+                    <!-- Left Area: Customer Database classification -->
+                    <div class="col-span-4 border-r border-slate-200 pr-3 flex flex-col gap-2">
+                        <div class="flex gap-1">
+                            <span class="bg-hanwha-orange text-white font-extrabold px-2 py-0.5 rounded text-[9px]">이력 고객</span>
+                            <span class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[9px]">CTM7842310</span>
+                        </div>
+                        
+                        <!-- Classification Rules & Indicators -->
+                        <div class="bg-slate-50 p-2 rounded border border-slate-100 flex flex-col gap-1">
+                            <span class="font-bold text-hanwha-orange">배정 고객 자동 분기 규칙</span>
+                            <div class="grid grid-cols-3 gap-1 text-[9px] text-center mt-1">
+                                <span class="bg-slate-200 text-slate-500 rounded p-0.5">신규: 무접촉</span>
+                                <span class="bg-slate-200 text-slate-500 rounded p-0.5">미연결: 무응답</span>
+                                <span class="bg-orange-50 text-hanwha-orange border border-orange-200 font-bold rounded p-0.5">이력: 유효 통화</span>
+                            </div>
+                        </div>
+
+                        <!-- Contract Status -->
+                        <div class="flex flex-col gap-1">
+                            <span class="font-bold text-slate-700"><i class="fa-solid fa-file-contract text-slate-400"></i> 가입 현황 & 통화 패턴</span>
+                            <table class="w-full text-left">
+                                <tbody>
+                                    <tr class="border-b border-slate-100">
+                                        <td class="text-slate-500 py-1">가입 건수 / 월보험료</td>
+                                        <td class="font-bold text-slate-800 py-1 text-right">4건 / 287,000원</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-100">
+                                        <td class="text-slate-500 py-1">최적 응답 시간대</td>
+                                        <td class="font-bold text-emerald-600 py-1 text-right"><i class="fa-regular fa-clock"></i> 오전 11시 전후</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Coverage GAP Table -->
+                        <div class="flex flex-col gap-1 mt-1">
+                            <span class="font-bold text-slate-700"><i class="fa-solid fa-chart-pie text-slate-400"></i> 보장 공백 현황 (담보 GAP)</span>
+                            <div class="border border-slate-100 rounded overflow-hidden">
+                                <table class="w-full text-left">
+                                    <thead class="bg-slate-50">
+                                        <tr><th class="p-1 font-bold text-slate-500">대분류 담보</th><th class="p-1 font-bold text-slate-500 text-right">가입 금액</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="border-b border-slate-50">
+                                            <td class="p-1">암 진단비</td>
+                                            <td class="p-1 text-right font-bold text-slate-700">3,000만 <span class="text-[9px] bg-emerald-50 text-emerald-600 px-1 rounded">NEW</span></td>
+                                        </tr>
+                                        <tr class="border-b border-slate-50">
+                                            <td class="p-1">뇌혈관질환 진단비</td>
+                                            <td class="p-1 text-right font-bold text-hanwha-orange bg-orange-50">0원 <span class="text-[9px] bg-orange-100 px-1 rounded">GAP</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td class="p-1">허혈성심장질환</td>
+                                            <td class="p-1 text-right font-bold text-hanwha-orange bg-orange-50">0원 <span class="text-[9px] bg-orange-100 px-1 rounded">GAP</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Area: AI Recommended script -->
+                    <div class="col-span-8 flex flex-col gap-3 justify-between overflow-y-auto">
+                        <!-- Recommendation Engine Analysis -->
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                            <div class="flex justify-between items-center border-b border-slate-200 pb-1 mb-2">
+                                <span class="font-extrabold text-hanwha-dark text-xs"><i class="fa-solid fa-lightbulb text-hanwha-orange"></i> AI 추천 설계: 무배당 뇌심혈관 진단비 (건강형 비갱신)</span>
+                                <span class="text-[9px] text-slate-400">기준 데이터: 3개월 내 가입이력 + 담보 GAP</span>
+                            </div>
+                            <div class="text-[10px] text-slate-600 flex flex-col gap-1.5">
+                                <div>• <b>추천 사유:</b> 3월 통화 녹취 인덱스에서 뇌심혈관 담보의 공백 우려 사항 직접 확인.</div>
+                                <div>• <b>연계 제안:</b> 최근 가입 완료된 암진단비 계약에 이은 보장 보완 형태의 연계 타이밍 매칭.</div>
+                            </div>
+                        </div>
+
+                        <!-- Past Call Timeline RAG Context -->
+                        <div class="flex flex-col gap-1">
+                            <span class="font-bold text-slate-700"><i class="fa-solid fa-history text-slate-400"></i> 과거 통화 맥락 RAG 연동 (STT 5천 건 분석)</span>
+                            <div class="bg-slate-50 p-2 rounded text-[10px] text-slate-600 border border-slate-100">
+                                <b>2026-03-15 11:23 (412초 통화 성공, 체결):</b> 암진단 담보 추가 중 "뇌혈관 쪽 보장이 하나도 없는 것 같아 불안하다"고 발언 매칭 완료.
+                            </div>
+                        </div>
+
+                        <!-- Real-time script block -->
+                        <div class="flex flex-col gap-1">
+                            <span class="font-bold text-hanwha-orange flex justify-between items-center">
+                                <span><i class="fa-solid fa-keyboard"></i> 실시간 대화 보조 맞춤 스크립트</span>
+                                <span class="text-[9px] font-normal text-slate-400"><i class="fa-solid fa-spinner animate-spin"></i> Streamed by Qwen3.6-27B</span>
+                            </span>
+                            <div class="bg-orange-50/50 p-3 rounded border border-dashed border-hanwha-orange text-[10px] leading-relaxed text-slate-800 font-medium">
+                                "안녕하세요, CTM7842310 고객님, 한화손해보험 상담사 [이름]입니다. 지난 3월에 통화 나누고 부족하셨던 암보험 설계 완료해 드린 바 있었는데요, 당시 고객님께서 '암은 채웠는데 뇌혈관 쪽 대비가 없어 마음 쓰인다'고 소상히 말씀 주셨던 내용 기억하고 있습니다. 이번 보장 배정을 담당하며 확인해 보니 정말 그 핵심 보장 자산이 공백으로 남아 있으시더라고요. 지난번 암보험처럼 뇌혈관도 부담 없이 보완해 드릴 수 있는 비갱신 플랜이 새로 나왔는데, 잠깐만 상담 안내드려도 괜찮으실까요?"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">06</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 7: 화면예시 - TRACK 2. DB 관리자 캠페인 추천 대상 추출 -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span>03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span class="text-hanwha-orange">06. 화면예시</span>
+                <span>07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col gap-2">
+            <div class="flex justify-between items-end">
+                <!-- "시제품 데모 예시" -> "데모 예시" 변경 -->
+                <h2 class="text-2xl font-extrabold text-hanwha-dark">TRACK 2. DB 관리자 캠페인 정밀 대상 추출 (데모 예시)</h2>
+                <span class="text-xs text-hanwha-dark font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200">정밀 필터링을 통한 마케팅 비용 절감</span>
+            </div>
+
+            <!-- Light Web Application Mockup UI -->
+            <div class="w-full h-[400px] border border-slate-200 rounded-lg overflow-hidden shadow-lg bg-slate-50 flex flex-col">
+                <!-- Mockup Header -->
+                <div class="bg-slate-100 border-b border-slate-200 px-4 py-2 flex justify-between items-center text-xs">
+                    <span class="font-extrabold text-hanwha-dark flex items-center gap-2">
+                        <i class="fa-solid fa-database text-hanwha-orange"></i> AI DB targeting Campaign v0.2
+                    </span>
+                    <div class="flex gap-2">
+                        <span class="text-slate-400 px-3 py-1">Track 1. 콜전 준비 (상담사)</span>
+                        <span class="bg-white px-3 py-1 rounded-t border-t border-x border-slate-200 font-bold text-hanwha-orange">Track 2. 캠페인 추천 생성</span>
+                    </div>
+                </div>
+
+                <!-- Mockup Content Grid -->
+                <div class="flex-grow grid grid-cols-12 p-3 gap-3 overflow-hidden text-[11px] bg-white">
+                    <!-- Left: Campaign Selection List & Monthly Focus -->
+                    <div class="col-span-4 border-r border-slate-200 pr-3 flex flex-col gap-2">
+                        <span class="font-bold text-slate-700">캠페인 목록 선택</span>
+                        
+                        <div class="flex flex-col gap-1.5">
+                            <div class="bg-orange-50 border border-hanwha-orange p-2 rounded flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold text-hanwha-dark">건강보험 TM 여성 40대</div>
+                                    <div class="text-[9px] text-slate-400">POM_2025Q3 | TM 채널</div>
+                                </div>
+                                <span class="bg-hanwha-orange text-white text-[9px] px-1.5 py-0.5 rounded">선택됨</span>
+                            </div>
+                            <div class="bg-slate-50 border border-slate-200 p-2 rounded flex justify-between items-center opacity-60">
+                                <div>
+                                    <div class="font-bold text-slate-700">보장분석TM_2026Q1</div>
+                                    <div class="text-[9px] text-slate-400">TM_2026Q1 | TM 채널</div>
+                                </div>
+                                <span class="text-[9px] text-slate-400">대기</span>
+                            </div>
+                        </div>
+
+                        <!-- Focus Rules -->
+                        <div class="bg-amber-50/50 p-2.5 rounded border border-amber-200 mt-2">
+                            <span class="font-bold text-amber-700 text-[10px]"><i class="fa-solid fa-circle-exclamation"></i> 당월 영업 포커스 동기화</span>
+                            <div class="text-[9px] text-amber-800 flex flex-col gap-1 mt-1">
+                                <div>• <b>주력상품:</b> 무배당 뇌심혈관 진단비</div>
+                                <div>• <b>정밀제외:</b> 치매보험(설계 일시 중단에 따라 target 자동 필터링)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Step-by-Step Extraction Flow -->
+                    <div class="col-span-8 flex flex-col gap-3 justify-between">
+                        <span class="font-bold text-slate-700">대화형 타겟 조건 설정 프로세스 (4단계 SQL 템플릿 생성)</span>
+
+                        <div class="flex flex-col gap-2">
+                            <!-- Q&A Row 1 -->
+                            <div class="bg-slate-50 p-2 rounded border border-slate-100 grid grid-cols-12 gap-2">
+                                <span class="col-span-3 text-hanwha-orange font-bold">1. 타겟 세그먼트</span>
+                                <div class="col-span-9 flex gap-1">
+                                    <span class="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[9px]">상품: 건강보험</span>
+                                    <span class="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[9px]">성별: 여성</span>
+                                    <span class="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[9px]">연령대: 40대</span>
+                                </div>
+                            </div>
+
+                            <!-- Q&A Row 2 -->
+                            <div class="bg-slate-50 p-2 rounded border border-slate-100 grid grid-cols-12 gap-2">
+                                <span class="col-span-3 text-hanwha-orange font-bold">2. 추출 목표 규모</span>
+                                <span class="col-span-9 font-bold text-slate-700">3,000명</span>
+                            </div>
+
+                            <!-- Q&A Row 3 -->
+                            <div class="bg-slate-50 p-2 rounded border border-slate-100 grid grid-cols-12 gap-2">
+                                <span class="col-span-3 text-hanwha-orange font-bold">3. 선별 전략 선택</span>
+                                <div class="col-span-9 flex gap-2">
+                                    <span class="bg-orange-50 border border-hanwha-orange text-hanwha-orange px-2 py-0.5 rounded font-bold text-[9px]">과거 실적 기반 우선 추천</span>
+                                    <span class="bg-slate-100 text-slate-400 px-2 py-0.5 rounded text-[9px] line-through">고객 가치 기반 추출</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Result & Extraction Rules -->
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200 flex justify-between items-center">
+                            <div class="flex flex-col gap-1">
+                                <span class="font-bold text-slate-700"><i class="fa-solid fa-chart-line"></i> 직전 유사 캠페인 성과 검증</span>
+                                <span class="text-[9px] text-slate-500">실제 체결률 16.8% 반영 시 예상 계약수: <b>약 504건</b> (과대 예측 모델 배제)</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-[10px] text-hanwha-orange font-bold">최종 선별 완료: 2,997명</div>
+                                <div class="text-[8px] text-slate-400">갱신 및 30일 이내 과다 접촉 고객 3명 자동 제외</div>
+                            </div>
+                        </div>
+
+                        <!-- Export Button Area -->
+                        <div class="flex justify-end gap-2 border-t border-slate-100 pt-2">
+                            <button class="bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded flex items-center gap-1"><i class="fa-solid fa-filter"></i> 조건 초기화</button>
+                            <button class="bg-hanwha-orange text-white font-bold px-4 py-1.5 rounded flex items-center gap-1 shadow-sm hover:shadow-md"><i class="fa-solid fa-file-excel"></i> Excel 리스트 다운로드 (CTMNO)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">07</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 8: 현재 진행 상황 -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span>03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span>06. 화면예시</span>
+                <span class="text-hanwha-orange">07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col justify-center gap-8">
+            <div class="flex items-center gap-3">
+                <span class="text-violet-700 text-3xl"><i class="fa-solid fa-chart-line"></i></span>
+                <h2 class="text-3xl font-extrabold text-hanwha-dark">현재 진행 상황 (Day 8 / 10 — 마감 D-2)</h2>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-x-12 gap-y-6 text-xs">
+                <!-- Left Tasks Column -->
+                <div class="flex flex-col gap-6">
+                    <!-- Task 1 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>🛠️ DB 설계 — 테이블 구조 확정</span>
+                            <span class="text-emerald-600">완료</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-emerald-500 h-full w-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task 2 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>📄 상품 문서 학습 — PDF·DOCX 색인</span>
+                            <span class="text-emerald-600">완료</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-emerald-500 h-full w-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task 3 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>🗣️ 녹취 처리 — 5천 건 STT·마스킹·Chroma 색인</span>
+                            <span class="text-violet-600 font-extrabold">실행중 (백그라운드)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-violet-500 h-full w-2/3"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task 4 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>💼 화면 개발 — 관리자 캠페인 추출 (Track 2)</span>
+                            <span class="text-hanwha-orange font-extrabold">진행중 (Day 7~8)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-hanwha-orange h-full w-1/3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Tasks Column -->
+                <div class="flex flex-col gap-6">
+                    <!-- Task 5 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>🔄 데이터 연동 — Oracle → DuckDB 3대 파이프라인</span>
+                            <span class="text-emerald-600">완료</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-emerald-500 h-full w-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task 6 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>🤖 AI 도구 연결 — LangGraph·DuckDB·Chroma·RAG</span>
+                            <span class="text-emerald-600">완료</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-emerald-500 h-full w-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task 7 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>🎧 화면 개발 — 상담사 콜 전 준비 (Track 1)</span>
+                            <span class="text-hanwha-orange font-extrabold">진행중 (E2E 연동)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-hanwha-orange h-full w-3/4"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task 8 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span>🚀 최종 점검 및 사내 서버 배포 (Day 9~10)</span>
+                            <span class="text-slate-500">예정</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div class="bg-slate-300 h-full w-[5%]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">08</div>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 9: 기대효과 및 발전가능성 -->
+    <div class="slide-container w-[1280px] h-[720px] bg-white border border-slate-200 shadow-2xl rounded-lg relative overflow-hidden flex flex-col justify-between p-16">
+        <!-- Top Area -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+            <span class="text-hanwha-orange font-black text-lg tracking-tight">한화손보</span>
+            <div class="flex gap-6 text-sm font-bold text-hanwha-gray">
+                <span>02. 목차</span>
+                <span>03. 기획배경</span>
+                <span>04. 기획내용</span>
+                <span>05. 시스템도해</span>
+                <span>06. 화면예시</span>
+                <span class="text-hanwha-orange">07. 현재진행상황</span>
+            </div>
+        </div>
+
+        <!-- Center Content -->
+        <div class="flex-grow flex flex-col justify-center gap-6">
+            <h2 class="text-3xl font-extrabold text-hanwha-dark">기대효과 및 발전가능성</h2>
+            
+            <div class="grid grid-cols-5 gap-4">
+                <!-- Box 1 -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 flex flex-col gap-2 justify-between">
+                    <div class="flex flex-col gap-2">
+                        <span class="text-hanwha-orange text-lg"><i class="fa-solid fa-chart-line"></i></span>
+                        <span class="text-sm font-bold text-slate-800">상품추천 품질 향상</span>
+                        <p class="text-[11px] text-hanwha-gray leading-relaxed">
+                            단순 통계 추천에서 벗어나 통화이력, 보장 GAP, RAG 기반 과거 발화 맥락을 고려한 이유와 화법 제시로 실전 추천력을 혁신합니다.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Box 2 -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 flex flex-col gap-2 justify-between">
+                    <div class="flex flex-col gap-2">
+                        <span class="text-hanwha-orange text-lg"><i class="fa-solid fa-bullseye"></i></span>
+                        <span class="text-sm font-bold text-slate-800">캠페인 대상 정밀화</span>
+                        <p class="text-[11px] text-hanwha-gray leading-relaxed">
+                            갱신 가능 대상 및 30일 내 과다 접촉 고객 자동 배제 기능을 탑재하여 금융 피로도를 감소시키고 불필요한 마케팅 리소스를 통제합니다.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Box 3 -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 flex flex-col gap-2 justify-between">
+                    <div class="flex flex-col gap-2">
+                        <span class="text-hanwha-orange text-lg"><i class="fa-solid fa-network-wired"></i></span>
+                        <span class="text-sm font-bold text-slate-800">전사 DB 통합관리</span>
+                        <p class="text-[11px] text-hanwha-gray leading-relaxed">
+                            분산 저장되었던 통화 녹취, 설명 문서, 고객 정보를 고속 DuckDB 파이프라인으로 유기적으로 연결해 마케팅 원스톱 활용 기반을 마련합니다.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Box 4 -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 flex flex-col gap-2 justify-between">
+                    <div class="flex flex-col gap-2">
+                        <span class="text-hanwha-orange text-lg"><i class="fa-solid fa-display"></i></span>
+                        <span class="text-sm font-bold text-slate-800">이노스 연계 및 고도화</span>
+                        <p class="text-[11px] text-hanwha-gray leading-relaxed">
+                            기존 레거시 화면 레이아웃의 구조적 수정 없이, 고속 Gradio API 인터페이스 주입 방식으로 원활한 UI 연속성을 보장하고 시스템을 고도화합니다.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Box 5 -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 flex flex-col gap-2 justify-between">
+                    <div class="flex flex-col gap-2">
+                        <span class="text-hanwha-orange text-lg"><i class="fa-solid fa-shield-halved"></i></span>
+                        <span class="text-sm font-bold text-slate-800">고객유출 없는 폐쇄망</span>
+                        <p class="text-[11px] text-hanwha-gray leading-relaxed">
+                            외부 클라우드/API 통신을 100% 차단하고 사내 온프레미스 GPU 서버 내에서 로컬 LLM을 학습 및 서빙하여 철저한 정보 보안 규범을 충족합니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="flex justify-between items-end border-t border-slate-100 pt-6">
+            <div class="text-xs text-slate-400 font-medium">© Hanwha General Insurance Co., Ltd.</div>
+            <div class="text-4xl font-urban font-black text-hanwha-orange">09</div>
+        </div>
+    </div>
+
+</body>
+</html>
