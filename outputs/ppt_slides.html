@@ -29,7 +29,6 @@
         }
     </script>
     <style>
-        /* ── 슬라이드 쇼 레이아웃 ── */
         body {
             margin: 0; padding: 0;
             background: #e2e8f0;
@@ -43,7 +42,6 @@
             overflow: hidden;
         }
 
-        /* 슬라이드 래퍼 — 1280×720 고정 */
         #slide-deck {
             position: relative;
             width: 1280px;
@@ -65,7 +63,6 @@
         }
         .slide.active { display: flex; flex-direction: column; }
 
-        /* ── 하단 컨트롤 바 ── */
         #controls {
             margin-top: 16px;
             display: flex;
@@ -99,7 +96,6 @@
             text-align: center;
         }
 
-        /* ── 공통 헤더/푸터 ── */
         .slide-header {
             display: flex;
             justify-content: space-between;
@@ -121,15 +117,12 @@
         }
         .page-num { font-family: 'Urbanist', sans-serif; font-weight: 900; font-size: 36px; color: #f37321; line-height: 1; }
 
-        /* ── 섹션 타이틀 유틸 ── */
         .sec-title { font-size: 22px; font-weight: 900; color: #2d2926; letter-spacing: -.02em; }
         .sec-sub   { font-size: 12px; color: #706e6b; font-weight: 500; }
 
-        /* ── 주황 pill ── */
         .tag-pill { display: inline-block; background: #fff7ed; border: 1px solid #fed7aa; color: #f37321; font-weight: 700; font-size: 11px; border-radius: 20px; padding: 3px 12px; }
         .tag-pill-solid { display: inline-block; background: #f37321; color: #fff; font-weight: 700; font-size: 11px; border-radius: 20px; padding: 3px 12px; }
 
-        /* ── 파이프라인 화살표 ── */
         .pipe-arrow { width: 100%; text-align: center; color: #f37321; font-size: 13px; margin: 2px 0; }
 
         @media print {
@@ -142,25 +135,19 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════
-     슬라이드 덱
-═══════════════════════════════════ -->
 <div id="slide-deck">
 
     <!-- ════════════════════════════════════
          SLIDE 1 — 표지
     ═════════════════════════════════════ -->
     <div class="slide active" id="s1">
-        <!-- 배경 주황 장식 -->
         <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(ellipse 900px 500px at 110% -10%, rgba(243,115,33,.07) 0%, transparent 70%);"></div>
         <div class="absolute bottom-0 right-0 w-80 h-80 pointer-events-none" style="background: radial-gradient(circle at 100% 100%, rgba(243,115,33,.05) 0%, transparent 70%);"></div>
 
-        <!-- 상단 브랜드 -->
         <div class="flex items-center px-16 pt-12">
             <span class="brand text-xl">한화손보</span>
         </div>
 
-        <!-- 중앙 콘텐츠 -->
         <div class="flex-grow flex flex-col justify-center px-16 -mt-6">
             <span class="font-urban font-bold text-base tracking-widest text-hanwha-gray mb-6">VIBE CODING COMPETITION</span>
             <div class="flex flex-col gap-2 mb-8">
@@ -172,7 +159,6 @@
             </p>
         </div>
 
-        <!-- 푸터 -->
         <div class="slide-footer">
             <span class="text-xs text-hanwha-gray font-medium">한화손해보험 | AI 바이브코딩 경진대회 2026</span>
             <span class="page-num">01</span>
@@ -189,10 +175,8 @@
             <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <!-- Body -->
         <div class="flex-grow flex min-h-0 px-10 pb-0 gap-8 items-stretch">
 
-            <!-- 좌측: 핵심 메시지 -->
             <div class="flex flex-col justify-center" style="width:42%; flex-shrink:0;">
                 <div class="mb-4">
                     <span class="tag-pill-solid text-xs mb-4 inline-block">Executive Summary</span>
@@ -208,13 +192,11 @@
                 </p>
                 <p class="text-sm text-hanwha-gray font-medium mt-4 leading-relaxed">
                     고객번호 하나로 상담사가 전략적 대화를 시작할 수 있도록,<br>
-                    10일 만에 만든 폐쇄망 완결형 AI 에이전트
+                    폐쇄망 완결형 멀티모달 AI 에이전트
                 </p>
             </div>
 
-            <!-- 우측: AS-IS vs TO-BE -->
             <div class="flex flex-col justify-center flex-grow gap-4">
-                <!-- AS-IS -->
                 <div class="rounded-xl border-2 p-5" style="border-color:#fbd0b8; background:#fff7f3;">
                     <div class="text-xs font-black tracking-widest mb-3" style="color:#b45309;">AS-IS — 기존 방식</div>
                     <div class="grid grid-cols-3 gap-3">
@@ -233,20 +215,19 @@
                     </div>
                 </div>
 
-                <!-- TO-BE -->
                 <div class="rounded-xl border-2 p-5" style="border-color:#f37321; background:#fffbf8;">
                     <div class="text-xs font-black tracking-widest mb-3" style="color:#f37321;">TO-BE — 이 시스템</div>
                     <div class="grid grid-cols-3 gap-3">
                         <div class="flex items-start gap-2 text-sm text-slate-700">
-                            <i class="fa-solid fa-check mt-0.5 text-hanwha-orange text-xs w-4 shrink-0" style="color:#f37321;"></i>
+                            <i class="fa-solid fa-check mt-0.5 text-xs w-4 shrink-0" style="color:#f37321;"></i>
                             <span><b>개인화 스크립트</b> — 담보 gap·과거 통화·상품 문서 통합</span>
                         </div>
                         <div class="flex items-start gap-2 text-sm text-slate-700">
-                            <i class="fa-solid fa-check mt-0.5 text-hanwha-orange text-xs w-4 shrink-0" style="color:#f37321;"></i>
+                            <i class="fa-solid fa-check mt-0.5 text-xs w-4 shrink-0" style="color:#f37321;"></i>
                             <span><b>AI 3전략 캠페인</b> — 과거 실적·활성도·룰 기반</span>
                         </div>
                         <div class="flex items-start gap-2 text-sm text-slate-700">
-                            <i class="fa-solid fa-check mt-0.5 text-hanwha-orange text-xs w-4 shrink-0" style="color:#f37321;"></i>
+                            <i class="fa-solid fa-check mt-0.5 text-xs w-4 shrink-0" style="color:#f37321;"></i>
                             <span><b>녹취·이력·담보 통합</b> — 고능률 노하우 AI가 학습</span>
                         </div>
                     </div>
@@ -276,9 +257,7 @@
                 <h2 class="sec-title mt-2">왜 만들었나</h2>
             </div>
 
-            <!-- Pain Point 카드 3개 -->
             <div class="grid grid-cols-3 gap-5 flex-grow">
-                <!-- Card 1 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 relative overflow-hidden shadow-sm">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
                     <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
@@ -296,7 +275,6 @@
                     </div>
                 </div>
 
-                <!-- Card 2 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 relative overflow-hidden shadow-sm">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
                     <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
@@ -314,7 +292,6 @@
                     </div>
                 </div>
 
-                <!-- Card 3 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 relative overflow-hidden shadow-sm">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
                     <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
@@ -333,7 +310,6 @@
                 </div>
             </div>
 
-            <!-- 화살표 결론 -->
             <div class="flex items-center gap-3 mt-4 mb-1">
                 <div class="flex-grow h-px bg-slate-200"></div>
                 <div class="flex items-center gap-2 rounded-full px-5 py-2 font-bold text-sm text-white" style="background:#f37321;">
@@ -352,7 +328,7 @@
 
 
     <!-- ════════════════════════════════════
-         SLIDE 4 — WOW① 맞춤 스크립트
+         SLIDE 4 — WOW① 상담사 맞춤 스크립트
     ═════════════════════════════════════ -->
     <div class="slide" id="s4">
         <div class="slide-header">
@@ -360,106 +336,135 @@
             <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-8">
+        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-7">
 
-            <!-- 좌측: 파이프라인 흐름 -->
-            <div class="flex flex-col justify-center gap-0" style="width:44%; flex-shrink:0;">
-                <span class="tag-pill text-xs mb-3">Tab 1 — 상담사 콜 전 준비</span>
-                <h2 class="sec-title mb-5">콜 전, AI가 미리 다 파악한다</h2>
+            <!-- 좌측: 고객 분류 + 파이프라인 -->
+            <div class="flex flex-col justify-center gap-3" style="width:42%; flex-shrink:0;">
+                <span class="tag-pill text-xs">Tab 1 — 상담사 콜 전 준비</span>
+                <h2 class="sec-title leading-tight">과거 통화 맥락이<br>스크립트에 직접 반영된다</h2>
 
-                <!-- 4단계 파이프라인 -->
-                <div class="flex flex-col gap-1">
-                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">1</div>
+                <!-- 고객 3분기 분류 -->
+                <div class="flex gap-2 flex-wrap">
+                    <span class="text-xs font-bold px-3 py-1 rounded-full border border-slate-300 text-slate-600">
+                        <i class="fa-solid fa-user-plus mr-1 text-xs" style="color:#f37321;"></i>신규 고객
+                    </span>
+                    <span class="text-xs font-bold px-3 py-1 rounded-full border border-slate-300 text-slate-600">
+                        <i class="fa-solid fa-phone-slash mr-1 text-xs" style="color:#f37321;"></i>미연결 고객
+                    </span>
+                    <span class="text-xs font-bold px-3 py-1 rounded-full border-2 text-white" style="background:#f37321; border-color:#f37321;">
+                        <i class="fa-solid fa-clock-rotate-left mr-1 text-xs"></i>이력 고객 ← 이번 예시
+                    </span>
+                </div>
+
+                <!-- 파이프라인 -->
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-black text-xs text-white" style="background:#f37321;">1</div>
                         <div>
-                            <p class="text-sm font-bold text-hanwha-dark">고객 조회</p>
-                            <p class="text-xs text-hanwha-gray">고객번호 입력 → 신규·미연결·이력 자동 분류</p>
+                            <p class="text-xs font-bold text-hanwha-dark">자동 3분기 분류</p>
+                            <p class="text-xs text-hanwha-gray">고객번호 입력 → 이력 고객 판정 → 이력 플로우 진입</p>
                         </div>
                     </div>
-                    <div class="pipe-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
 
-                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">2</div>
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-black text-xs text-white" style="background:#f37321;">2</div>
                         <div>
-                            <p class="text-sm font-bold text-hanwha-dark">DB 즉시 분석</p>
-                            <p class="text-xs text-hanwha-gray">계약 현황 · 담보 gap · 월 납입료 즉시 표시</p>
+                            <p class="text-xs font-bold text-hanwha-dark">계약·담보·통화 이력 수집</p>
+                            <p class="text-xs text-hanwha-gray">가입 현황·담보 GAP·통화 패턴 즉시 표시</p>
                         </div>
                     </div>
-                    <div class="pipe-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
 
-                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">3</div>
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-black text-xs text-white" style="background:#f37321;">3</div>
                         <div>
-                            <p class="text-sm font-bold text-hanwha-dark">성공 콜 패턴 검색</p>
-                            <p class="text-xs text-hanwha-gray">HyDE + RAG — 유사 고객 성공 통화 원문 검색</p>
+                            <p class="text-xs font-bold text-hanwha-dark">성공 콜 검색 <span class="text-xs font-normal text-hanwha-gray">— HyDE + Dynamic Few-Shot</span></p>
+                            <p class="text-xs text-hanwha-gray">가상 성공 통화 생성 → 유사 성공 콜 매칭 → 어투 참고</p>
                         </div>
                     </div>
-                    <div class="pipe-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
 
-                    <div class="flex items-center gap-3 rounded-xl border-2 px-4 py-3 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">4</div>
+                    <div class="flex items-center gap-3 rounded-xl border-2 px-4 py-2.5 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-black text-xs text-white" style="background:#f37321;">4</div>
                         <div>
-                            <p class="text-sm font-bold" style="color:#f37321;">맞춤 스크립트 생성</p>
-                            <p class="text-xs text-hanwha-gray">담보보완 / 팔로업 / 신상품 각도 · LLM 스트리밍</p>
+                            <p class="text-xs font-bold" style="color:#f37321;">CoT 2단계 스크립트 생성 (LLM 스트리밍)</p>
+                            <p class="text-xs text-hanwha-gray">고객 분석 → 접근 각도 결정 → 맞춤 스크립트 출력</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 우측: 스크립트 예시 -->
-            <div class="flex flex-col justify-center flex-grow">
-                <p class="text-xs font-bold text-hanwha-gray mb-2 tracking-wide">실제 출력 예시</p>
-                <div class="rounded-xl border-2 p-5 bg-white shadow-sm flex flex-col gap-3" style="border-color:#f37321;">
-                    <!-- 계약 현황 미리보기 -->
-                    <div class="flex gap-4 text-xs border-b border-slate-100 pb-3">
-                        <div class="flex flex-col gap-0.5">
-                            <span class="text-hanwha-gray">가입 상품 수</span>
-                            <span class="font-black text-hanwha-dark">3건</span>
+            <!-- 우측: "이 스크립트가 어디서 왔나" 시각화 -->
+            <div class="flex flex-col justify-center flex-grow gap-3">
+
+                <!-- 데이터 소스 3개 + 화살표 -->
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 flex flex-col gap-1">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-microphone text-xs" style="color:#f37321;"></i>
+                            <span class="text-xs font-bold text-hanwha-gray">3월 통화 녹취 (STT)</span>
                         </div>
-                        <div class="flex flex-col gap-0.5">
-                            <span class="text-hanwha-gray">월 납입료</span>
-                            <span class="font-black text-hanwha-dark">124,000원</span>
-                        </div>
-                        <div class="flex flex-col gap-0.5">
-                            <span class="text-hanwha-gray">추천 통화 시간</span>
-                            <span class="font-black" style="color:#f37321;">평일 오전 10-11시</span>
-                        </div>
-                    </div>
-                    <!-- 스크립트 본문 -->
-                    <div class="flex flex-col gap-2">
-                        <p class="text-xs font-bold text-hanwha-gray">추천 스크립트</p>
-                        <p class="text-sm text-hanwha-dark leading-relaxed font-medium" style="font-style:normal;">
-                            "안녕하세요, 고객님. 3월에 통화드렸을 때 뇌혈관 보장이 걱정된다고 하셨는데,
-                            아직 그 부분이 없으셔서 다시 연락드렸어요. 요즘 같은 시기에 딱 맞는 특약을
-                            말씀드릴 수 있을 것 같아서요."
+                        <p class="text-xs text-slate-600 leading-relaxed italic">
+                            "뇌혈관 보장이 걱정되더라고요, 따로 없으니까요."
                         </p>
+                        <span class="text-xs font-bold mt-1" style="color:#f37321;">키워드 포착 → 스크립트 직접 인용</span>
                     </div>
-                    <!-- 해시태그 -->
-                    <div class="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
-                        <span class="text-xs text-slate-500 font-bold">고능률 접근 키워드:</span>
-                        <span class="text-xs font-bold rounded-full px-3 py-0.5" style="background:#fff7ed; color:#f37321;">#과거통화맥락직접환기</span>
-                        <span class="text-xs font-bold rounded-full px-3 py-0.5" style="background:#fff7ed; color:#f37321;">#담보GAP핵심언급</span>
-                        <span class="text-xs font-bold rounded-full px-3 py-0.5" style="background:#fff7ed; color:#f37321;">#지금이타이밍강조</span>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 flex flex-col gap-1">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-shield-halved text-xs" style="color:#f37321;"></i>
+                            <span class="text-xs font-bold text-hanwha-gray">담보 GAP 분석</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            뇌혈관질환진단비 <b class="text-red-500">미보유</b><br>
+                            암진단비 보유 / 심장 <b class="text-red-500">미보유</b>
+                        </p>
+                        <span class="text-xs font-bold mt-1" style="color:#f37321;">제안 포인트 자동 결정</span>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 flex flex-col gap-1">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-trophy text-xs" style="color:#f37321;"></i>
+                            <span class="text-xs font-bold text-hanwha-gray">고능률 성공 콜</span>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed italic">
+                            "말씀하신 그 걱정이 딱 여기서 해결되거든요, 요즘 타이밍도 좋고요."
+                        </p>
+                        <span class="text-xs font-bold mt-1" style="color:#f37321;">접근 어투 few-shot 학습</span>
                     </div>
                 </div>
 
-                <!-- 기술 포인트 -->
-                <div class="mt-4 grid grid-cols-2 gap-3">
-                    <div class="flex items-start gap-2 text-xs text-slate-600">
-                        <i class="fa-solid fa-wand-magic-sparkles shrink-0 mt-0.5" style="color:#f37321;"></i>
-                        <span><b>HyDE</b> — 가상 성공 통화 생성 후 벡터 검색, 언어 공간 미스매치 해소</span>
+                <!-- 화살표 -->
+                <div class="flex items-center gap-2">
+                    <div class="flex-grow h-px bg-slate-200"></div>
+                    <div class="flex items-center gap-2 text-xs font-bold px-3 py-1 rounded-full" style="background:#fff7ed; color:#f37321; border:1px solid #fed7aa;">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                        AI가 3가지를 통합해 스크립트 생성
                     </div>
-                    <div class="flex items-start gap-2 text-xs text-slate-600">
-                        <i class="fa-solid fa-people-group shrink-0 mt-0.5" style="color:#f37321;"></i>
-                        <span><b>Dynamic Few-Shot</b> — 성공 콜 원문을 LLM 예시로 직접 주입</span>
+                    <div class="flex-grow h-px bg-slate-200"></div>
+                </div>
+
+                <!-- 생성된 스크립트 -->
+                <div class="rounded-xl border-2 p-4 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-xs font-bold text-hanwha-gray">AI 생성 스크립트 — 이력 고객 / 담보보완 각도</p>
+                        <div class="flex gap-1.5">
+                            <span class="text-xs px-2 py-0.5 rounded-full font-bold" style="background:#fff7ed; color:#f37321;">가입 3건</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-bold" style="background:#fff7ed; color:#f37321;">월 납입 124,000원</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-bold" style="background:#dcfce7; color:#16a34a;">추천 통화: 평일 오전 10-11시</span>
+                        </div>
                     </div>
-                    <div class="flex items-start gap-2 text-xs text-slate-600">
-                        <i class="fa-solid fa-brain shrink-0 mt-0.5" style="color:#f37321;"></i>
-                        <span><b>CoT 2단계</b> — 고객 분석 JSON → 스크립트 생성 체인</span>
-                    </div>
-                    <div class="flex items-start gap-2 text-xs text-slate-600">
-                        <i class="fa-solid fa-bolt shrink-0 mt-0.5" style="color:#f37321;"></i>
-                        <span><b>2단계 출력</b> — DB 결과 즉시 표시 + LLM 스트리밍 병행</span>
+                    <p class="text-sm text-hanwha-dark leading-relaxed font-medium">
+                        "안녕하세요 고객님, 한화손해보험입니다. 3월에 통화드렸을 때 뇌혈관 보장이 걱정된다고 하셨는데
+                        아직 그 부분이 없으셔서 다시 연락드렸어요. 요즘 같은 시기에 딱 맞는 비갱신형 특약이 있어서,
+                        기존 보험료에서 크게 추가 없이 보완하실 수 있거든요."
+                    </p>
+                    <!-- 해시태그 -->
+                    <div class="flex flex-wrap gap-1.5 pt-2 mt-1 border-t border-slate-100">
+                        <span class="text-xs font-bold text-slate-500">고능률 접근 키워드:</span>
+                        <span class="text-xs font-bold rounded-full px-2.5 py-0.5" style="background:#fff7ed; color:#f37321;">#과거통화맥락직접환기</span>
+                        <span class="text-xs font-bold rounded-full px-2.5 py-0.5" style="background:#fff7ed; color:#f37321;">#고객발언녹취반영</span>
+                        <span class="text-xs font-bold rounded-full px-2.5 py-0.5" style="background:#fff7ed; color:#f37321;">#담보GAP핵심공략</span>
+                        <span class="text-xs font-bold rounded-full px-2.5 py-0.5" style="background:#fff7ed; color:#f37321;">#지금이타이밍강조</span>
                     </div>
                 </div>
             </div>
@@ -473,7 +478,7 @@
 
 
     <!-- ════════════════════════════════════
-         SLIDE 5 — WOW② 현장 연동 + 캠페인 3전략
+         SLIDE 5 — WOW② Tab2 캠페인 추출
     ═════════════════════════════════════ -->
     <div class="slide" id="s5">
         <div class="slide-header">
@@ -481,100 +486,139 @@
             <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <div class="flex-grow flex flex-col min-h-0 px-10 pb-0 gap-4">
+        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-7">
 
-            <div>
-                <span class="tag-pill text-xs">현장 연동 + Tab 2 캠페인 전략</span>
-                <h2 class="sec-title mt-2">결과가 현장으로 바로 흐른다</h2>
-            </div>
+            <!-- 좌측: 폼 Q&A 플로우 -->
+            <div class="flex flex-col justify-center gap-3" style="width:44%; flex-shrink:0;">
+                <span class="tag-pill text-xs">Tab 2 — 캠페인 추천 대상 생성</span>
+                <h2 class="sec-title leading-tight">조건 설정부터 Excel까지<br>원스톱 자동화</h2>
 
-            <!-- 상단: 연동 포인트 2개 -->
-            <div class="grid grid-cols-2 gap-4 flex-shrink-0">
-                <div class="rounded-xl border border-slate-200 bg-white p-4 flex items-start gap-4 shadow-sm relative overflow-hidden">
-                    <div class="absolute top-0 left-0 right-0 h-1" style="background:#f37321;"></div>
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                        <i class="fa-solid fa-plug text-base" style="color:#f37321;"></i>
+                <div class="flex flex-col gap-1.5">
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#f37321;">0</span>
+                        <div>
+                            <p class="text-xs font-bold text-hanwha-dark">캠페인 성격 설정</p>
+                            <p class="text-xs text-hanwha-gray">상품 유형 · 채널 · 성별 · 연령대 칩 선택</p>
+                        </div>
+                        <div class="ml-auto flex gap-1 flex-wrap justify-end">
+                            <span class="text-xs px-1.5 py-0.5 rounded border border-slate-300 text-slate-600 font-medium">건강</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded border font-medium" style="border-color:#f37321; color:#f37321;">TM</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded border border-slate-300 text-slate-600 font-medium">40대</span>
+                        </div>
                     </div>
-                    <div class="flex flex-col gap-1">
-                        <p class="font-bold text-sm text-hanwha-dark">이노스(상담사 화면) 연동</p>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            생성된 스크립트와 추천 상품을 Gradio API를 통해<br>
-                            기존 상담사 화면 상품추천란에 즉시 적재
-                        </p>
-                        <div class="flex items-center gap-1 text-xs font-bold mt-1" style="color:#f37321;">
-                            <span>AI 에이전트</span>
-                            <i class="fa-solid fa-arrow-right text-xs"></i>
-                            <span>상담사 화면 자동 채움</span>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#f37321;">1</span>
+                        <div>
+                            <p class="text-xs font-bold text-hanwha-dark">캠페인 유형 선택</p>
+                            <p class="text-xs text-hanwha-gray">기존 캠페인 선택 또는 신규 캠페인</p>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#f37321;">2</span>
+                        <div>
+                            <p class="text-xs font-bold text-hanwha-dark">목표 인원 입력 + 추출 전략 선택</p>
+                            <p class="text-xs text-hanwha-gray">3,000명 | 과거실적 기반 / 활성도 기반 / 룰 기반</p>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">3</span>
+                        <div>
+                            <p class="text-xs font-bold text-hanwha-dark">직전 캠페인 실적 비교</p>
+                            <p class="text-xs text-hanwha-gray">과거 동일 캠페인 체결율 참고치 확인 (ML 예측 아님)</p>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border-2 px-4 py-2.5 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style="background:#f37321;">
+                            <i class="fa-solid fa-file-excel text-white text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold" style="color:#f37321;">Excel 다운로드 → 기존 콜링 시스템 업로드</p>
+                            <p class="text-xs text-hanwha-gray">연락 불가·중복 배정 고객 자동 제외</p>
                         </div>
                     </div>
                 </div>
-
-                <div class="rounded-xl border border-slate-200 bg-white p-4 flex items-start gap-4 shadow-sm relative overflow-hidden">
-                    <div class="absolute top-0 left-0 right-0 h-1" style="background:#f37321;"></div>
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                        <i class="fa-solid fa-table text-base" style="color:#f37321;"></i>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <p class="font-bold text-sm text-hanwha-dark">캠페인 배정 원스톱</p>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            추출된 타겟 리스트를 전사 관리시스템에 직접 연동,<br>
-                            Excel 다운로드 → 기존 콜링 시스템 업로드까지 한 번에
-                        </p>
-                        <div class="flex items-center gap-1 text-xs font-bold mt-1" style="color:#f37321;">
-                            <span>AI 추출</span>
-                            <i class="fa-solid fa-arrow-right text-xs"></i>
-                            <span>배정 자동화</span>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            <!-- 하단: 캠페인 3전략 -->
-            <div class="flex flex-col gap-2 flex-grow">
-                <p class="text-xs font-bold text-hanwha-gray tracking-wide">Tab 2 — 캠페인 추천 대상 생성 · 3가지 추출 전략</p>
-                <div class="grid grid-cols-3 gap-4 flex-grow">
-                    <!-- 전략 1 -->
-                    <div class="rounded-xl border-2 p-4 flex flex-col gap-2 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#f37321;">①</span>
-                            <p class="font-bold text-sm text-hanwha-dark">과거 실적 기반</p>
+            <!-- 우측: 3전략 + 연동 -->
+            <div class="flex flex-col justify-center flex-grow gap-4">
+
+                <!-- 3전략 카드 -->
+                <div class="flex flex-col gap-2">
+                    <p class="text-xs font-bold text-hanwha-gray tracking-wide">3가지 추출 전략 — 데이터 상황에 따라 선택</p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="rounded-xl border-2 p-4 flex flex-col gap-2 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#f37321;">①</span>
+                                <p class="font-bold text-sm text-hanwha-dark">과거 실적 기반</p>
+                            </div>
+                            <p class="text-xs text-hanwha-gray leading-relaxed">
+                                배정 후 90일 내 체결 성공 고객의 공통 조건 분석,
+                                동일 세그먼트를 재현해 타겟 생성
+                            </p>
+                            <div class="text-xs font-bold" style="color:#f37321;">
+                                <i class="fa-solid fa-chart-bar mr-1 text-xs"></i>검증된 성공 패턴 재현
+                            </div>
                         </div>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            과거 배정 후 90일 내 체결 성공 고객의 공통 조건을 분석,
-                            동일 세그먼트를 재현해 새 캠페인 타겟 생성
-                        </p>
-                        <div class="mt-auto text-xs font-bold" style="color:#f37321;">
-                            <i class="fa-solid fa-chart-bar mr-1 text-xs"></i>성공 패턴 재현
+
+                        <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">②</span>
+                                <p class="font-bold text-sm text-hanwha-dark">활성도 기반</p>
+                            </div>
+                            <p class="text-xs text-hanwha-gray leading-relaxed">
+                                최근 6개월 연결 성공 또는 캠페인 배정 이력을
+                                DB 집계로 직접 산출, 반응 가능성 우선 필터링
+                            </p>
+                            <div class="text-xs font-bold text-hanwha-gray">
+                                <i class="fa-solid fa-signal mr-1 text-xs"></i>반응 가능성 우선
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">③</span>
+                                <p class="font-bold text-sm text-hanwha-dark">룰 기반</p>
+                            </div>
+                            <p class="text-xs text-hanwha-gray leading-relaxed">
+                                Step 0 칩(상품·채널·성별·연령)으로
+                                담당자가 직접 조건 설정 후 추출
+                            </p>
+                            <div class="text-xs font-bold text-hanwha-gray">
+                                <i class="fa-solid fa-sliders mr-1 text-xs"></i>담당자 판단 + AI 지원
+                            </div>
                         </div>
                     </div>
+                    <p class="text-xs text-slate-500 text-center font-medium mt-1">→ "AI가 전부 결정하는 것이 아닌, 담당자의 판단과 AI 추천이 함께 작동하는 구조"</p>
+                </div>
 
-                    <!-- 전략 2 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">②</span>
-                            <p class="font-bold text-sm text-hanwha-dark">활성도 기반</p>
+                <!-- 연동 포인트 -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 flex items-start gap-3 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 right-0 h-0.5" style="background:#f37321;"></div>
+                        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-plug text-sm" style="color:#f37321;"></i>
                         </div>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            최근 6개월 연결 성공 또는 캠페인 배정 이력 등
-                            실제 반응 가능성이 높은 고객을 DB 집계로 필터링
-                        </p>
-                        <div class="mt-auto text-xs font-bold text-hanwha-gray">
-                            <i class="fa-solid fa-signal mr-1 text-xs"></i>반응 가능성 우선
+                        <div>
+                            <p class="font-bold text-sm text-hanwha-dark">이노스(상담사 화면) 즉시 연동</p>
+                            <p class="text-xs text-hanwha-gray mt-0.5">Gradio API → 추천 스크립트를 기존 상담사 화면 상품추천란에 자동 적재</p>
                         </div>
                     </div>
-
-                    <!-- 전략 3 -->
-                    <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">③</span>
-                            <p class="font-bold text-sm text-hanwha-dark">룰 베이스</p>
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 flex items-start gap-3 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 right-0 h-0.5" style="background:#f37321;"></div>
+                        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-arrows-left-right-to-line text-sm" style="color:#f37321;"></i>
                         </div>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            Step 0 칩 선택(상품·채널·성별·연령)으로
-                            담당자가 직접 조건을 설정해 타겟 추출
-                        </p>
-                        <div class="mt-auto text-xs font-bold text-hanwha-gray">
-                            <i class="fa-solid fa-sliders mr-1 text-xs"></i>담당자 판단 + AI 지원
+                        <div>
+                            <p class="font-bold text-sm text-hanwha-dark">전사 관리시스템 원스톱</p>
+                            <p class="text-xs text-hanwha-gray mt-0.5">Excel 다운로드 → 기존 콜링 시스템 업로드까지 한 번에</p>
                         </div>
                     </div>
                 </div>
@@ -597,86 +641,101 @@
             <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0">
-            <div class="mb-5">
+        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0 gap-4">
+            <div>
                 <span class="tag-pill text-xs">기대효과</span>
                 <h2 class="sec-title mt-2">영업 자산이 드디어 일하게 된다</h2>
             </div>
 
-            <!-- 3개 임팩트 카드 -->
-            <div class="grid grid-cols-3 gap-5 flex-grow">
+            <!-- 상단: 핵심 임팩트 3개 숫자 카드 -->
+            <div class="grid grid-cols-3 gap-4 flex-shrink-0">
+                <div class="rounded-xl border-2 p-4 text-center" style="border-color:#f37321; background:#fffbf8;">
+                    <p class="font-urban font-black text-3xl leading-none mb-1" style="color:#f37321;">5개 소스</p>
+                    <p class="text-xs font-bold text-hanwha-dark">→ 1개 맞춤 스크립트</p>
+                    <p class="text-xs text-hanwha-gray mt-1">계약·녹취·담보·상품문서·ML추천 통합</p>
+                </div>
+                <div class="rounded-xl border-2 p-4 text-center" style="border-color:#f37321; background:#fffbf8;">
+                    <p class="font-urban font-black text-3xl leading-none mb-1" style="color:#f37321;">고능률 노하우</p>
+                    <p class="text-xs font-bold text-hanwha-dark">→ 전체 상담사로 확산</p>
+                    <p class="text-xs text-hanwha-gray mt-1">파인튜닝 없이 In-Context Learning으로 어투 재현</p>
+                </div>
+                <div class="rounded-xl border-2 p-4 text-center" style="border-color:#f37321; background:#fffbf8;">
+                    <p class="font-urban font-black text-3xl leading-none mb-1" style="color:#f37321;">수작업 룰</p>
+                    <p class="text-xs font-bold text-hanwha-dark">→ 데이터 기반 3전략</p>
+                    <p class="text-xs text-hanwha-gray mt-1">과거 실적·활성도·직접 설정 중 선택</p>
+                </div>
+            </div>
 
-                <!-- 임팩트 1 -->
-                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+            <!-- 하단: 상세 임팩트 3개 -->
+            <div class="grid grid-cols-3 gap-4 flex-grow">
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 bottom-0 w-1" style="background:#f37321;"></div>
                     <div class="flex items-center gap-3 pl-3">
-                        <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                            <i class="fa-solid fa-trophy text-xl" style="color:#f37321;"></i>
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-trophy text-base" style="color:#f37321;"></i>
                         </div>
-                        <p class="font-black text-base text-hanwha-dark leading-snug">고능률 노하우 확산</p>
+                        <p class="font-black text-sm text-hanwha-dark leading-snug">고능률 상담사 노하우<br>조직 전체로 확산</p>
                     </div>
-                    <p class="text-sm text-hanwha-gray leading-relaxed pl-3">
-                        상위 상담사의 성공 통화 패턴을 STT·벡터 검색으로 학습,
-                        모든 상담사가 동등하게 고능률 접근 방식을 활용할 수 있게 된다.
-                    </p>
-                    <div class="pl-3 mt-auto flex flex-col gap-1">
+                    <div class="pl-3 flex flex-col gap-1.5">
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            상위 상담사의 성공 통화 패턴을 AI가 학습,
+                            경험이 적은 상담사도 동일한 접근 방식을 즉시 활용 가능.
+                        </p>
                         <div class="flex items-center gap-2 text-xs text-slate-600">
                             <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
-                            Dynamic Few-Shot으로 in-context 학습
+                            Dynamic Few-Shot — 성공 콜 원문을 예시로 직접 주입
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-600">
                             <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
-                            파인튜닝 없이 성공 사례 즉시 반영
+                            성공 패턴 재현: 파인튜닝 비용 없이 즉시 적용
                         </div>
                     </div>
                 </div>
 
-                <!-- 임팩트 2 -->
-                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 bottom-0 w-1" style="background:#f37321;"></div>
                     <div class="flex items-center gap-3 pl-3">
-                        <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                            <i class="fa-solid fa-link text-xl" style="color:#f37321;"></i>
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-link text-base" style="color:#f37321;"></i>
                         </div>
-                        <p class="font-black text-base text-hanwha-dark leading-snug">분산 데이터 통합</p>
+                        <p class="font-black text-sm text-hanwha-dark leading-snug">이 고객에게 지금<br>어떻게 접근할지를 AI가 판단</p>
                     </div>
-                    <p class="text-sm text-hanwha-gray leading-relaxed pl-3">
-                        계약 이력, 통화 녹취, 상품 문서, 기존 ML 추천 결과를 하나의 맥락으로
-                        연결해 상담사에게 통합된 인사이트를 제공한다.
-                    </p>
-                    <div class="pl-3 mt-auto flex flex-col gap-1">
+                    <div class="pl-3 flex flex-col gap-1.5">
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            분산된 5개 데이터 소스를 하나의 맥락으로 연결.
+                            과거 발언·현재 보장 수준·상품 특징까지 통합한 개인화 스크립트.
+                        </p>
                         <div class="flex items-center gap-2 text-xs text-slate-600">
                             <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
-                            기존 ML 배치 결과 INPUT으로 활용
+                            기존 ML 추천 결과를 INPUT으로 활용 (대체 아님)
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-600">
                             <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
-                            멀티모달 RAG (음성·문서·DB 통합)
+                            멀티모달 RAG (음성·문서·정형DB 통합)
                         </div>
                     </div>
                 </div>
 
-                <!-- 임팩트 3 -->
-                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 bottom-0 w-1" style="background:#f37321;"></div>
                     <div class="flex items-center gap-3 pl-3">
-                        <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                            <i class="fa-solid fa-bullseye text-xl" style="color:#f37321;"></i>
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-bullseye text-base" style="color:#f37321;"></i>
                         </div>
-                        <p class="font-black text-base text-hanwha-dark leading-snug">캠페인 정밀 타겟팅</p>
+                        <p class="font-black text-sm text-hanwha-dark leading-snug">현재 운영 중인 시스템에<br>즉시 연동 가능</p>
                     </div>
-                    <p class="text-sm text-hanwha-gray leading-relaxed pl-3">
-                        룰 기반 수작업에서 데이터 기반 3전략으로 전환.
-                        불필요한 접촉을 줄여 마케팅 비용을 절감하고 전환율을 높인다.
-                    </p>
-                    <div class="pl-3 mt-auto flex flex-col gap-1">
+                    <div class="pl-3 flex flex-col gap-1.5">
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            데모로 끝나는 AI가 아닌, 이노스·전사 관리시스템과
+                            실제 연동 가능한 구조로 설계됨.
+                        </p>
                         <div class="flex items-center gap-2 text-xs text-slate-600">
                             <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
-                            과거 실적 · 활성도 · 룰 기반 3전략
+                            이노스 상담사 화면 → 스크립트 자동 적재 (Gradio API)
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-600">
                             <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
-                            갱신 가능성 높은 고객 접촉 최적화
+                            캠페인 배정 원스톱 → Excel → 콜링 시스템 업로드
                         </div>
                     </div>
                 </div>
@@ -699,125 +758,152 @@
             <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-7">
+        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-8">
 
-            <!-- 좌측: 데이터 소스 → 파이프라인 -->
-            <div class="flex flex-col justify-center gap-1" style="width:40%; flex-shrink:0;">
-                <span class="tag-pill text-xs mb-3">시스템 아키텍처</span>
-                <h2 class="sec-title mb-4">어떻게 동작하나</h2>
+            <!-- 좌측: 데이터 파이프라인 3종 -->
+            <div class="flex flex-col justify-center gap-4" style="width:40%; flex-shrink:0;">
+                <div>
+                    <span class="tag-pill text-xs mb-2 inline-block">시스템 아키텍처</span>
+                    <h2 class="sec-title">어떻게 동작하나</h2>
+                </div>
 
-                <!-- 파이프라인 3개 -->
-                <div class="flex flex-col gap-2">
-                    <!-- 음성 -->
-                    <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-hanwha-dark shadow-sm" style="min-width:120px;">
-                            <i class="fa-solid fa-microphone" style="color:#f37321;"></i> 음성 녹취 (WAV)
+                <div class="flex flex-col gap-3">
+                    <!-- 음성 파이프라인 -->
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-microphone text-sm" style="color:#f37321;"></i>
+                            <p class="text-sm font-bold text-hanwha-dark">음성 데이터 파이프라인 (1회성 인덱싱)</p>
                         </div>
-                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
-                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm" style="min-width:110px;">
-                            <i class="fa-solid fa-wave-square text-xs" style="color:#706e6b;"></i> STT + 마스킹
-                        </div>
-                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
-                        <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm" style="border-color:#f37321; color:#f37321; background:#fffbf8;">
-                            <i class="fa-solid fa-database text-xs"></i> 벡터 검색
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">WAV 녹취</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">STT 변환</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">개인정보 마스킹</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded font-bold" style="background:#fff7ed; color:#f37321;">벡터 DB</span>
                         </div>
                     </div>
 
-                    <!-- 문서 -->
-                    <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-hanwha-dark shadow-sm" style="min-width:120px;">
-                            <i class="fa-solid fa-file-pdf" style="color:#f37321;"></i> 상품 문서 (PDF 등)
+                    <!-- 문서 파이프라인 -->
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-file-pdf text-sm" style="color:#f37321;"></i>
+                            <p class="text-sm font-bold text-hanwha-dark">문서 데이터 파이프라인 (1회성 인덱싱)</p>
                         </div>
-                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
-                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm" style="min-width:110px;">
-                            <i class="fa-solid fa-file-lines text-xs" style="color:#706e6b;"></i> 문서 파싱
-                        </div>
-                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
-                        <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm" style="border-color:#f37321; color:#f37321; background:#fffbf8;">
-                            <i class="fa-solid fa-database text-xs"></i> 벡터 검색
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">PDF·DOCX·PPTX</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">텍스트 추출</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded font-bold" style="background:#fff7ed; color:#f37321;">벡터 DB</span>
                         </div>
                     </div>
 
-                    <!-- DB -->
-                    <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-hanwha-dark shadow-sm" style="min-width:120px;">
-                            <i class="fa-solid fa-server" style="color:#f37321;"></i> 고객 DB (Oracle)
+                    <!-- 고객 DB 파이프라인 -->
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-server text-sm" style="color:#f37321;"></i>
+                            <p class="text-sm font-bold text-hanwha-dark">고객 데이터 파이프라인 (매일 자동 갱신)</p>
                         </div>
-                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
-                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm" style="min-width:110px;">
-                            <i class="fa-solid fa-arrows-rotate text-xs" style="color:#706e6b;"></i> 마트 갱신 (매일)
-                        </div>
-                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
-                        <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm" style="border-color:#f37321; color:#f37321; background:#fffbf8;">
-                            <i class="fa-solid fa-bolt text-xs"></i> 분석 엔진
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">Oracle DB</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">분석 DB 갱신</span>
+                            <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                            <span class="px-2 py-1 rounded font-bold" style="background:#fff7ed; color:#f37321;">인프로세스 OLAP</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- 기술 스택 태그 -->
-                <div class="mt-5 flex flex-wrap gap-2">
-                    <span class="tag-pill-solid text-xs">Whisper</span>
+                <!-- 기술 스택 -->
+                <div class="flex flex-wrap gap-2">
+                    <span class="tag-pill-solid text-xs">Whisper STT</span>
                     <span class="tag-pill-solid text-xs">Qwen3.6-27B</span>
-                    <span class="tag-pill-solid text-xs">Chroma</span>
+                    <span class="tag-pill-solid text-xs">Chroma 벡터DB</span>
                     <span class="tag-pill-solid text-xs">DuckDB</span>
                     <span class="tag-pill-solid text-xs">LangGraph</span>
                     <span class="tag-pill-solid text-xs">Gradio</span>
                 </div>
             </div>
 
-            <!-- 우측: LangGraph 8노드 플로우 -->
+            <!-- 우측: LangGraph 에이전트 플로우 -->
             <div class="flex flex-col justify-center flex-grow">
-                <p class="text-xs font-bold text-hanwha-gray mb-3 tracking-wide">LangGraph 에이전트 — Tab 1 워크플로우</p>
+                <p class="text-xs font-bold text-hanwha-gray mb-3 tracking-wide">LangGraph 에이전트 — Tab 1 스크립트 생성 워크플로우</p>
 
-                <div class="flex flex-col gap-1.5">
-                    <!-- 노드 1-2 -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">1</span>
-                            <div><p class="font-bold text-hanwha-dark">분류 (classify)</p><p class="text-hanwha-gray">신규·미연결·이력 자동 분기</p></div>
+                <div class="flex flex-col gap-2">
+                    <!-- 1-2행 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">1</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-dark">고객 분류</p>
+                                <p class="text-xs text-hanwha-gray">신규 / 미연결 / 이력 — 콜 이력 기반 자동 판별, 각 플로우 진입</p>
+                            </div>
                         </div>
-                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">2</span>
-                            <div><p class="font-bold text-hanwha-dark">데이터 수집 (fetch_data)</p><p class="text-hanwha-gray">계약·담보·통화이력 병렬 조회</p></div>
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">2</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-dark">데이터 수집</p>
+                                <p class="text-xs text-hanwha-gray">계약·담보 GAP·통화이력·문자발송이력 병렬 조회</p>
+                            </div>
                         </div>
                     </div>
                     <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
 
-                    <!-- 노드 3-4 -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">3</span>
-                            <div><p class="font-bold text-hanwha-dark">포맷 (format_db)</p><p class="text-hanwha-gray">계약현황·보장현황 즉시 출력</p></div>
+                    <!-- 3-4행 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">3</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-dark">DB 리포트 즉시 생성</p>
+                                <p class="text-xs text-hanwha-gray">계약 현황·보장 현황을 먼저 화면에 표시 (LLM 대기 없이)</p>
+                            </div>
                         </div>
-                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">4</span>
-                            <div><p class="font-bold text-hanwha-dark">가상쿼리 (hyde)</p><p class="text-hanwha-gray">가상 성공 통화 생성 → 벡터 검색</p></div>
-                        </div>
-                    </div>
-                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
-
-                    <!-- 노드 5-6 -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">5</span>
-                            <div><p class="font-bold text-hanwha-dark">성공사례 검색 (rag)</p><p class="text-hanwha-gray">Chroma 3단계 폴백 검색</p></div>
-                        </div>
-                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">6</span>
-                            <div><p class="font-bold text-hanwha-dark">분석 (analyze)</p><p class="text-hanwha-gray">접근각도·포인트·추가검색 필요 여부</p></div>
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">4</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-dark">성공 사례 가상 쿼리 생성 <span class="text-xs font-normal text-hanwha-gray">[HyDE]</span></p>
+                                <p class="text-xs text-hanwha-gray">이 고객에게 맞는 가상 성공 통화를 먼저 생성 → 벡터 검색 정확도 향상</p>
+                            </div>
                         </div>
                     </div>
                     <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
 
-                    <!-- 노드 7 (조건부) + 8 -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-lg border px-3 py-2.5 text-xs shadow-sm flex items-center gap-2" style="border-color:#e2e8f0; background:#f8fafc;">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background:#e2e8f0; color:#706e6b;">7</span>
-                            <div><p class="font-bold text-hanwha-gray">추가 상품 검색 (조건부)</p><p class="text-hanwha-gray">ReAct lite — LLM 판단 시 실행</p></div>
+                    <!-- 5-6행 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">5</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-dark">유사 성공 사례 매칭 <span class="text-xs font-normal text-hanwha-gray">[Dynamic Few-Shot]</span></p>
+                                <p class="text-xs text-hanwha-gray">연결성공+우호적 성공 콜 3단계 폴백 검색 → 원문 LLM 예시로 주입</p>
+                            </div>
                         </div>
-                        <div class="rounded-lg border-2 px-3 py-2.5 text-xs shadow-sm flex items-center gap-2" style="border-color:#f37321; background:#fffbf8;">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">8</span>
-                            <div><p class="font-bold" style="color:#f37321;">스크립트 생성 (LLM 스트리밍)</p><p class="text-hanwha-gray">few-shot + CoT → 최종 출력</p></div>
+                        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">6</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-dark">고객 분석 <span class="text-xs font-normal text-hanwha-gray">[CoT 1단계]</span></p>
+                                <p class="text-xs text-hanwha-gray">접근 각도·핵심 포인트·추가 상품 문서 필요 여부 JSON 출력</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <!-- 7-8행 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl border px-4 py-3 shadow-sm flex items-start gap-3" style="background:#f8fafc; border-color:#e2e8f0;">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shrink-0 mt-0.5" style="background:#e2e8f0; color:#706e6b;">7</span>
+                            <div>
+                                <p class="text-xs font-bold text-hanwha-gray">상품 문서 검색 <span class="text-xs font-normal">[ReAct — 조건부]</span></p>
+                                <p class="text-xs text-hanwha-gray">LLM이 필요하다 판단할 때만 상품 설명서 추가 검색 (불필요 검색 제거)</p>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border-2 px-4 py-3 shadow-sm flex items-start gap-3" style="border-color:#f37321; background:#fffbf8;">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0 mt-0.5" style="background:#f37321;">8</span>
+                            <div>
+                                <p class="text-xs font-bold" style="color:#f37321;">스크립트 생성 <span class="text-xs font-normal text-hanwha-gray">[CoT 2단계 · LLM 스트리밍]</span></p>
+                                <p class="text-xs text-hanwha-gray">분석결과 + 성공사례 few-shot + 상품문서 통합 → 최종 맞춤 스크립트</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -832,7 +918,7 @@
 
 
     <!-- ════════════════════════════════════
-         SLIDE 8 — 바이브코딩 개발 과정
+         SLIDE 8 — 바이브코딩 개발과정
     ═════════════════════════════════════ -->
     <div class="slide" id="s8">
         <div class="slide-header">
@@ -840,7 +926,7 @@
             <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0 gap-4">
+        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0 gap-5">
 
             <div>
                 <span class="tag-pill text-xs">바이브코딩 개발 과정</span>
@@ -848,92 +934,71 @@
             </div>
 
             <!-- 2×2 카드 그리드 -->
-            <div class="grid grid-cols-2 gap-4 flex-grow">
+            <div class="grid grid-cols-2 gap-5 flex-grow">
 
-                <!-- 카드 1 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
-                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                        <i class="fa-solid fa-comments text-lg" style="color:#f37321;"></i>
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-comments text-xl" style="color:#f37321;"></i>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <p class="font-black text-sm text-hanwha-dark">Grill Me 활용</p>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            설계 검토에 가장 많이 활용했다.
-                            HyDE, Dynamic Few-Shot, ReAct lite 아이디어도
-                            Grill Me 대화 과정에서 도출됐다.
+                    <div class="flex flex-col gap-2">
+                        <p class="font-black text-base text-hanwha-dark">Grill Me — 설계 스트레스 테스트</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
+                            설계 결정마다 <b>/grill-me</b>로 스스로 검증했다.
+                            HyDE, Dynamic Few-Shot, ReAct 아이디어가 모두 이 과정에서 나왔다.
+                            "AI에게 시킨 것이 아닌, AI가 나에게 되묻게 하는 방식으로 설계를 정제했다."
                         </p>
-                        <span class="text-xs font-bold" style="color:#f37321;">"설계 스트레스 테스트 → 아이디어 발굴"</span>
+                        <span class="text-sm font-bold" style="color:#f37321;">"설계 검토 → 약점 발견 → 아이디어 도출"</span>
                     </div>
                 </div>
 
-                <!-- 카드 2 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
-                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                        <i class="fa-solid fa-people-arrows text-lg" style="color:#f37321;"></i>
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-people-arrows text-xl" style="color:#f37321;"></i>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <p class="font-black text-sm text-hanwha-dark">도메인은 사람, 구현은 AI</p>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            보험 TM 채널의 실제 운영 방식, 상담사 워크플로우,
-                            컴플라이언스 제약은 사람이 정의했다.
-                            코드 구현과 리팩토링은 Claude가 담당했다.
+                    <div class="flex flex-col gap-2">
+                        <p class="font-black text-base text-hanwha-dark">도메인은 사람, 구현은 AI</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
+                            보험 TM 채널의 운영 방식, 상담사 워크플로우, 컴플라이언스 제약은 사람이 정의했다.
+                            코드 구현과 리팩토링은 Claude Code가 담당했다.
+                            역할의 명확한 분담이 핵심이었다.
                         </p>
-                        <span class="text-xs font-bold" style="color:#f37321;">"역할 분담의 명확화"</span>
+                        <span class="text-sm font-bold" style="color:#f37321;">"비즈니스 요구사항을 대화로 풀어내고 방향은 직접 결정"</span>
                     </div>
                 </div>
 
-                <!-- 카드 3 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
-                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                        <i class="fa-solid fa-code-compare text-lg" style="color:#f37321;"></i>
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-code-compare text-xl" style="color:#f37321;"></i>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <p class="font-black text-sm text-hanwha-dark">지속적 리팩토링</p>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                    <div class="flex flex-col gap-2">
+                        <p class="font-black text-base text-hanwha-dark">지속적 설계 고도화</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
                             처음엔 if-else 분기로 에이전트인 척 하는 룰베이스로 시작했다.
-                            Grill Me를 통한 설계 재검토 후 LangGraph 실제 구현으로 고도화했다.
+                            Grill Me 재검토 후 LangGraph StateGraph 실제 구현으로 고도화,
+                            단순 RAG를 HyDE + Dynamic Few-Shot으로 발전시켰다.
                         </p>
-                        <span class="text-xs font-bold" style="color:#f37321;">"룰베이스 → LangGraph StateGraph"</span>
+                        <span class="text-sm font-bold" style="color:#f37321;">"룰베이스 → LangGraph CoT 에이전트"</span>
                     </div>
                 </div>
 
-                <!-- 카드 4 -->
                 <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
-                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
-                        <i class="fa-solid fa-lightbulb text-lg" style="color:#f37321;"></i>
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-lightbulb text-xl" style="color:#f37321;"></i>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <p class="font-black text-sm text-hanwha-dark">HyDE · Dynamic Few-Shot · ReAct</p>
-                        <p class="text-xs text-hanwha-gray leading-relaxed">
-                            세 가지 모두 Grill Me 과정에서 나온 아이디어다.
-                            RAG 품질 문제를 논의하다 HyDE로 이어졌고,
-                            노하우 전파 논의에서 Few-Shot이 나왔다.
+                    <div class="flex flex-col gap-2">
+                        <p class="font-black text-base text-hanwha-dark">HyDE · Dynamic Few-Shot · ReAct의 탄생</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
+                            세 가지 모두 Grill Me 과정에서 나왔다.
+                            RAG 품질 논의 → HyDE,
+                            노하우 전파 논의 → Dynamic Few-Shot,
+                            불필요 검색 논의 → ReAct.
                         </p>
-                        <span class="text-xs font-bold" style="color:#f37321;">"AI와의 대화가 설계를 바꿨다"</span>
+                        <span class="text-sm font-bold" style="color:#f37321;">"AI와의 대화가 기술 설계를 바꿨다"</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- 타임라인 -->
-            <div class="flex items-center gap-0 shrink-0 mb-1">
-                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#fff7ed; color:#f37321; border: 1px solid #fed7aa;">
-                    <i class="fa-solid fa-database text-xs"></i> Day 1-3 데이터 파이프라인
-                </div>
-                <div class="flex-grow h-px border-t-2 border-dashed mx-2" style="border-color:#f37321;"></div>
-                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#fff7ed; color:#f37321; border: 1px solid #fed7aa;">
-                    <i class="fa-solid fa-diagram-project text-xs"></i> Day 4-6 에이전트
-                </div>
-                <div class="flex-grow h-px border-t-2 border-dashed mx-2" style="border-color:#f37321;"></div>
-                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#fff7ed; color:#f37321; border: 1px solid #fed7aa;">
-                    <i class="fa-solid fa-display text-xs"></i> Day 7-9 UI
-                </div>
-                <div class="flex-grow h-px border-t-2 border-dashed mx-2" style="border-color:#f37321;"></div>
-                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#f37321; color:#fff;">
-                    <i class="fa-solid fa-rocket text-xs"></i> Day 10 배포
                 </div>
             </div>
         </div>
@@ -949,27 +1014,21 @@
          SLIDE 9 — 마무리
     ═════════════════════════════════════ -->
     <div class="slide" id="s9">
-        <!-- 배경 장식 -->
         <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(ellipse 900px 600px at 50% 50%, rgba(243,115,33,.04) 0%, transparent 70%);"></div>
 
-        <!-- 상단 브랜드 -->
         <div class="flex items-center justify-between px-16 pt-12">
             <span class="brand text-xl">한화손보</span>
             <span class="text-xs text-hanwha-gray font-medium tracking-wide">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
         </div>
 
-        <!-- 중앙 콘텐츠 -->
         <div class="flex-grow flex flex-col items-center justify-center gap-6 px-16">
-            <!-- 주황 따옴표 장식 -->
             <div class="font-urban font-black text-8xl leading-none select-none" style="color:#f37321; opacity:.25;">"</div>
 
-            <!-- 핵심 메시지 -->
             <h1 class="font-black text-5xl text-center text-hanwha-dark tracking-tight leading-tight -mt-8">
                 영업 데이터가 드디어<br>
                 <span style="color:#f37321;">일합니다.</span>
             </h1>
 
-            <!-- 데모 / GitHub 카드 -->
             <div class="flex gap-5 mt-4">
                 <div class="flex items-center gap-3 rounded-xl border-2 px-6 py-4 shadow-sm" style="border-color:#f37321; background:#fffbf8; min-width:240px;">
                     <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:#f37321;">
@@ -982,7 +1041,7 @@
                 </div>
 
                 <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm" style="min-width:240px;">
-                    <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-hanwha-dark" style="background:#2d2926;">
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:#2d2926;">
                         <i class="fa-brands fa-github text-white text-sm"></i>
                     </div>
                     <div>
@@ -993,7 +1052,6 @@
             </div>
         </div>
 
-        <!-- 푸터 -->
         <div class="slide-footer">
             <span class="text-xs text-hanwha-gray font-medium">한화손해보험 | AI 바이브코딩 경진대회 2026</span>
             <span class="page-num">09</span>
@@ -1003,7 +1061,7 @@
 </div><!-- /#slide-deck -->
 
 
-<!-- ══ 컨트롤 바 ══ -->
+<!-- 컨트롤 바 -->
 <div id="controls">
     <button class="nav-btn" id="btn-prev" title="이전 (←)">
         <i class="fa-solid fa-chevron-left"></i>
