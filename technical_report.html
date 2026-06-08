@@ -3,41 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Technical Report — AI 상담 에이전트 시스템 설계 및 구현</title>
-  <script>
-    MathJax = {
-      tex: {
-        inlineMath: [['\\(', '\\)']],
-        displayMath: [['\\[', '\\]']],
-        tags: 'ams'
-      },
-      options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
-    };
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <title>Technical Report — AI 상담 에이전트</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --brand: #f37321;
-      --brand-dark: #c05a10;
-      --text: #1a1a2e;
-      --muted: #5a6272;
-      --rule: #d1d5db;
-      --bg: #ffffff;
-      --bg-alt: #f8f9fb;
-      --code-bg: #f1f3f5;
-      --max-w: 860px;
+      --brand:    #f37321;
+      --brand-lt: #fff7f2;
+      --brand-bd: #fcd9b6;
+      --text:     #1a1a2e;
+      --muted:    #6b7280;
+      --rule:     #e5e7eb;
+      --bg:       #ffffff;
+      --bg-alt:   #f9fafb;
+      --green:    #059669;
+      --green-lt: #ecfdf5;
+      --blue:     #2563eb;
+      --blue-lt:  #eff6ff;
+      --purple:   #7c3aed;
+      --purple-lt:#f5f3ff;
+      --max-w:    880px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Noto Sans KR', sans-serif;
-      font-size: 15px;
-      line-height: 1.85;
+      font-size: 14.5px;
+      line-height: 1.8;
       color: var(--text);
-      background: #eef0f4;
+      background: #edf0f4;
       padding: 40px 20px 80px;
     }
 
@@ -46,275 +41,293 @@
       margin: 0 auto;
       background: var(--bg);
       border: 1px solid var(--rule);
-      border-radius: 4px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-      padding: 72px 80px;
+      border-radius: 6px;
+      box-shadow: 0 4px 28px rgba(0,0,0,0.08);
+      padding: 64px 72px;
     }
 
     /* ── Cover ── */
     .cover {
       border-bottom: 3px solid var(--brand);
-      padding-bottom: 40px;
-      margin-bottom: 48px;
+      padding-bottom: 36px;
+      margin-bottom: 40px;
     }
-    .cover .label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--brand);
-      margin-bottom: 16px;
-    }
-    .cover h1 {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 26px;
-      font-weight: 700;
-      line-height: 1.45;
-      color: var(--text);
-      margin-bottom: 10px;
-    }
+    .cover-tag { font-size:10px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; color:var(--brand); margin-bottom:14px; }
+    .cover h1 { font-family:'Noto Serif KR',serif; font-size:26px; font-weight:700; line-height:1.4; margin-bottom:10px; }
     .cover h1 span { color: var(--brand); }
-    .cover .subtitle {
-      font-size: 14px;
+    .cover-claim {
+      font-size: 14.5px;
       color: var(--muted);
-      margin-bottom: 28px;
+      line-height: 1.75;
+      margin-bottom: 24px;
+      border-left: 3px solid var(--brand);
+      padding-left: 14px;
     }
-    .cover-meta {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      font-size: 12px;
-      color: var(--muted);
-      border-top: 1px solid var(--rule);
-      padding-top: 20px;
-    }
-    .cover-meta strong { display: block; color: var(--text); font-weight: 600; }
+    .cover-claim strong { color: var(--text); }
+    .cover-pills { display:flex; flex-wrap:wrap; gap:10px; padding-top:20px; border-top:1px solid var(--rule); }
+    .pill { display:flex; align-items:center; gap:6px; font-size:12px; background:var(--bg-alt); border:1px solid var(--rule); border-radius:20px; padding:4px 12px; }
+    .pill .dot { width:6px; height:6px; background:var(--brand); border-radius:50%; flex-shrink:0; }
+    .pill a { color:var(--brand); text-decoration:none; font-weight:600; }
 
     /* ── Abstract ── */
     .abstract {
       background: var(--bg-alt);
       border-left: 3px solid var(--brand);
-      padding: 20px 24px;
-      margin-bottom: 48px;
+      padding: 18px 22px;
+      margin-bottom: 44px;
       font-size: 13.5px;
-      line-height: 1.9;
+      line-height: 1.85;
       color: var(--muted);
     }
     .abstract strong { color: var(--text); }
 
     /* ── TOC ── */
-    .toc {
-      margin-bottom: 48px;
-      font-size: 13px;
-    }
-    .toc h3 {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-    .toc ol { padding-left: 20px; }
-    .toc li { margin-bottom: 5px; color: var(--muted); }
-    .toc a { color: var(--brand); text-decoration: none; }
-    .toc a:hover { text-decoration: underline; }
+    .toc { margin-bottom:44px; font-size:13px; }
+    .toc-label { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+    .toc ol { padding-left:18px; }
+    .toc li { margin-bottom:4px; color:var(--muted); }
+    .toc a { color:var(--brand); text-decoration:none; }
 
     /* ── Sections ── */
-    section { margin-bottom: 56px; }
-    section:last-child { margin-bottom: 0; }
+    section { margin-bottom: 52px; }
 
     h2 {
       font-family: 'Noto Serif KR', serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
+      font-size: 18px; font-weight: 700;
       border-bottom: 2px solid var(--rule);
-      padding-bottom: 10px;
-      margin-bottom: 28px;
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
+      padding-bottom: 10px; margin-bottom: 20px;
+      display: flex; align-items: baseline; gap: 10px;
     }
-    h2 .sec-num {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      color: var(--brand);
-      font-weight: 500;
-    }
+    .sec-num { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--brand); font-weight:500; }
 
     h3 {
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 14px; font-weight: 700;
       color: var(--text);
-      margin: 28px 0 14px;
+      margin: 24px 0 12px;
+      display: flex; align-items: center; gap: 8px;
     }
-    h3::before {
-      content: '▌';
-      color: var(--brand);
-      margin-right: 8px;
-      font-size: 12px;
-    }
+    h3::before { content:''; display:block; width:3px; height:14px; background:var(--brand); border-radius:2px; flex-shrink:0; }
 
-    p { margin-bottom: 16px; }
-    p:last-child { margin-bottom: 0; }
+    p { margin-bottom: 14px; }
 
-    ul, ol {
-      padding-left: 20px;
-      margin-bottom: 16px;
-    }
-    li { margin-bottom: 6px; }
-
-    /* ── Math blocks ── */
-    .math-block {
-      background: var(--bg-alt);
-      border: 1px solid var(--rule);
+    .summary {
+      display: block;
+      background: var(--brand-lt);
+      border: 1px solid var(--brand-bd);
       border-radius: 4px;
-      padding: 20px 24px;
-      margin: 24px 0;
-      overflow-x: auto;
+      font-size: 13px; color: #9a3412;
+      padding: 9px 14px; margin-bottom: 20px;
+      line-height: 1.55;
     }
-    .math-block .eq-label {
-      float: right;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .math-def {
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--rule);
-    }
-    .math-def code {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--text);
-    }
+    .summary strong { color: var(--brand); }
 
     /* ── Tables ── */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      margin: 20px 0;
-    }
-    thead th {
-      background: var(--text);
-      color: #fff;
-      font-weight: 600;
-      padding: 10px 14px;
-      text-align: left;
-    }
-    tbody td {
-      padding: 9px 14px;
-      border-bottom: 1px solid var(--rule);
-    }
-    tbody tr:nth-child(even) { background: var(--bg-alt); }
-    tbody tr:hover { background: #fdf3ec; }
-    .td-brand { color: var(--brand); font-weight: 600; }
-    .td-muted { color: var(--muted); font-size: 12px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; margin:16px 0; }
+    thead th { background:var(--text); color:#fff; font-weight:600; padding:9px 14px; text-align:left; }
+    tbody td { padding:8px 14px; border-bottom:1px solid var(--rule); vertical-align:top; }
+    tbody tr:nth-child(even) { background:var(--bg-alt); }
+    .td-hi  { color:var(--brand); font-weight:600; }
+    .td-ok  { color:var(--green); font-weight:600; }
+    .td-dim { color:var(--muted); font-size:12px; }
 
-    /* ── Code ── */
-    pre, code {
-      font-family: 'JetBrains Mono', monospace;
-    }
-    code {
-      font-size: 12.5px;
-      background: var(--code-bg);
-      padding: 1px 5px;
-      border-radius: 3px;
-    }
-    pre {
-      background: #1e2030;
-      color: #cdd6f4;
-      padding: 20px 24px;
-      border-radius: 6px;
-      overflow-x: auto;
-      font-size: 12.5px;
-      line-height: 1.7;
-      margin: 20px 0;
-    }
-    pre code { background: none; padding: 0; color: inherit; }
-
-    /* ── Callout ── */
-    .callout {
-      border-left: 3px solid;
-      padding: 14px 18px;
-      margin: 20px 0;
-      font-size: 13.5px;
-      border-radius: 0 4px 4px 0;
-    }
-    .callout.info {
-      border-color: #3b82f6;
-      background: #eff6ff;
-      color: #1d4ed8;
-    }
-    .callout.warn {
-      border-color: #f59e0b;
-      background: #fffbeb;
-      color: #92400e;
-    }
-    .callout.key {
-      border-color: var(--brand);
-      background: #fff7f2;
-      color: #7c2d12;
-    }
-
-    /* ── Figure / Diagram ── */
+    /* ── Diagrams ── */
     .fig {
       border: 1px solid var(--rule);
       border-radius: 6px;
-      padding: 24px;
-      margin: 24px 0;
+      padding: 20px 22px;
+      margin: 16px 0;
       background: var(--bg-alt);
-      font-size: 12px;
     }
-    .fig-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 16px;
+    .fig-label { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+
+    /* Full pipeline (front page) */
+    .pipeline-outer {
+      border: 1.5px solid var(--rule);
+      border-radius: 8px;
+      background: var(--bg-alt);
+      padding: 28px 24px 22px;
+      margin-bottom: 44px;
     }
-    .pipeline-row {
-      display: flex;
-      align-items: center;
+    .pipeline-title { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--muted); text-align:center; margin-bottom:20px; }
+
+    .pl-grid {
+      display: grid;
+      grid-template-columns: 1fr 28px 1.4fr 28px 1fr 28px 1.6fr 28px 1fr;
+      align-items: stretch;
       gap: 0;
-      flex-wrap: nowrap;
-      overflow-x: auto;
+      margin-bottom: 6px;
     }
-    .pipeline-node {
+    .pl-header-row {
+      display: grid;
+      grid-template-columns: 1fr 28px 1.4fr 28px 1fr 28px 1.6fr 28px 1fr;
+      gap: 0;
+      margin-bottom: 8px;
+    }
+    .pl-hdr {
+      font-size: 9px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+      text-align: center; padding-bottom: 6px;
+      border-bottom: 2px solid;
+    }
+    .pl-hdr-src    { color:#7c3aed; border-color:#ddd6fe; }
+    .pl-hdr-proc   { color:var(--blue); border-color:#bfdbfe; }
+    .pl-hdr-store  { color:var(--green); border-color:#a7f3d0; }
+    .pl-hdr-agent  { color:var(--brand); border-color:var(--brand-bd); }
+    .pl-hdr-out    { color:#be185d; border-color:#fbcfe8; }
+    .pl-arr { display:flex; align-items:center; justify-content:center; color:var(--brand); font-size:18px; }
+    .pl-spacer { /* spacer for arrows in header row */ }
+
+    .pn {
+      border-radius: 5px;
+      padding: 9px 10px;
+      font-size: 11.5px;
+      line-height: 1.4;
+      text-align: center;
+      border: 1px solid;
+      margin: 3px 0;
+    }
+    .pn-src    { background:#f5f3ff; border-color:#ddd6fe; }
+    .pn-src strong    { display:block; font-size:12px; color:#3b0764; margin-bottom:2px; }
+    .pn-src span      { font-size:10px; color:#6d28d9; }
+    .pn-proc   { background:var(--blue-lt); border-color:#bfdbfe; }
+    .pn-proc strong   { display:block; font-size:12px; color:#1e40af; margin-bottom:2px; }
+    .pn-proc span     { font-size:10px; color:#2563eb; }
+    .pn-store  { background:var(--green-lt); border-color:#a7f3d0; }
+    .pn-store strong  { display:block; font-size:12px; color:#065f46; margin-bottom:2px; }
+    .pn-store span    { font-size:10px; color:#059669; }
+    .pn-agent  { background:var(--brand-lt); border-color:var(--brand-bd); }
+    .pn-agent strong  { display:block; font-size:12px; color:#9a3412; margin-bottom:2px; }
+    .pn-agent span    { font-size:10px; color:#c2410c; }
+    .pn-out    { background:#fdf2f8; border-color:#fbcfe8; }
+    .pn-out strong    { display:block; font-size:12px; color:#9d174d; margin-bottom:2px; }
+    .pn-out span      { font-size:10px; color:#be185d; }
+    .pn-tall   { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+
+    .pipe-sep { height:1px; background:var(--rule); margin:14px 0; }
+    .persona-row { display:flex; gap:12px; }
+    .persona { flex:1; border-radius:6px; padding:11px 14px; border:1px solid; }
+    .persona-a { background:#fff7ed; border-color:#fed7aa; }
+    .persona-b { background:var(--blue-lt); border-color:#bfdbfe; }
+    .persona-lbl { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:3px; }
+    .persona-a .persona-lbl { color:#9a3412; }
+    .persona-b .persona-lbl { color:#1e40af; }
+    .persona-desc { font-size:12px; line-height:1.5; }
+    .persona-a .persona-desc { color:#7c2d12; }
+    .persona-b .persona-desc { color:#1e3a8a; }
+
+    /* ── Agent internals diagram ── */
+    .agent-box {
+      border: 2px solid var(--brand-bd);
+      border-radius: 8px;
+      background: var(--brand-lt);
+      padding: 18px 20px;
+      margin: 16px 0;
+    }
+    .agent-box-title {
+      font-size: 10px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+      color:var(--brand); margin-bottom: 14px; text-align:center;
+    }
+    .agent-steps {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+    }
+    .agent-step {
       flex: 1;
       text-align: center;
-      padding: 10px 8px;
-      background: #fff;
-      border: 1px solid var(--rule);
-      border-radius: 4px;
-      font-size: 11px;
-      line-height: 1.4;
     }
-    .pipeline-node strong { display: block; color: var(--text); font-size: 12px; }
-    .pipeline-node span { color: var(--muted); font-size: 10px; }
-    .arrow {
+    .agent-step-num {
+      display: inline-block;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: #fff;
+      font-size: 11px; font-weight: 700;
+      line-height: 22px;
+      margin-bottom: 6px;
+    }
+    .agent-step-name {
+      font-size: 11.5px; font-weight: 700;
+      color: #9a3412; margin-bottom: 3px;
+    }
+    .agent-step-desc {
+      font-size: 10.5px; color: #c2410c; line-height: 1.4;
+    }
+    .agent-step-arr {
       padding: 0 4px;
       color: var(--brand);
-      font-size: 16px;
+      font-size: 18px;
+      padding-top: 10px;
       flex-shrink: 0;
     }
 
-    /* ── Footer ── */
-    .report-footer {
-      margin-top: 64px;
-      padding-top: 24px;
-      border-top: 1px solid var(--rule);
-      font-size: 11px;
-      color: var(--muted);
-      display: flex;
-      justify-content: space-between;
+    /* ── Context assembly diagram ── */
+    .ctx-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
     }
+    .ctx-src {
+      border-radius: 5px;
+      padding: 10px 12px;
+      font-size: 12px;
+      border: 1px solid;
+    }
+    .ctx-src-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    .ctx-db    { background:var(--green-lt); border-color:#a7f3d0; }
+    .ctx-db .ctx-src-title { color:var(--green); }
+    .ctx-rag   { background:var(--purple-lt); border-color:#ddd6fe; }
+    .ctx-rag .ctx-src-title { color:var(--purple); }
+    .ctx-meta  { background:var(--brand-lt); border-color:var(--brand-bd); }
+    .ctx-meta .ctx-src-title { color:var(--brand); }
+    .ctx-items { list-style:none; margin:0; padding:0; }
+    .ctx-items li { font-size:11px; color:var(--muted); line-height:1.6; }
+    .ctx-items li::before { content:"·"; margin-right:5px; color:inherit; }
+
+    .ctx-arrow { text-align:center; color:var(--brand); font-size:22px; margin:8px 0; }
+    .ctx-prompt {
+      border: 2px solid var(--brand-bd);
+      border-radius: 5px;
+      padding: 12px 16px;
+      background: var(--brand-lt);
+      font-size: 12px;
+      text-align: center;
+      color: #9a3412;
+    }
+    .ctx-prompt strong { font-size:13px; color:var(--brand); display:block; margin-bottom:4px; }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 3px solid var(--brand);
+      background: var(--brand-lt);
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #7c2d12;
+      border-radius: 0 4px 4px 0;
+    }
+
+    /* ── Card grid ── */
+    .card-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0; }
+    .card-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:16px 0; }
+    .card { border:1px solid var(--rule); border-radius:6px; padding:15px 17px; background:var(--bg-alt); }
+    .card .card-title { font-size:11px; font-weight:700; color:var(--brand); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+    .card p { font-size:13px; margin-bottom:0; color:var(--muted); }
+    .card strong { color:var(--text); }
+
+    /* ── Flow row ── */
+    .flow { display:flex; align-items:center; gap:0; flex-wrap:nowrap; overflow-x:auto; margin-bottom:8px; }
+    .node { flex:1; min-width:80px; text-align:center; padding:8px 6px; background:#fff; border:1px solid var(--rule); border-radius:4px; font-size:11px; line-height:1.4; }
+    .node strong { display:block; font-size:12px; margin-bottom:2px; }
+    .node span   { color:var(--muted); font-size:10px; }
+    .arr { padding:0 4px; color:var(--brand); font-size:14px; flex-shrink:0; }
+    .flow-label { font-size:11px; color:var(--muted); font-weight:600; margin:14px 0 8px; }
+
+    code { font-family:'JetBrains Mono',monospace; font-size:12px; background:var(--bg-alt); border:1px solid var(--rule); border-radius:3px; padding:1px 5px; }
+
+    /* ── Footer ── */
+    .footer { margin-top:56px; padding-top:20px; border-top:1px solid var(--rule); font-size:11px; color:var(--muted); display:flex; justify-content:space-between; }
+    .footer a { color:var(--brand); text-decoration:none; }
   </style>
 </head>
 <body>
@@ -322,500 +335,571 @@
 
   <!-- ── COVER ── -->
   <div class="cover">
-    <div class="label">Technical Report · TR-2026-01 · Hanwha General Insurance</div>
-    <h1>AI 상담 에이전트 시스템 설계 및 구현<br><span>On-Premise RAG-Augmented LLM Agent for Insurance TM Operations</span></h1>
-    <div class="subtitle">바이브 코딩 경진대회 · 폐쇄망 완결형 · 10일 개발</div>
-    <div class="cover-meta">
-      <div><strong>제출일</strong>2026-06-09</div>
-      <div><strong>대상</strong>기술 심사 위원회</div>
-      <div><strong>버전</strong>v1.0 Final</div>
-      <div><strong>데이터 규모</strong>~30만 명 고객 DB · 5천 건 녹취</div>
-      <div><strong>모델</strong>Qwen3.6-27B Q4_K_M (Ollama)</div>
-      <div><strong>환경</strong>Ubuntu · CUDA 12.4 · GPU 40 GB VRAM</div>
+    <div class="cover-tag">Technical Report · TR-2026-01</div>
+    <h1>AI 상담 에이전트<br><span>On-Premise LLM Agent for Insurance Recommendation &amp; Campaign Targeting</span></h1>
+    <div class="cover-claim">
+      고객 통화 녹취 · DB · 상품 설명서를 LLM 에이전트가 <strong>실시간으로 조합</strong>하여,
+      상담사에게 <strong>맥락 기반 상품 추천 스크립트</strong>를 생성하고,
+      본사 스태프가 <strong>캠페인 추천 대상</strong>을 자동 추출하도록 한다.
+    </div>
+    <div class="cover-pills">
+      <div class="pill"><span class="dot"></span><a href="https://github.com/dhduo22kk/project" target="_blank">github.com/dhduo22kk/project</a></div>
+      <div class="pill"><span class="dot"></span>LangChain · LangGraph · Chroma · DuckDB</div>
+      <div class="pill"><span class="dot"></span>Qwen3.6-27B Q4_K_M · Ollama · 40 GB VRAM</div>
+      <div class="pill"><span class="dot"></span>On-Premise 완결 · 외부 API 없음</div>
+    </div>
+  </div>
+
+  <!-- ── SYSTEM PIPELINE ── -->
+  <div class="pipeline-outer">
+    <div class="pipeline-title">Figure 1 &nbsp;·&nbsp; 전체 시스템 파이프라인 — 데이터 소스에서 추천 출력까지</div>
+
+    <!-- Header row -->
+    <div class="pl-header-row">
+      <div class="pl-hdr pl-hdr-src">데이터 소스</div>
+      <div></div>
+      <div class="pl-hdr pl-hdr-proc">오프라인 인덱싱</div>
+      <div></div>
+      <div class="pl-hdr pl-hdr-store">지식 저장소</div>
+      <div></div>
+      <div class="pl-hdr pl-hdr-agent">LLM 에이전트</div>
+      <div></div>
+      <div class="pl-hdr pl-hdr-out">출력</div>
+    </div>
+
+    <!-- Row 1: 음성 녹취 -->
+    <div class="pl-grid">
+      <div class="pn pn-src"><strong>🎙 음성 녹취</strong><span>WAV 5천 건</span></div>
+      <div class="pl-arr">→</div>
+      <div class="pn pn-proc"><strong>STT + 마스킹 + 분석</strong><span>faster-whisper · 2단계 마스킹 · Qwen3.6 JSON</span></div>
+      <div class="pl-arr">→</div>
+      <div class="pn pn-store"><strong>Chroma · calls</strong><span>통화 요약 벡터 · 768dim</span></div>
+      <div class="pl-arr" style="font-size:22px; align-items:flex-start; padding-top:28px;">⬎</div>
+      <div class="pn pn-agent pn-tall" style="grid-row:span 3; padding:16px 10px;">
+        <strong>3분기 라우터</strong><span>신규 / 미연결 / 이력</span>
+        <div style="margin:10px 0; width:100%; height:1px; background:var(--brand-bd);"></div>
+        <strong>컨텍스트 조립</strong><span>DuckDB + RAG + 영업포커스</span>
+        <div style="margin:10px 0; width:100%; height:1px; background:var(--brand-bd);"></div>
+        <strong>Qwen3.6-27B</strong><span>프롬프트 → 스트리밍 생성</span>
+      </div>
+      <div class="pl-arr" style="font-size:22px; align-items:flex-start; padding-top:28px;">⬎</div>
+      <div class="pn pn-out pn-tall" style="grid-row:span 3; padding:14px 10px; justify-content:space-around;">
+        <div><strong>👤 상담사</strong><span>맞춤 스크립트<br>추천 상품 + 근거</span></div>
+        <div style="border-top:1px solid #fbcfe8; padding-top:10px; margin-top:6px;"><strong>🏢 본사 스태프</strong><span>캠페인 추천 대상<br>Excel 자동 추출</span></div>
+      </div>
+    </div>
+
+    <!-- Row 2: 고객 DB -->
+    <div class="pl-grid" style="margin-top:8px;">
+      <div class="pn pn-src"><strong>🗄 고객 DB</strong><span>Oracle · 30만 명 · 계약/통화/캠페인</span></div>
+      <div class="pl-arr">→</div>
+      <div class="pn pn-proc"><strong>일배치 ETL</strong><span>사전정의 쿼리 → 매일 새벽 cron</span></div>
+      <div class="pl-arr">→</div>
+      <div class="pn pn-store"><strong>DuckDB</strong><span>인프로세스 OLAP · 조회 &lt;1초</span></div>
+      <div></div><div></div><div></div>
+    </div>
+
+    <!-- Row 3: 상품 설명서 -->
+    <div class="pl-grid" style="margin-top:8px;">
+      <div class="pn pn-src"><strong>📄 상품 설명서</strong><span>PDF · PPTX · DOCX</span></div>
+      <div class="pl-arr">→</div>
+      <div class="pn pn-proc"><strong>문서 파서</strong><span>pymupdf4llm · mammoth · python-pptx</span></div>
+      <div class="pl-arr">→</div>
+      <div class="pn pn-store"><strong>Chroma · products</strong><span>상품 지식 벡터 · 768dim</span></div>
+      <div></div><div></div><div></div>
+    </div>
+
+    <div class="pipe-sep"></div>
+
+    <div class="persona-row">
+      <div class="persona persona-a">
+        <div class="persona-lbl">Tab 1 · 상담사</div>
+        <div class="persona-desc">고객번호 입력 → 계약/보장 현황 즉시 표시 + 맞춤 스크립트 스트리밍</div>
+      </div>
+      <div class="persona persona-b">
+        <div class="persona-lbl">Tab 2 · 본사 스태프</div>
+        <div class="persona-desc">캠페인 선택 → 폼 Q&amp;A 4단계 → 추천 대상 Excel 자동 추출</div>
+      </div>
     </div>
   </div>
 
   <!-- ── ABSTRACT ── -->
   <div class="abstract">
     <strong>요약.</strong>
-    본 보고서는 보험 TM/CM 채널 상담사의 콜 전 준비를 AI로 지원하고, 본사 스태프의 캠페인 추천 대상 추출을 자동화하는 On-Premise 에이전트 시스템의 설계 결정과 핵심 기술 분석을 기술한다. 기존 AutoGluon 기반 ML 추천 시스템이 산출하는 상품명·점수만으로는 상담사가 실제 통화에서 활용하기 어렵다는 문제의식에서 출발하여, <strong>STT 인덱싱(Pipeline A) → 문서 인덱싱(Pipeline B) → 일배치 DuckDB 갱신(Pipeline C)</strong>의 3단 배치 파이프라인 위에 <strong>LangGraph 에이전트</strong>가 RAG 검색·구조화 DB 쿼리·LLM 생성을 조율하는 아키텍처를 채택하였다. 시스템은 완전 폐쇄망 환경에서 동작하며, 외부 API 의존 없이 Ollama + Chroma + DuckDB 로컬 스택으로 구성된다. 핵심 기술 결정 각각에 대해 자원 분석(VRAM, 처리 시간), 수리적 근거(코사인 유사도, 신뢰구간), 설계 트레이드오프를 명시한다.
+    기존 TM 상품추천은 AutoML이 상품명을 예측하는 데 그쳤다. 본 시스템은 LangChain 에코시스템 기반 LLM 에이전트가
+    STT 인덱싱 녹취(Chroma RAG), 일배치 고객 DB(DuckDB Tool), 상품 설명서(Chroma RAG)를 실시간으로 조합하여
+    <strong>고객별 맞춤 상품 추천 스크립트</strong>를 온디맨드로 생성한다.
+    동일한 고객 맥락 데이터는 본사 스태프의 <strong>캠페인 추천 대상 자동 추출</strong>에도 활용된다.
+    모든 추론은 사내 GPU 서버(Ollama + Qwen3.6-27B Q4_K_M)에서 완결된다.
   </div>
 
   <!-- ── TOC ── -->
   <div class="toc">
-    <h3>목차</h3>
+    <div class="toc-label">목차</div>
     <ol>
-      <li><a href="#s1">시스템 개요 및 문제 정의</a></li>
-      <li><a href="#s2">전체 아키텍처</a></li>
-      <li><a href="#s3">RAG 검색 설계</a></li>
-      <li><a href="#s4">VRAM 및 모델 자원 분석</a></li>
-      <li><a href="#s5">배치 파이프라인 처리 시간 모델</a></li>
-      <li><a href="#s6">캠페인 성과 추정 방법론</a></li>
-      <li><a href="#s7">응답 지연 분해</a></li>
-      <li><a href="#s8">데이터 설계 및 ETL</a></li>
-      <li><a href="#s9">보안 및 개인정보 처리</a></li>
-      <li><a href="#s10">한계 및 향후 방향</a></li>
+      <li><a href="#s1">기여 포지셔닝</a></li>
+      <li><a href="#s2">LLM 에이전트 아키텍처</a></li>
+      <li><a href="#s3">상품 추천 플로우 — 데이터에서 스크립트까지</a></li>
+      <li><a href="#s4">캠페인 추천 대상 추출 플로우</a></li>
+      <li><a href="#s5">데이터 인덱싱 파이프라인</a></li>
+      <li><a href="#s6">보안 및 개인정보</a></li>
+      <li><a href="#s7">향후 방향</a></li>
     </ol>
   </div>
 
-  <!-- ── §1 ── -->
+  <!-- ── §1 기여 포지셔닝 ── -->
   <section id="s1">
-    <h2><span class="sec-num">§1</span>시스템 개요 및 문제 정의</h2>
+    <h2><span class="sec-num">§1</span>기여 포지셔닝</h2>
+    <div class="summary">기존 시스템은 <strong>상품명을 예측</strong>한다. 이 에이전트는 고객 맥락을 파악하여 <strong>왜 이 상품인지, 어떻게 말할지</strong>를 생성한다.</div>
 
-    <p>기존 보험 TM 채널의 상품 추천 시스템은 AutoGluon 기반 테이블 학습 모델로 고객별 상품 가입 확률을 산출하고, 상위 \(k\)개 상품명과 고정 텍스트를 출력하는 구조다. 이 방식의 구조적 한계는 세 가지다.</p>
-
-    <ul>
-      <li><strong>근거 부재:</strong> 추천 점수의 생성 근거(담보 공백, 과거 발화, 유사 고객 패턴)가 출력에 포함되지 않아 상담사가 실제 통화에서 활용하기 어렵다.</li>
-      <li><strong>맥락 단절:</strong> 통화 녹취 5천 건이 비정형 WAV로만 보관되어 어떤 파이프라인에도 연결되지 않았다.</li>
-      <li><strong>단편 출력:</strong> "상품명 + 고정 안내 문구" 형태로, 고객별 맞춤 스크립트 각도(담보 보완 / 설계 팔로업 / 신상품 공략)를 선택하는 논리가 없다.</li>
-    </ul>
-
-    <p>본 시스템은 이 세 한계를 각각 <strong>LLM 생성 근거 설명</strong>, <strong>STT 기반 RAG 인덱싱</strong>, <strong>스크립트 각도 3분기 자동 결정</strong>으로 대응한다. AutoGluon 배치는 그대로 유지하되, 그 출력(\(\hat{p}_{\text{ML}}\), 상품 순위)을 RAG 컨텍스트 및 담보 GAP 분석과 함께 LLM에 주입하는 방식으로 연동한다.</p>
+    <p>TM 채널의 기존 상품추천 시스템은 고객의 계약 이력과 인구통계를 기반으로 AutoGluon이 가입 확률을 예측하고, 상위 상품명과 고정 비교 문구를 출력한다. 상담사 화면에 노출되지만, 통화 맥락이 없는 상품명만으로는 실제 대화에서 활용되기 어렵다.</p>
 
     <table>
       <thead>
         <tr><th>항목</th><th>기존 ML 추천 시스템</th><th>AI 상담 에이전트 (본 시스템)</th></tr>
       </thead>
       <tbody>
-        <tr><td>추천 근거</td><td class="td-muted">유사 고객 가입 이력 ML 점수만</td><td class="td-brand">담보 GAP + 과거 발화 RAG + 캠페인 패턴</td></tr>
-        <tr><td>출력 형태</td><td class="td-muted">상품명 + 고정 텍스트</td><td class="td-brand">왜 이 상품인지 근거 + 맞춤 스크립트</td></tr>
-        <tr><td>녹취 활용</td><td class="td-muted">미활용 (WAV 방치)</td><td class="td-brand">STT → Chroma RAG 자동 인덱싱</td></tr>
-        <tr><td>스크립트 각도</td><td class="td-muted">단일 고정 문구</td><td class="td-brand">complement / followup / new_product 자동 선택</td></tr>
-        <tr><td>인프라</td><td class="td-muted">Oracle 쿼리 직접 의존</td><td class="td-brand">DuckDB OLAP 스냅샷 (D-1, 온디맨드)</td></tr>
+        <tr><td>추천 근거</td><td class="td-dim">유사 고객 가입 확률 점수</td><td class="td-hi">담보 공백 + 과거 통화 맥락 + 상품 설명서</td></tr>
+        <tr><td>출력 형태</td><td class="td-dim">상품명 + 고정 비교 문구</td><td class="td-hi">추천 근거 + 각도별 맞춤 스크립트 (스트리밍)</td></tr>
+        <tr><td>통화 녹취 활용</td><td class="td-dim">없음</td><td class="td-hi">STT → 벡터 인덱싱 → LLM 컨텍스트 주입</td></tr>
+        <tr><td>고객 분류</td><td class="td-dim">없음 (단일 플로우)</td><td class="td-hi">신규 / 미연결 / 이력 3분기 자동 분기</td></tr>
+        <tr><td>캠페인 활용</td><td class="td-dim">스태프 수작업 필터</td><td class="td-hi">고객 맥락 기반 자동 추출 → Excel</td></tr>
+        <tr><td>데이터 조회</td><td class="td-dim">Oracle OLTP 의존</td><td class="td-hi">DuckDB 스냅샷 &lt;1초</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>기존 AutoML 배치는 그대로 유지한다.</strong> ML 추천 결과(상품코드/상품명)는 본 에이전트의 LLM 컨텍스트 입력 중 하나로 활용된다. 이 시스템은 ML 배치를 대체하지 않고 그 위에서 동작한다.
+    </div>
+  </section>
+
+  <!-- ── §2 LLM 에이전트 아키텍처 ── -->
+  <section id="s2">
+    <h2><span class="sec-num">§2</span>LLM 에이전트 아키텍처</h2>
+    <div class="summary">LangChain 에코시스템이 에이전트 골격을 구성한다. 핵심은 <strong>3분기 라우터 → 도구 호출 → 컨텍스트 조립 → LLM 생성</strong>의 처리 순서다.</div>
+
+    <h3>프레임워크 구성</h3>
+
+    <table>
+      <thead>
+        <tr><th>레이어</th><th>프레임워크 / 라이브러리</th><th>역할</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>에이전트 오케스트레이션</strong></td>
+          <td>langchain-core · langchain-ollama</td>
+          <td>체인 구성, Ollama LLM 연결, 스트리밍 출력 처리</td>
+        </tr>
+        <tr>
+          <td><strong>벡터 검색 (RAG)</strong></td>
+          <td>langchain-chroma · Chroma</td>
+          <td>통화 요약 / 상품 설명서 유사도 검색 및 컨텍스트 주입</td>
+        </tr>
+        <tr>
+          <td><strong>분석 DB 조회</strong></td>
+          <td>DuckDB (인프로세스)</td>
+          <td>고객 계약·보장·통화이력 조회 도구 — LLM 컨텍스트 소스</td>
+        </tr>
+        <tr>
+          <td><strong>LLM 서버</strong></td>
+          <td>Ollama · Qwen3.6-27B Q4_K_M</td>
+          <td>GGUF 4bit 양자화, 16.8 GB VRAM, 사내 서버 단독 실행</td>
+        </tr>
+        <tr>
+          <td><strong>UI 및 스트리밍</strong></td>
+          <td>Gradio</td>
+          <td>제너레이터 함수로 DuckDB 결과 즉시 표시 + LLM 출력 점진적 렌더링</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>에이전트 처리 흐름</h3>
+
+    <div class="agent-box">
+      <div class="agent-box-title">LLM Agent · Tab1 처리 순서</div>
+      <div class="agent-steps">
+        <div class="agent-step">
+          <div class="agent-step-num">1</div>
+          <div class="agent-step-name">고객 분류</div>
+          <div class="agent-step-desc">DuckDB 통화이력 조회<br>→ 신규 / 미연결 / 이력 결정</div>
+        </div>
+        <div class="agent-step-arr">→</div>
+        <div class="agent-step">
+          <div class="agent-step-num">2</div>
+          <div class="agent-step-name">데이터 수집</div>
+          <div class="agent-step-desc">분기별 DuckDB 도구<br>계약·보장·설계·통화 조회</div>
+        </div>
+        <div class="agent-step-arr">→</div>
+        <div class="agent-step">
+          <div class="agent-step-num">3</div>
+          <div class="agent-step-name">RAG 검색</div>
+          <div class="agent-step-desc">calls · products<br>컬렉션 검색</div>
+        </div>
+        <div class="agent-step-arr">→</div>
+        <div class="agent-step">
+          <div class="agent-step-num">4</div>
+          <div class="agent-step-name">컨텍스트 조립</div>
+          <div class="agent-step-desc">DB + RAG + 영업포커스<br>단일 프롬프트 구성</div>
+        </div>
+        <div class="agent-step-arr">→</div>
+        <div class="agent-step">
+          <div class="agent-step-num">5</div>
+          <div class="agent-step-name">LLM 생성</div>
+          <div class="agent-step-desc">Qwen3.6 스트리밍<br>스크립트 + 추천 출력</div>
+        </div>
+      </div>
+    </div>
+
+    <p>단계 1·2(DuckDB 조회)는 즉시 UI에 표시된다. 상담사가 계약/보장 현황을 읽는 동안 단계 3·4·5(RAG + LLM)가 백그라운드에서 처리되므로 체감 대기가 없다.</p>
+
+    <h3>컨텍스트 조립 — LLM에 전달되는 정보</h3>
+
+    <div class="ctx-grid">
+      <div class="ctx-src ctx-db">
+        <div class="ctx-src-title">DuckDB 도구 결과</div>
+        <ul class="ctx-items">
+          <li>계약 현황 (상품 수, 납입 보험료)</li>
+          <li>보장 현황 (담보 공백 12항목)</li>
+          <li>통화이력 타임라인</li>
+          <li>설계이력 (팔로업 각도 결정)</li>
+          <li>ML 추천 상품코드/상품명</li>
+        </ul>
+      </div>
+      <div class="ctx-src ctx-rag">
+        <div class="ctx-src-title">RAG 검색 결과</div>
+        <ul class="ctx-items">
+          <li>calls: 과거 통화 요약 (이력 고객: 직접 조회)</li>
+          <li>calls: 유사 성공 콜 top-3 (신규·미연결: 유사도 검색)</li>
+          <li>products: 추천 상품 설명서 영업포인트</li>
+          <li>products: 주요 특약 및 비갱신 특징</li>
+        </ul>
+      </div>
+      <div class="ctx-src ctx-meta">
+        <div class="ctx-src-title">운영 메타데이터</div>
+        <ul class="ctx-items">
+          <li>월별 영업 포커스 (주력상품/이슈)</li>
+          <li>스크립트 각도 (보완/팔로업/신상품)</li>
+          <li>고객 인구통계 (나이, 성별)</li>
+          <li>가입불가 상품 필터 (레거시 배치 결과)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="ctx-arrow">↓</div>
+    <div class="ctx-prompt">
+      <strong>단일 프롬프트</strong>
+      시스템 역할 정의 + 스크립트 각도 + 컨텍스트 3소스 + 생성 지침 → <strong>Qwen3.6-27B</strong>
+    </div>
+
+    <h3>LLM 호출 전략</h3>
+    <table>
+      <thead>
+        <tr><th>호출 목적</th><th>방식</th><th>Temperature</th><th>이유</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>배치 분석 (STT 마스킹·감성·요약)</td>
+          <td>JSON Structured Output — 4필드 단일 호출</td>
+          <td>0.0</td>
+          <td>결정론적 재현성, 파싱 안정성</td>
+        </tr>
+        <tr>
+          <td>스크립트 생성 (온디맨드)</td>
+          <td>스트리밍 텍스트 생성</td>
+          <td>0.3</td>
+          <td>고객별 자연스러운 변형, 단조로움 방지</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>스크립트 각도 자동 결정</h3>
+    <p>컨텍스트 조립 시점에 계약·설계 이력 유무를 확인하여 LLM에 전달할 작성 지침을 결정한다.</p>
+    <table>
+      <thead>
+        <tr><th>각도</th><th>발동 조건</th><th>LLM 지침 요지</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>보완 (complement)</strong></td><td>계약이력 있음</td><td>미가입 담보 공백 → 추가 보장 제안, 기존 계약과 연계</td></tr>
+        <tr><td><strong>팔로업 (followup)</strong></td><td>계약 없음 + 설계이력</td><td>기존 설계 건 결정 돕기, 이전 상담 내용 자연스럽게 이어받기</td></tr>
+        <tr><td><strong>신상품 (new_product)</strong></td><td>계약·설계 이력 모두 없음</td><td>주요 담보 공백 + 주력 상품 첫 접촉 방식으로 제안</td></tr>
       </tbody>
     </table>
   </section>
 
-  <!-- ── §2 ── -->
-  <section id="s2">
-    <h2><span class="sec-num">§2</span>전체 아키텍처</h2>
+  <!-- ── §3 상품 추천 플로우 ── -->
+  <section id="s3">
+    <h2><span class="sec-num">§3</span>상품 추천 플로우 — 데이터에서 스크립트까지</h2>
+    <div class="summary">고객번호 하나가 입력되면 <strong>3분기 분기 → 데이터 수집 → RAG → LLM</strong> 체인이 자동으로 실행되어 스크립트가 생성된다.</div>
 
-    <p>시스템은 배치 계층(오프라인 인덱싱)과 쿼리 계층(온라인 에이전트)으로 분리된다.</p>
+    <h3>3분기별 데이터 수집 비교</h3>
+    <table>
+      <thead>
+        <tr><th>유형</th><th>분기 조건</th><th>DuckDB 조회 항목</th><th>RAG 전략</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>신규</strong></td>
+          <td>통화이력 없음</td>
+          <td>인구통계, 보장현황, ML 추천</td>
+          <td>calls: 인구통계+캠페인명 유사도 검색 (top-3 성공콜)<br>products: ML 추천 상품명 기반</td>
+        </tr>
+        <tr>
+          <td><strong>미연결</strong></td>
+          <td>결번·무응답만 존재</td>
+          <td>접촉 시도 횟수·시간대, 인구통계, 보장현황</td>
+          <td>calls: 동일 구성, 연결성공 건만 필터<br>products: ML 추천 상품명 기반</td>
+        </tr>
+        <tr>
+          <td><strong>이력</strong></td>
+          <td>연결성공 1건 이상</td>
+          <td>통화 타임라인(TIMESTAMP), 계약·설계이력, 보장현황, 최근 발송 문자</td>
+          <td>calls: CTMNO 직접 조회 (유사도 검색 안 함)<br>products: ML 추천 상품명 기반</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>RAG 설계 — 이력/신규 이중 전략</h3>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">이력 고객 — 직접 조회</div>
+        <p>
+          <code>collection.get(where={"CTMNO": ctmno})</code><br><br>
+          유사도 검색 없이 해당 고객의 과거 통화 요약을 <strong>그대로 가져온다</strong>.
+          다른 고객 녹취가 섞이지 않아 "3월에 말씀하셨던 허리 수술 걱정" 같은
+          고객 특이 맥락을 정확히 재활용할 수 있다.
+        </p>
+      </div>
+      <div class="card">
+        <div class="card-title">신규·미연결 — 유사도 검색</div>
+        <p>
+          <code>collection.query(query_texts=["[고객: {나이}세 {성별}, {캠페인명}] {담보gap}"])</code><br><br>
+          임베딩 텍스트를 저장 시와 동일한 형식으로 구성하여 <strong>같은 시맨틱 공간</strong>에서 검색한다.
+          유사 인구통계의 성공 통화 top-3를 참조해 첫 접촉 스크립트를 구성한다.
+        </p>
+      </div>
+    </div>
+
+    <h3>nomic-embed-text 임베딩 설계</h3>
+    <p>Ollama 내 <code>nomic-embed-text</code>(768dim)로 단일화하여 별도 임베딩 서버가 필요 없다. 임베딩 대상 텍스트 형식을 고정한다:</p>
+    <div class="fig">
+      <div class="fig-label">임베딩 텍스트 포맷 (저장 시 / 검색 쿼리 시 동일)</div>
+      <code style="display:block; font-size:13px; padding:10px; background:#fff; border-radius:4px; color:var(--text);">
+        [고객: {나이}세 {성별}, {캠페인명}] {통화 요약 텍스트}
+      </code>
+      <p style="font-size:12px; color:var(--muted); margin-top:8px; margin-bottom:0;">
+        저장 시와 검색 쿼리 시 동일한 형식을 사용하여 시맨틱 공간의 불일치를 방지한다.
+        캠페인명이 없는 경우 <code>"캠페인미확인"</code>으로 대체한다.
+      </p>
+    </div>
+
+    <h3>출력 구조 — 2단계 분리 스트리밍</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">① 즉시 표시 &lt; 1초</div>
+        <p>DuckDB 조회 결과를 마크다운으로 즉시 렌더링:<br>
+        · 계약 현황 (가입 상품 수, 납입 보험료, 최근 가입)<br>
+        · 3개월 내 신규 담보 (NEW 표시)<br>
+        · 보장 현황 (담보 공백 12항목)<br>
+        · 통화 추천/피해야 할 시간대</p>
+      </div>
+      <div class="card">
+        <div class="card-title">② LLM 스트리밍 10~30초</div>
+        <p>RAG + DB 컨텍스트를 조합한 맞춤 스크립트 생성:<br>
+        · 추천 상품 + 추천 근거<br>
+        · 스크립트 각도별 대화 흐름<br>
+        · 담보 공백 기반 구체적 수치 활용<br>
+        · 과거 통화 맥락 반영</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── §4 캠페인 추천 대상 추출 플로우 ── -->
+  <section id="s4">
+    <h2><span class="sec-num">§4</span>캠페인 추천 대상 추출 플로우</h2>
+    <div class="summary">Tab1의 고객 맥락 데이터가 Tab2 캠페인 추출의 기반이 된다. <strong>LLM이 SQL을 생성하지 않는다</strong> — 구조화된 폼 응답이 검증된 쿼리 템플릿으로 변환된다.</div>
+
+    <h3>LLM 직접 SQL 생성을 쓰지 않는 이유</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">LLM SQL 생성의 문제</div>
+        <p>30만 명 대상 캠페인 추출에서 SQL 오류는 <strong>잘못된 대상 발송</strong>으로 직결된다. LLM은 스키마를 정확히 모르고, 조건 누락·타입 오류 위험이 있다. 결과를 감사(audit)하기 어렵다.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">조건 딕셔너리 → 템플릿 방식</div>
+        <p>UI 폼 응답 → <strong>구조화된 conditions dict</strong> → <code>build_campaign_query()</code> 검증된 템플릿 함수 → DuckDB SQL. 조건이 명시적으로 수집되어 결과가 결정론적이고 감사 가능하다.</p>
+      </div>
+    </div>
+
+    <h3>폼 Q&amp;A → conditions dict 변환 흐름</h3>
 
     <div class="fig">
-      <div class="fig-title">Figure 1 &nbsp;·&nbsp; 전체 시스템 데이터 흐름</div>
-
-      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;"><strong>배치 계층 (오프라인, 1회성 또는 일배치)</strong></p>
-      <div class="pipeline-row" style="margin-bottom:10px;">
-        <div class="pipeline-node"><strong>Oracle OLTP</strong><span>고객·통화·계약</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>oracle_queries.sql</strong><span>AI_* 추출 테이블</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>Pipeline C</strong><span>DuckDB mart.db (D-1)</span></div>
-      </div>
-      <div class="pipeline-row" style="margin-bottom:10px;">
-        <div class="pipeline-node"><strong>WAV 녹취 5천 건</strong><span>CALL_ID.wav</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>Pipeline A</strong><span>STT → 마스킹 → 분석</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>Chroma <em>calls</em></strong><span>768-dim 벡터</span></div>
-      </div>
-      <div class="pipeline-row">
-        <div class="pipeline-node"><strong>PDF · DOCX · PPTX</strong><span>상품 설명서</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>Pipeline B</strong><span>마크다운 변환 → 청크</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>Chroma <em>products</em></strong><span>768-dim 벡터</span></div>
-      </div>
-
-      <p style="font-size:12px;color:var(--muted);margin: 20px 0 14px;"><strong>쿼리 계층 (온라인, 온디맨드)</strong></p>
-      <div class="pipeline-row">
-        <div class="pipeline-node"><strong>Gradio UI</strong><span>상담사 / 관리자</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>LangGraph Agent</strong><span>3분기 라우터</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>DuckDB Tools</strong><span>&lt; 1 초</span></div>
-        <div class="arrow">+</div>
-        <div class="pipeline-node"><strong>Chroma RAG</strong><span>top-k 유사도</span></div>
-        <div class="arrow">→</div>
-        <div class="pipeline-node"><strong>Qwen3.6-27B</strong><span>스트리밍 생성</span></div>
+      <div class="fig-label">Figure 2 · Tab2 처리 흐름</div>
+      <div class="flow">
+        <div class="node"><strong>Step 0</strong><span>상품유형·채널·성별·연령 칩 선택</span></div>
+        <div class="arr">→</div>
+        <div class="node"><strong>Step 1</strong><span>신규/기존 캠페인 여부</span></div>
+        <div class="arr">→</div>
+        <div class="node"><strong>Step 2</strong><span>목표 인원수 (숫자 입력)</span></div>
+        <div class="arr">→</div>
+        <div class="node"><strong>Step 3</strong><span>추출 방식 선택 (데이터 없으면 비활성)</span></div>
+        <div class="arr">→</div>
+        <div class="node"><strong>conditions dict</strong><span>구조화 조건 누적</span></div>
+        <div class="arr">→</div>
+        <div class="node"><strong>쿼리 템플릿</strong><span>build_campaign_query()</span></div>
+        <div class="arr">→</div>
+        <div class="node"><strong>DuckDB</strong><span>→ Excel (CTMNO)</span></div>
       </div>
     </div>
 
-    <p>핵심 설계 원칙은 <strong>배치와 쿼리의 완전 분리</strong>다. 쿼리 타임에 Oracle 접속이 없으며, DuckDB는 읽기 전용 스냅샷으로만 접근한다. Pipeline C 갱신 중에도 에이전트는 이전 버전 <code>mart.db</code>를 계속 참조하고, 갱신 완료 후 <code>os.replace()</code>(atomic rename)로 교체한다.</p>
-  </section>
-
-  <!-- ── §3 ── -->
-  <section id="s3">
-    <h2><span class="sec-num">§3</span>RAG 검색 설계</h2>
-
-    <h3>3.1 임베딩 및 유사도 함수</h3>
-
-    <p>RAG 검색의 핵심은 쿼리 벡터와 인덱스 내 문서 벡터 간의 유사도 측정이다. 본 시스템은 <strong>nomic-embed-text</strong>(Ollama 서빙, 출력 차원 \(d = 768\))를 사용하며, Chroma 내부 검색은 코사인 유사도를 기본 지표로 한다.</p>
-
-    <div class="math-block">
-      <span class="eq-label">(1)</span>
-      \[
-        \text{sim}(\mathbf{q}, \mathbf{d}) \;=\; \frac{\mathbf{q} \cdot \mathbf{d}}{\|\mathbf{q}\|\,\|\mathbf{d}\|}
-        \;=\; \frac{\displaystyle\sum_{i=1}^{d} q_i d_i}{\displaystyle\sqrt{\sum_{i=1}^{d} q_i^2}\;\sqrt{\sum_{i=1}^{d} d_i^2}}
-      \]
-      <div class="math-def">
-        <code>q</code>: 쿼리 임베딩 벡터 ∈ ℝ<sup>768</sup> &nbsp;|&nbsp;
-        <code>d</code>: 인덱스 문서 임베딩 ∈ ℝ<sup>768</sup> &nbsp;|&nbsp;
-        값역: [−1, 1] (정규화 후 [0, 1])
-      </div>
-    </div>
-
-    <p>top-\(k\) 검색은 인덱스 \(\mathcal{D} = \{d_1, \ldots, d_N\}\)에 대해:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(2)</span>
-      \[
-        \mathcal{R}_k(\mathbf{q}) \;=\; \underset{S \subseteq \mathcal{D},\, |S|=k}{\arg\max} \sum_{\mathbf{d} \in S} \text{sim}(\mathbf{q}, \mathbf{d})
-      \]
-    </div>
-
-    <p>Chroma는 HNSW(Hierarchical Navigable Small World) 인덱스를 사용하며 근사 최근접 이웃(ANN) 검색을 수행하므로, 이론적 정확 최근접 이웃과 달리 실제 결과는 recall이 보장된 근사값이다.</p>
-
-    <h3>3.2 케이스별 RAG 전략</h3>
-
-    <p>고객 분류(신규 / 미연결 / 이력)에 따라 RAG 쿼리 방식이 달라진다.</p>
+    <h3>추출 전략 — 과거 실적 기반 vs 활성도 기반</h3>
 
     <table>
       <thead>
-        <tr><th>고객 유형</th><th>검색 방식</th><th>쿼리 텍스트 구성</th><th>k</th></tr>
+        <tr><th>전략</th><th>동작 방식</th><th>적용 조건</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td><strong>이력 고객</strong></td>
-          <td><code>collection.get(where={"CTMNO": ctmno})</code></td>
-          <td>직접 조회 (유사도 검색 없음)</td>
-          <td>—</td>
+          <td><strong>과거 실적 기반</strong></td>
+          <td>
+            동일 캠페인 체결 고객의 <strong>연령 분포 10~90 퍼센타일</strong>을 추출.
+            해당 연령 범위의 미접촉 고객 중 연락불가·중복배정 제외 후 목표 인원 무작위 추출.
+            <code>PERCENTILE_CONT(0.1/0.9) WITHIN GROUP (ORDER BY CTM_AGE)</code>
+          </td>
+          <td>동일 캠페인 체결 이력 데이터가 존재하는 경우</td>
         </tr>
         <tr>
-          <td><strong>신규 고객</strong></td>
-          <td><code>collection.query(query_texts=[…])</code></td>
-          <td><code>"[고객: {age}세 {sex}, {campaign}] {담보 gap 요약}"</code></td>
-          <td>5</td>
-        </tr>
-        <tr>
-          <td><strong>미연결 고객</strong></td>
-          <td><code>collection.query(query_texts=[…])</code></td>
-          <td>인구통계 + 담보 gap (캠페인 필터 제거)</td>
-          <td>5</td>
+          <td><strong>활성도 기반</strong></td>
+          <td>
+            최근 6개월 내 <strong>연결성공 통화</strong> 또는 <strong>캠페인 배정이력</strong>이 있는 고객 대상.
+            Step 0 성별·연령·채널 조건 + 가입불가 고객 필터 적용.
+          </td>
+          <td>신규 캠페인 포함 항상 사용 가능</td>
         </tr>
       </tbody>
     </table>
 
-    <p>Chroma <em>calls</em> 컬렉션의 임베딩 대상 텍스트(embedded_text) 포맷은 아래와 같이 고정한다:</p>
+    <p>추출 결과는 고객번호(CTMNO)만 포함한 Excel로 출력되어 기존 콜링·문자 발송 시스템에 그대로 업로드한다. 기존 캠페인이면 직전 실적(배정 수, 체결율)을 <em>ML 예측이 아닌 실제 과거 실적 참고치</em>로 함께 표시한다.</p>
 
-    <pre><code>f"[고객: {CTM_AGE}세 {CTM_SEX}, {CAMPAIGN_NM}] {summary}"</code></pre>
-
-    <p>이 구성은 쿼리 텍스트와 동일한 시맨틱 공간에 위치하도록 설계되어, 인구통계 + 캠페인 컨텍스트를 함께 고려한 유사도 계산이 가능하다. 캠페인명이 없는 경우 <code>"캠페인미확인"</code>으로 대체하여 null 값이 임베딩에 영향을 주지 않도록 한다.</p>
-
-    <h3>3.3 메타데이터 필터</h3>
-
-    <p>Chroma 메타데이터 필터 조건은 스칼라 타입(string / int / float / bool)만 지원한다. 따라서 keywords 리스트는 comma-separated string으로 저장하며, 채널·캠페인명 기반 pre-filter 후 유사도 재정렬(post-filter)을 적용한다.</p>
-
-    <div class="callout info">
-      <strong>설계 결정:</strong> products RAG의 chunk 단위는 "페이지/슬라이드 1개 = 1 document". 평균 500~800 토큰 범위로, 하나의 문서가 지나치게 세분화되어 문맥이 잘리는 over-chunking을 방지한다.
+    <div class="callout">
+      <strong>두 탭의 연결.</strong>
+      Tab1의 <code>tbl_call_detail</code>(통화이력)이 Tab2 활성도 기반 추출의 핵심 소스다.
+      에이전트가 상담사 지원을 위해 구축하는 고객 맥락 데이터가 캠페인 타겟 효율화에도 직접 활용된다.
     </div>
   </section>
 
-  <!-- ── §4 ── -->
-  <section id="s4">
-    <h2><span class="sec-num">§4</span>VRAM 및 모델 자원 분석</h2>
-
-    <h3>4.1 LLM 모델 메모리 추정</h3>
-
-    <p>GGUF Q4_K_M 양자화에서 파라미터당 실효 비트 수는 약 4.5 bits다. Qwen3.6-27B의 VRAM 점유량은:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(3)</span>
-      \[
-        M_{\text{model}} \;=\; \frac{N_{\text{param}} \times b_{\text{quant}}}{8 \times 1024^3} \;\text{[GiB]}
-      \]
-      <div class="math-def">
-        <code>N_param</code> = 27 × 10<sup>9</sup> &nbsp;|&nbsp;
-        <code>b_quant</code> = 4.5 bits (Q4_K_M 실효값) &nbsp;|&nbsp;
-        ∴ M<sub>model</sub> ≈ 15.2 GiB
-      </div>
-    </div>
-
-    <h3>4.2 KV 캐시 메모리</h3>
-
-    <p>KV 캐시는 Transformer 각 레이어의 Key·Value 행렬을 저장한다. Qwen3.6 계열의 레이어 수 \(L = 64\), 헤드 수 \(H = 64\), 헤드 차원 \(D_{\text{head}} = 128\) 기준:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(4)</span>
-      \[
-        M_{\text{KV}} \;=\; 2 \times L \times H \times D_{\text{head}} \times T_{\text{ctx}} \times \frac{b_{\text{kv}}}{8 \times 1024^3} \;\text{[GiB]}
-      \]
-      <div class="math-def">
-        인수 2: Key + Value &nbsp;|&nbsp;
-        <code>T_ctx</code> = 컨텍스트 토큰 수 &nbsp;|&nbsp;
-        <code>b_kv</code> = 16 bits (FP16) &nbsp;|&nbsp;
-        T<sub>ctx</sub> = 8,192 토큰 시 M<sub>KV</sub> ≈ 17.2 GiB
-      </div>
-    </div>
-
-    <p>전체 VRAM 예산은 아래 표와 같다.</p>
-
-    <table>
-      <thead>
-        <tr><th>항목</th><th>추정치</th><th>비고</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Qwen3.6-27B Q4_K_M 모델</td><td class="td-brand">~15.2 GiB</td><td>Q8_0(29 GiB) 대비 여유 확보</td></tr>
-        <tr><td>KV 캐시 (8K 컨텍스트)</td><td class="td-brand">~17.2 GiB</td><td>컨텍스트 길이에 선형 비례</td></tr>
-        <tr><td>nomic-embed-text (임베딩)</td><td class="td-muted">~1.0 GiB</td><td>STT 파이프라인 종료 후 공유</td></tr>
-        <tr><td>Faster-Whisper large-v3</td><td class="td-muted">~3.1 GiB (FP16)</td><td>Pipeline A 단계에서만 로드</td></tr>
-        <tr><td><strong>런타임 최대 합계</strong></td><td class="td-brand"><strong>≈ 33.4 GiB</strong></td><td>40 GiB 서버 기준 여유 ~6.6 GiB</td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout warn">
-      <strong>주의:</strong> Q8_0 모델(29 GiB) 사용 시 KV 캐시 여유가 ~8 GiB로 감소하여 긴 컨텍스트(녹취 원문 + RAG 결과 동시 주입)에서 OOM 위험이 있다. Q4_K_M 선택은 이 여유 확보를 위한 결정이다.
-    </div>
-
-    <h3>4.3 Pipeline A 자원 충돌 회피</h3>
-
-    <p>STT 인덱싱 중 Whisper(3.1 GiB) + Qwen3.6(15.2 GiB) + nomic(1.0 GiB)가 동시에 VRAM을 점유하면 합계 19.3 GiB로 단독 실행 시 문제가 없다. 그러나 Gradio 서비스가 동시에 실행 중이라면 KV 캐시까지 포함한 총량이 40 GiB를 초과할 수 있으므로, <strong>Pipeline A는 서비스 가동 전 1회성으로 완료</strong>하는 것을 설계 원칙으로 정한다.</p>
-  </section>
-
-  <!-- ── §5 ── -->
+  <!-- ── §5 데이터 인덱싱 파이프라인 ── -->
   <section id="s5">
-    <h2><span class="sec-num">§5</span>배치 파이프라인 처리 시간 모델</h2>
-
-    <h3>5.1 Pipeline A 총 소요 시간</h3>
-
-    <p>녹취 1건 처리 시간은 STT, LLM 분석, 임베딩 세 단계의 합이다.</p>
-
-    <div class="math-block">
-      <span class="eq-label">(5)</span>
-      \[
-        t_{\text{item}} \;=\; t_{\text{STT}} + t_{\text{LLM}} + t_{\text{embed}}
-      \]
-    </div>
-
-    <p>각 단계의 실측 범위와 전체 5천 건 예상 소요 시간:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(6)</span>
-      \[
-        T_{\text{total}} \;=\; N \times \mathbb{E}[t_{\text{item}}]
-        \;=\; 5{,}000 \times \bigl(\,\overline{t}_{\text{STT}} + \overline{t}_{\text{LLM}} + \overline{t}_{\text{embed}}\,\bigr)
-      \]
-    </div>
+    <h2><span class="sec-num">§5</span>데이터 인덱싱 파이프라인</h2>
+    <div class="summary">에이전트가 RAG 검색과 DB 조회에 활용하는 <strong>지식 저장소를 구축하는 오프라인 파이프라인</strong> 3개다.</div>
 
     <table>
       <thead>
-        <tr><th>단계</th><th>추정 시간 (건당)</th><th>근거</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>faster-whisper STT</td><td>10 – 20 s</td><td>large-v3, GPU FP16, 평균 3분 음성</td></tr>
-        <tr><td>Qwen3.6 마스킹+분석</td><td>15 – 35 s</td><td>500–700 token 입력, Q4_K_M 추론</td></tr>
-        <tr><td>nomic 임베딩</td><td>0.5 – 1 s</td><td>요약 텍스트 ~100 token</td></tr>
-        <tr><td><strong>건당 합계</strong></td><td class="td-brand"><strong>25.5 – 56 s</strong></td><td>—</td></tr>
-        <tr><td><strong>총 소요 (5천 건)</strong></td><td class="td-brand"><strong>35 – 78 시간</strong></td><td>resume 재시작 가능</td></tr>
-      </tbody>
-    </table>
-
-    <h3>5.2 Resume 로직의 기대 절감 효과</h3>
-
-    <p>중간 장애 발생 시 resume 없이 전체 재처리하는 비용은 \(T_{\text{total}}\)이지만, CALL_ID 단위 skip 체크 시 기대 추가 처리 시간은 장애 시점 이후 건수만큼으로 감소한다. \(f\)를 장애 발생 진행률, \(c_{\text{skip}}\)을 건당 skip 확인 비용(< 0.01 s)이라 하면:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(7)</span>
-      \[
-        \Delta T_{\text{resume}} \;=\; (1 - f) \cdot N \cdot \mathbb{E}[t_{\text{item}}] \;+\; N \cdot c_{\text{skip}}
-        \;\ll\; T_{\text{total}}
-      \]
-    </div>
-
-    <p>중간 장애 후 재시작 시 기존 처리분은 Chroma에서 <code>collection.get(ids=[call_id])</code>로 확인하여 skip하므로, 추가 비용은 이미 처리된 건의 skip 체크 합계 \(f \cdot N \cdot c_{\text{skip}}\)뿐이다.</p>
-  </section>
-
-  <!-- ── §6 ── -->
-  <section id="s6">
-    <h2><span class="sec-num">§6</span>캠페인 성과 추정 방법론</h2>
-
-    <h3>6.1 체결률 점추정</h3>
-
-    <p>Tab2에서 "직전 캠페인 성과 참고치"로 표시하는 값은 ML 예측이 아닌, 동일 캠페인의 과거 체결 데이터에서 산출한 빈도주의 점추정이다. 배정일 기준 \(\tau = 90\)일 이내 계약 체결을 성공으로 정의하면:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(8)</span>
-      \[
-        \hat{p} \;=\; \frac{K}{N}
-      \]
-      <div class="math-def">
-        <code>K</code>: 90일 이내 체결 건수 &nbsp;|&nbsp;
-        <code>N</code>: 해당 캠페인 총 배정 건수
-      </div>
-    </div>
-
-    <h3>6.2 Wilson 신뢰구간</h3>
-
-    <p>표본이 충분히 크지 않을 경우 정규근사 기반 신뢰구간은 과대·과소 추정을 유발한다. 이를 보정하는 <strong>Wilson Score Interval</strong>은 다음과 같다.</p>
-
-    <div class="math-block">
-      <span class="eq-label">(9)</span>
-      \[
-        \text{CI}_{1-\alpha} \;=\; \frac{1}{1 + \tfrac{z^2}{N}} \left( \hat{p} + \frac{z^2}{2N} \;\pm\; z\sqrt{\frac{\hat{p}(1-\hat{p})}{N} + \frac{z^2}{4N^2}} \right)
-      \]
-      <div class="math-def">
-        <code>z</code>: 표준 정규분위수 (95% 신뢰구간: z = 1.96) &nbsp;|&nbsp;
-        <code>N</code>: 배정 총 건수 &nbsp;|&nbsp;
-        <code>α</code> = 0.05
-      </div>
-    </div>
-
-    <p>예시: 과거 캠페인 배정 3,000건, 체결 500건인 경우 \(\hat{p} = 0.167\), Wilson 95% CI ≈ (0.153, 0.181). UI에는 "예상 체결 약 460 ~ 543건 (95% CI)" 형태로 표시하며, "ML 예측 아님, 과거 실적 참고치"임을 명시한다.</p>
-
-    <h3>6.3 목표 인원 수 달성 기대 추출 효율</h3>
-
-    <p>목표 \(M\)명 추출 시 기대 체결 건수:</p>
-
-    <div class="math-block">
-      <span class="eq-label">(10)</span>
-      \[
-        \mathbb{E}[\text{체결}] \;=\; M \cdot \hat{p}
-        \quad,\quad
-        \text{SD} \;=\; \sqrt{M \cdot \hat{p}(1 - \hat{p})}
-      \]
-    </div>
-  </section>
-
-  <!-- ── §7 ── -->
-  <section id="s7">
-    <h2><span class="sec-num">§7</span>응답 지연 분해</h2>
-
-    <p>Tab1 상담사 화면의 총 체감 응답 시간은 두 단계로 분해된다. 상담사가 ①을 읽는 동안 ②가 생성 완료되어 체감 대기가 최소화된다.</p>
-
-    <div class="math-block">
-      <span class="eq-label">(11)</span>
-      \[
-        T_{\text{response}} \;=\; \underbrace{T_{\text{DuckDB}}}_{\text{① 즉시 표시}} \;+\; \underbrace{T_{\text{RAG}} + T_{\text{LLM}}}_{\text{② 스트리밍 (병렬 체감)}}
-      \]
-    </div>
-
-    <table>
-      <thead>
-        <tr><th>구성요소</th><th>예상 지연</th><th>방식</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>\(T_{\text{DuckDB}}\): 계약현황·보장현황 조회</td><td class="td-brand">< 1 s</td><td>인프로세스 DuckDB OLAP, 인덱스 활용</td></tr>
-        <tr><td>\(T_{\text{RAG}}\): Chroma 유사도 검색</td><td class="td-brand">0.3 – 1.0 s</td><td>HNSW ANN, top-5 반환</td></tr>
-        <tr><td>\(T_{\text{LLM}}\): Qwen3.6 스트리밍 생성</td><td class="td-brand">10 – 30 s</td><td>Q4_K_M, Ollama streaming API</td></tr>
-        <tr><td><strong>체감 대기 (①만)</strong></td><td class="td-brand"><strong>< 1 s</strong></td><td>상담사가 ①읽는 동안 ②완성</td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout key">
-      <strong>핵심 UX 결정:</strong> Gradio <code>gr.Markdown</code> (즉시 렌더) + <code>gr.Textbox</code> 스트리밍 조합. DuckDB 결과를 먼저 표시하고 LLM 결과는 스트리밍으로 뒤따라 채워진다. 상담사는 LLM 완성을 기다리지 않고 계약·보장 현황을 먼저 파악할 수 있다.
-    </div>
-  </section>
-
-  <!-- ── §8 ── -->
-  <section id="s8">
-    <h2><span class="sec-num">§8</span>데이터 설계 및 ETL</h2>
-
-    <h3>8.1 DuckDB 도메인 테이블 구성</h3>
-
-    <p>Oracle OLTP 원본에서 DuckDB 분석 스냅샷으로의 ETL은 두 단계로 진행된다.</p>
-
-    <ol>
-      <li><strong>oracle_queries.sql</strong> (Oracle 실행): 복잡한 JOIN·CASE WHEN 로직을 처리하여 <code>AI_*</code> 추출 뷰/테이블 생성</li>
-      <li><strong>pipeline_c_duckdb.py</strong> (Python 실행): <code>SELECT * FROM AI_*</code> 쿼리로 pandas DataFrame 수신 후 DuckDB에 적재</li>
-    </ol>
-
-    <p>이 분리로 Oracle 쪽 복잡도가 Python 코드에 유입되지 않으며, 쿼리 변경 시 SQL 파일만 수정하면 된다.</p>
-
-    <h3>8.2 통화 결과 코드 ETL 변환</h3>
-
-    <p>Oracle 원본 코드를 그대로 적재하지 않고, ETL 시점에 사람이 읽을 수 있는 레이블로 번역하여 LLM 프롬프트 주입 시 추가 디코딩이 불필요하다.</p>
-
-    <pre><code>-- oracle_queries.sql 내 CASE WHEN 예시
-CASE
-  WHEN CONTACTMINORCD IN ('020206','030202') THEN '결번'
-  WHEN DIALRESULTCD = '02'                  THEN '타인통화'
-  WHEN tc.CALLID IS NULL                    THEN '미연결'
-  ELSE '연결성공'
-END AS RESULT_CD</code></pre>
-
-    <h3>8.3 DuckDB 무중단 갱신 (Atomic Rename)</h3>
-
-    <p>매일 cron 실행 시 진행 중인 에이전트 쿼리와의 충돌을 방지하기 위해 별도 파일에 먼저 쓰고 교체하는 방식을 채택한다.</p>
-
-    <pre><code># pipeline_c_duckdb.py
-conn_new = duckdb.connect(DUCKDB_NEW_PATH)   # 별도 파일에 적재
-# ... TRUNCATE + INSERT ALL TABLES ...
-conn_new.close()
-os.replace(DUCKDB_NEW_PATH, DUCKDB_PATH)     # atomic rename — POSIX 보장</code></pre>
-
-    <p><code>os.replace()</code>는 POSIX 파일시스템에서 원자적 연산이므로, 에이전트가 <code>mart.db</code>를 읽는 도중에 교체가 발생해도 파일 핸들이 유지되어 데이터 손상이 없다.</p>
-  </section>
-
-  <!-- ── §9 ── -->
-  <section id="s9">
-    <h2><span class="sec-num">§9</span>보안 및 개인정보 처리</h2>
-
-    <h3>9.1 2단계 개인정보 마스킹</h3>
-
-    <p>녹취 STT 텍스트는 즉시 2단계 마스킹을 거친다. 원문은 어디에도 저장되지 않으며, 마스킹된 텍스트만 Chroma metadata에 보관된다.</p>
-
-    <table>
-      <thead>
-        <tr><th>단계</th><th>처리</th><th>대상 패턴</th></tr>
+        <tr><th>파이프라인</th><th>입력 → 출력</th><th>핵심 처리</th><th>실행</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td>1단계 (Regex)</td>
-          <td>Python 정규식</td>
+          <td><strong>A · STT 인덱싱</strong></td>
+          <td>WAV → Chroma <em>calls</em></td>
+          <td>faster-whisper 음성→텍스트 → 2단계 PII 마스킹 → Qwen3.6 JSON 분석(마스킹+감성+키워드+요약 단일 호출) → nomic-embed-text 벡터화</td>
+          <td>1회성, CALL_ID resume</td>
+        </tr>
+        <tr>
+          <td><strong>B · 문서 인덱싱</strong></td>
+          <td>PDF/PPTX/DOCX → Chroma <em>products</em></td>
+          <td>포맷별 마크다운 변환(pymupdf4llm / mammoth / python-pptx) → 청크 분할 → 벡터화</td>
+          <td>1회성, 문서명 resume</td>
+        </tr>
+        <tr>
+          <td><strong>C · DuckDB 갱신</strong></td>
+          <td>Oracle → DuckDB</td>
+          <td>사전 정의 ETL 쿼리 실행 → 임시 파일 완전 적재 → POSIX atomic rename(무중단)</td>
+          <td>매일 새벽 cron</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Pipeline A/B 완료 전 에이전트 동작.</strong>
+      개발 기간에는 Chroma 없이 DuckDB + products RAG만으로 Tab1이 작동한다.
+      Pipeline A 완료 시 calls RAG가 자동으로 활성화된다 — 코드 변경 없음.
+    </div>
+  </section>
+
+  <!-- ── §6 보안 및 개인정보 ── -->
+  <section id="s6">
+    <h2><span class="sec-num">§6</span>보안 및 개인정보</h2>
+    <div class="summary">녹취 원문은 에이전트에 도달하지 않는다. STT 직후 마스킹 완료 후 원문 폐기, 마스킹 텍스트만 벡터 DB에 저장된다.</div>
+
+    <table>
+      <thead>
+        <tr><th>단계</th><th>방식</th><th>처리 대상</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1단계 — 정규식</strong></td>
+          <td>Python 패턴 매칭 (카드번호 우선)</td>
           <td>전화번호, 주민번호, 계좌번호, 카드번호</td>
         </tr>
         <tr>
-          <td>2단계 (LLM)</td>
-          <td>Qwen3.6 JSON 출력</td>
+          <td><strong>2단계 — LLM</strong></td>
+          <td>Qwen3.6 JSON — 마스킹·분석 단일 호출</td>
           <td>이름, 주소 등 비정형 식별 정보</td>
         </tr>
       </tbody>
     </table>
 
-    <p>2단계는 1단계 처리 완료 텍스트를 입력으로 받으며, 마스킹 + 분석(감성/키워드/요약)을 단일 LLM 호출로 처리하여 호출 횟수를 최소화한다.</p>
-
-    <h3>9.2 폐쇄망 보안 아키텍처</h3>
-
-    <ul>
-      <li>모든 LLM 추론은 사내 GPU 서버 로컬에서 Ollama가 처리 — 외부 API 호출 없음</li>
-      <li>LangChain Hub, LangSmith 의존성 완전 제거 (HTTP 통신 불가 환경)</li>
-      <li>Gradio <code>server_name="0.0.0.0"</code>으로 사내망 IP 접근 허용, 네트워크 레벨 통제는 정보보호 파트 담당</li>
-      <li>컴플라이언스 승인 완료 컬럼만 DuckDB 적재 (청구/보상 이력 등 민감 데이터 제외)</li>
-    </ul>
+    <p>컴플라이언스 승인 완료 컬럼만 DuckDB에 적재하며, 청구·보상 이력 등 민감 데이터는 제외한다. 모든 LLM 추론은 사내 GPU 서버에서 완결되며 외부 클라우드 API · LangSmith · LangChain Hub 등 외부 통신이 없다.</p>
   </section>
 
-  <!-- ── §10 ── -->
-  <section id="s10">
-    <h2><span class="sec-num">§10</span>한계 및 향후 방향</h2>
+  <!-- ── §7 향후 방향 ── -->
+  <section id="s7">
+    <h2><span class="sec-num">§7</span>향후 방향</h2>
+    <div class="summary">MVP 이후 에이전트 품질과 운영 자동화를 중심으로 확장한다.</div>
 
-    <h3>10.1 현재 한계</h3>
-
-    <ul>
-      <li><strong>Pipeline A 소요 시간:</strong> 5천 건 처리에 35~78시간 소요로, 서비스 가동 전 완료해야 한다. Whisper 배치 병렬화나 vLLM 다중 프로세스로 단축 가능하나 MVP 범위 외.</li>
-      <li><strong>LLM 평가 부재:</strong> Qwen3.6이 생성한 스크립트의 품질을 정량 지표(ROUGE, LLM-as-judge)로 자동 평가하는 파이프라인이 없어 운영 품질 모니터링이 수동 의존적이다.</li>
-      <li><strong>DuckDB 단일 쓰기 제약:</strong> DuckDB는 단일 writer 모델로, Pipeline C 실행 중 <code>mart_new.db</code>에 대한 동시 쓰기는 불가능하다. 현재 구조(cron 단독 실행)에서는 문제 없으나 향후 수동 갱신 버튼과의 충돌 방지 로직이 필요하다.</li>
-      <li><strong>tbl_coverage_detail, tbl_cvr_group_map 이월:</strong> 담보코드 단위 LIKE 검색 및 커스텀 그룹 매핑은 MVP 이후 구현 예정.</li>
-    </ul>
-
-    <h3>10.2 향후 확장 방향</h3>
-
-    <ul>
-      <li><strong>레거시 UI 연동:</strong> Gradio API를 통해 기존 이노스 상담사 화면에 AI 추천 결과를 주입하는 방식으로 UI 교체 없이 연동 가능.</li>
-      <li><strong>SFP 채널 확장:</strong> 현재 TM/CM 채널 설계이나, <code>CHANNEL_TYPE</code> 메타데이터와 라우터 로직의 채널 분기를 추가하면 SFP 채널로 확장 가능.</li>
-      <li><strong>tbl_change_log:</strong> 계약 체결/문자 발송/통화 진행 등 임팩트 있는 이벤트를 감지하여 고객 상태 변화를 추적하는 로그 테이블. M4에서 구현 예정.</li>
-      <li><strong>비전 LLM 활성화:</strong> 상품 설명서 이미지 슬라이드를 마크다운으로 변환하는 비전 LLM 파이프라인이 구현되어 있으나, 모델 미정으로 실제 호출이 비활성화 상태.</li>
-    </ul>
-
-    <div class="callout info">
-      <strong>Note:</strong> 본 시스템은 기존 AutoGluon ML 배치를 대체하지 않는다. ML 배치 산출물(<code>M_CRM_REC_RLT_BIZ</code>)은 <code>tbl_ds_recommendation</code>으로 적재되어 AI 에이전트의 INPUT 중 하나로 활용된다. 두 시스템은 독립적으로 운영되며 상호 보완 관계를 가진다.
-    </div>
+    <table>
+      <thead>
+        <tr><th>항목</th><th>내용</th><th>우선순위</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>레거시 UI 연동</strong></td>
+          <td>Gradio API로 기존 상담사 화면에 AI 추천 결과 주입 — 레거시 UI 교체 없이 통합</td>
+          <td class="td-hi">High</td>
+        </tr>
+        <tr>
+          <td><strong>비동기 병렬 컨텍스트 수집</strong></td>
+          <td>DuckDB 다중 테이블 조회 + RAG 검색을 async로 병렬화 — 체감 대기 추가 단축</td>
+          <td class="td-hi">High</td>
+        </tr>
+        <tr>
+          <td><strong>스크립트 품질 루프</strong></td>
+          <td>상담사 피드백 또는 LLM-as-judge로 생성 품질 모니터링 → 프롬프트 개선 피드백</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>SFP 채널 확장</strong></td>
+          <td>채널 유형 메타데이터 추가 + 라우터 분기 확장으로 SFP까지 적용 범위 확대</td>
+          <td>Medium</td>
+        </tr>
+        <tr>
+          <td><strong>담보 상세 검색</strong></td>
+          <td>담보코드 단위 LIKE 검색 + 커스텀 그룹 매핑 테이블 → 더 세밀한 보장 공백 분석</td>
+          <td class="td-dim">Low</td>
+        </tr>
+        <tr>
+          <td><strong>vLLM 연속 배칭</strong></td>
+          <td>동시 다수 상담사 처리량 향상 (폐쇄망 추가 패키지 반입 필요)</td>
+          <td class="td-dim">Low</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <!-- ── FOOTER ── -->
-  <div class="report-footer">
-    <div>Technical Report TR-2026-01 &nbsp;·&nbsp; Hanwha General Insurance Co., Ltd.</div>
-    <div>작성 도구: Claude Code (Anthropic) &nbsp;·&nbsp; 2026-06-08</div>
+  <div class="footer">
+    <div>Technical Report TR-2026-01 · <a href="https://github.com/dhduo22kk/project">github.com/dhduo22kk/project</a></div>
+    <div>2026-06-08</div>
   </div>
 
 </div>
