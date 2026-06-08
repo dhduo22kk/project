@@ -1,4 +1,5 @@
-# Project: AI Consultation Agent
+# Project: 멀티모달 기반 영업 상담·마케팅 에이전트
+> 한화손보 DB 영업 최적화를 위한 영업 데이터 지능화 시스템
 
 ## Purpose
 TM/CM 채널 전사 고객 DB(~30만 명)를 통합 활용하여,
