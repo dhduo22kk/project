@@ -162,8 +162,8 @@
 </div>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('tab1',this)">📞 Tab 1 — 콜 전 준비 <span style="font-size:11px;color:var(--gray)">(상담사)</span></div>
-  <div class="tab" onclick="switchTab('tab2',this)">📊 Tab 2 — 캠페인 추천 대상 생성 <span style="font-size:11px;color:var(--gray)">(본사 스태프)</span></div>
+  <div class="tab active" onclick="switchTab('tab1',this)">📞 맞춤 상담 스크립트 AI <span style="font-size:11px;color:var(--gray)">(상담사)</span></div>
+  <div class="tab" onclick="switchTab('tab2',this)">📊 최적 마케팅 대상 선별 AI <span style="font-size:11px;color:var(--gray)">(본사 스태프)</span></div>
 </div>
 
 <!-- ══════════════════ TAB 1 ══════════════════ -->
@@ -298,6 +298,10 @@
           <div><div class="camp-name">TM마동이벤트_2026Q2</div><div class="camp-meta">TM 채널 · <span style="color:var(--accent);font-weight:700;">이벤트</span></div></div>
           <span style="font-size:18px;color:var(--gray);">›</span>
         </div>
+        <div class="camp-item" onclick="selectCampaign('CM_갱신대상_2026Q2',this)">
+          <div><div class="camp-name">CM_갱신대상_2026Q2</div><div class="camp-meta">CM 채널 · <span style="color:#1d4ed8;font-weight:700;">갱신</span></div></div>
+          <span style="font-size:18px;color:var(--gray);">›</span>
+        </div>
       </div>
     </div>
 
@@ -307,14 +311,14 @@
         <button onclick="editFocus()" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;font-weight:600;font-family:inherit;">편집</button>
       </div>
       <div id="focus-display" class="focus-banner">
-        <strong>주력상품:</strong> 무배당 뇌심혈관 진단비 (50대 남성 타겟)<br>
-        <strong>이슈:</strong> 경쟁사 실손 가격 인상 → 실손 갱신 고객 접촉 강화<br>
-        <strong>제외:</strong> 치매보험 (설계 일시 중단)
+        <strong>주력상품:</strong> 시그니처 여성 건강보험 4.0 (무배당) — 여성 전생애 보장, 업계 최초 가정폭력 법률지원 (30~50대 여성 타겟)<br>
+        <strong>이슈:</strong> 5세대 실손보험 출시(2026.05) — 4세대 대비 보험료 약 30%↓, 기존 가입자 전환 상담 수요 급증<br>
+        <strong>주목:</strong> 무배당 뇌심혈관 진단비 — 50대 남성 연결성공률 유지 중
       </div>
       <div id="focus-edit" style="display:none;">
-        <textarea id="focus-text" style="width:100%;padding:9px;border:1.5px solid var(--accent);border-radius:7px;font-size:13px;line-height:1.7;resize:vertical;height:100px;outline:none;font-family:inherit;">주력상품: 무배당 뇌심혈관 진단비 (50대 남성 타겟)
-이슈: 경쟁사 실손 가격 인상 → 실손 갱신 고객 접촉 강화
-제외: 치매보험 (설계 일시 중단)</textarea>
+        <textarea id="focus-text" style="width:100%;padding:9px;border:1.5px solid var(--accent);border-radius:7px;font-size:13px;line-height:1.7;resize:vertical;height:100px;outline:none;font-family:inherit;">주력상품: 시그니처 여성 건강보험 4.0 (무배당) — 여성 전생애 보장, 업계 최초 가정폭력 법률지원 (30~50대 여성 타겟)
+이슈: 5세대 실손보험 출시(2026.05) — 4세대 대비 보험료 약 30%↓, 기존 가입자 전환 상담 수요 급증
+주목: 무배당 뇌심혈관 진단비 — 50대 남성 연결성공률 유지 중</textarea>
         <button onclick="saveFocus()" style="margin-top:8px;width:100%;padding:7px;background:var(--accent);color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit;">저장 (tbl_ds_sales_focus)</button>
       </div>
     </div>
