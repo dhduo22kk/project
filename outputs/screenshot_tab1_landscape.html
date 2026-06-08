@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#f7f8fa;--card:#fff;--border:#e2e8f0;
+    --accent:#f37321;--accent-light:#fff5ee;
+    --green:#16a34a;--green-bg:#f0fdf4;
+    --yellow:#d97706;--yellow-bg:#fffbeb;
+    --red:#dc2626;
+    --gray:#64748b;--text:#1e293b;--text-sm:#475569;
+    --radius:8px;--shadow:0 1px 4px rgba(0,0,0,0.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Malgun Gothic','Noto Sans KR','Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:12px;width:1920px;height:1080px;overflow:hidden;}
+
+  .header{background:var(--accent);color:#fff;padding:9px 20px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;}
+  .header small{font-size:10px;opacity:.75;font-weight:400;margin-left:6px;}
+  .tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);padding:0 20px;}
+  .tab{padding:9px 18px;font-weight:500;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px;font-size:12px;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;}
+
+  .layout{display:grid;grid-template-columns:268px 1fr;gap:12px;padding:12px 20px;height:calc(1080px - 72px);overflow:hidden;}
+  .left{display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+  .panel{background:var(--card);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);border:1px solid var(--border);}
+  .ptitle{font-weight:700;font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+
+  input[type=text]{width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;}
+  .btn-primary{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px;width:100%;font-size:12px;font-weight:700;font-family:inherit;}
+  .scenario-wrap{margin:8px 0;font-size:10px;color:var(--gray);font-weight:600;margin-bottom:5px;}
+  .sbtnrow{display:flex;gap:5px;margin-top:4px;}
+  .sbtn{padding:4px 10px;border-radius:5px;border:1.5px solid var(--border);background:#fff;font-size:11px;font-weight:600;color:var(--text);}
+  .sbtn.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent);}
+
+  .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+  .kv{background:var(--bg);border-radius:5px;padding:6px 8px;}
+  .kk{font-size:10px;color:var(--gray);margin-bottom:1px;}
+  .vv{font-size:12px;font-weight:700;}
+  .vv.em{color:var(--accent);}
+  .tier-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:var(--green-bg);color:var(--green);}
+  .badge-new{background:#fee2e2;color:var(--red);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:3px;}
+  .badge-gap{background:#fef9c3;color:#92400e;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:3px;}
+
+  .coverage-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;}
+  .coverage-row:last-child{border-bottom:none;}
+  .cname{color:var(--text-sm);}
+  .has{color:var(--green);font-weight:700;}
+  .none{color:#cbd5e1;font-weight:700;}
+
+  .alert-green{background:var(--green-bg);border:1px solid #bbf7d0;border-radius:6px;padding:7px 10px;font-size:11px;color:#166534;line-height:1.5;}
+
+  /* right */
+  .right{display:flex;flex-direction:column;gap:0;}
+  .right .panel{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+  .right-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;}
+  .pb{display:inline-flex;align-items:center;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px;}
+  .pb-hyde{background:#fce7f3;color:#9d174d;}
+  .pb-fewshot{background:#ede9fe;color:#5b21b6;}
+  .pb-cot{background:#dbeafe;color:#1e40af;}
+  .pb-react{background:#d1fae5;color:#064e3b;}
+  .angle-tag{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:700;background:var(--accent-light);color:var(--accent);}
+
+  .right-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;overflow:hidden;}
+
+  .section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+  .section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  .rec-card{border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:7px;}
+  .rec-card-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;}
+  .rec-rank{font-size:18px;font-weight:900;color:var(--accent);min-width:18px;}
+  .rec-pname{font-weight:700;font-size:13px;margin-bottom:2px;}
+  .rec-type{font-size:10px;color:var(--gray);}
+  .rec-reasons{background:var(--bg);border-radius:6px;padding:8px 10px;}
+  .rec-rtitle{font-size:10px;font-weight:700;color:var(--gray);margin-bottom:5px;text-transform:uppercase;}
+  .rec-ritem{display:flex;align-items:flex-start;gap:5px;font-size:11px;color:var(--text-sm);margin-bottom:4px;line-height:1.45;}
+  .rec-ritem:last-child{margin-bottom:0;}
+  .icon{color:var(--accent);flex-shrink:0;}
+
+  .script-box{background:#fafafa;border:1.5px solid var(--border);border-radius:7px;padding:12px;font-size:12px;line-height:1.8;white-space:pre-wrap;font-family:'Malgun Gothic','Noto Sans KR',sans-serif;flex:1;}
+
+  .hashtag-section{background:linear-gradient(135deg,#fff5ee,#fff);border:1.5px solid #fed7aa;border-radius:7px;padding:9px 11px;margin-top:7px;}
+  .ht-title{font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+  .ht-list{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px;}
+  .hashtag{background:var(--accent-light);color:var(--accent);border:1px solid #fed7aa;border-radius:99px;padding:3px 9px;font-size:11px;font-weight:600;}
+  .ht-note{font-size:10px;color:var(--gray);line-height:1.4;}
+
+  .timeline{list-style:none;position:relative;padding-left:14px;}
+  .timeline::before{content:'';position:absolute;left:3px;top:5px;bottom:5px;width:2px;background:var(--border);}
+  .timeline li{position:relative;margin-bottom:8px;padding-left:14px;font-size:11px;}
+  .timeline li::before{content:'';position:absolute;left:-11px;top:4px;width:7px;height:7px;border-radius:50%;border:2px solid #fff;}
+  .timeline li.success::before{background:var(--green);box-shadow:0 0 0 1px var(--green);}
+  .timeline li.miss::before{background:var(--yellow);box-shadow:0 0 0 1px var(--yellow);}
+  .timeline li.fail::before{background:#cbd5e1;box-shadow:0 0 0 1px #cbd5e1;}
+  .tl-date{font-size:10px;color:var(--gray);}
+  .tl-content{font-weight:600;}
+  .tl-meta{font-size:10px;color:var(--gray);margin-top:1px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+  멀티모달 기반 영업 상담·마케팅 에이전트
+  <small>한화손보 DB 영업 최적화를 위한 영업 데이터 지능화 시스템</small>
+</div>
+
+<div class="tabs">
+  <div class="tab active">📞 맞춤 상담 스크립트 AI <span style="font-size:10px;color:var(--gray)">(상담사)</span></div>
+  <div class="tab">📊 최적 마케팅 대상 선별 AI <span style="font-size:10px;color:var(--gray)">(본사 스태프)</span></div>
+</div>
+
+<div class="layout">
+
+  <!-- 좌측 -->
+  <div class="left">
+
+    <div class="panel">
+      <div class="ptitle">고객 조회</div>
+      <div style="margin-bottom:7px;"><input type="text" value="CTM7842310" readonly /></div>
+      <div class="scenario-wrap">▸ 데모 시나리오
+        <div class="sbtnrow">
+          <span class="sbtn">신규 고객</span>
+          <span class="sbtn">미연결 고객</span>
+          <span class="sbtn active">이력 고객</span>
+        </div>
+      </div>
+      <button class="btn-primary">조회 →</button>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">고객 기본 정보</div>
+      <div class="kv-grid">
+        <div class="kv"><div class="kk">고객번호</div><div class="vv em">CTM7842310</div></div>
+        <div class="kv"><div class="kk">나이/성별</div><div class="vv">52세 / 남</div></div>
+        <div class="kv"><div class="kk">유입 캠페인</div><div class="vv" style="font-size:11px;">보장분석TM_2026Q1</div></div>
+        <div class="kv"><div class="kk">분기</div><div><span class="tier-badge">📋 이력 고객</span></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">① 계약 현황 <span style="font-size:9px;font-weight:400;color:var(--green)">즉시 표시</span></div>
+      <div class="kv-grid" style="margin-bottom:7px;">
+        <div class="kv"><div class="kk">가입 상품 수</div><div class="vv em">4건</div></div>
+        <div class="kv"><div class="kk">월 납입 보험료</div><div class="vv">287,000원</div></div>
+        <div class="kv"><div class="kk">최근 가입</div><div class="vv">2025-11</div></div>
+        <div class="kv"><div class="kk">신규 담보</div><div class="vv em" style="font-size:11px;">암진단비 <span class="badge-new">NEW</span></div></div>
+      </div>
+      <div class="alert-green">📞 <strong>오전 11시 전후 응답률 높음</strong> — 오후 2시 이후 조기 종료 패턴</div>
+    </div>
+
+    <div class="panel" style="flex:1;">
+      <div class="ptitle">② 보장 현황</div>
+      <div class="coverage-row"><span class="cname">암진단비</span><span class="has">3,000만원 <span class="badge-new">NEW</span></span></div>
+      <div class="coverage-row"><span class="cname">뇌혈관질환진단비</span><span class="none">미보유 <span class="badge-gap">GAP</span></span></div>
+      <div class="coverage-row"><span class="cname">허혈성심장질환진단비</span><span class="none">미보유 <span class="badge-gap">GAP</span></span></div>
+      <div class="coverage-row"><span class="cname">중증치매</span><span class="none">미보유 <span class="badge-gap">GAP</span></span></div>
+      <div class="coverage-row"><span class="cname">질병입원실손</span><span class="has">5,000만원</span></div>
+      <div class="coverage-row"><span class="cname">일상생활배상책임</span><span class="has">1억원</span></div>
+    </div>
+
+  </div>
+
+  <!-- 우측 -->
+  <div class="right">
+    <div class="panel">
+
+      <div class="right-header">
+        <div class="ptitle" style="margin-bottom:0;">
+          ③ 추천 상품 + 맞춤 스크립트
+          <span class="pb pb-hyde">HyDE</span>
+          <span class="pb pb-fewshot">Few-Shot</span>
+          <span class="pb pb-cot">CoT</span>
+          <span class="pb pb-react">ReAct</span>
+          <span style="font-size:9px;color:var(--accent);margin-left:3px;font-weight:400;">LLM 스트리밍</span>
+        </div>
+        <span class="angle-tag">담보 gap 보완</span>
+      </div>
+
+      <div class="right-body">
+
+        <!-- 좌: 추천+타임라인 -->
+        <div style="overflow:hidden;display:flex;flex-direction:column;gap:8px;">
+          <div>
+            <div class="section-label">추천 상품</div>
+            <div class="rec-card">
+              <div class="rec-card-header">
+                <div class="rec-rank">1</div>
+                <div><div class="rec-pname">무배당 뇌심혈관 진단비</div><div class="rec-type">건강보험 · 비갱신형</div></div>
+              </div>
+              <div class="rec-reasons">
+                <div class="rec-rtitle">추천 근거</div>
+                <div class="rec-ritem"><span class="icon">▸</span><span>3월 통화에서 고객이 직접 "뇌혈관 쪽 보장이 없는 게 걱정"이라고 언급 (녹취 기반)</span></div>
+                <div class="rec-ritem"><span class="icon">▸</span><span>뇌혈관·허혈성심장질환 담보 현재 둘 다 0원 — 보장 gap 중 가장 큰 공백</span></div>
+                <div class="rec-ritem"><span class="icon">▸</span><span>지난 11월 암진단비 신규 가입 흐름과 자연스럽게 연결되는 다음 단계</span></div>
+              </div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-card-header">
+                <div class="rec-rank">2</div>
+                <div><div class="rec-pname">중증치매보험</div><div class="rec-type">치매보험</div></div>
+              </div>
+              <div class="rec-reasons">
+                <div class="rec-rtitle">추천 근거</div>
+                <div class="rec-ritem"><span class="icon">▸</span><span>52세 남성은 치매보험 가입 마지노선 연령대 — 이후 보험료 급등 또는 가입 제한</span></div>
+                <div class="rec-ritem"><span class="icon">▸</span><span>뇌심혈관과 함께 묶어서 제안하면 자연스러운 흐름으로 한번에 정리 가능</span></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">통화 이력</div>
+            <ul class="timeline">
+              <li class="success"><div class="tl-date">2026-03-15 11:23</div><div class="tl-content">연결성공</div><div class="tl-meta">통화 4분 12초 · 우호적 · "뇌혈관 보장 없는 게 걱정" 직접 언급</div></li>
+              <li class="miss"><div class="tl-date">2026-02-28 16:05</div><div class="tl-content">연결성공</div><div class="tl-meta">통화 1분 32초 · 비우호적 · "바쁘다" 조기 종료</div></li>
+              <li class="fail"><div class="tl-date">2026-02-10 09:44</div><div class="tl-content">미연결</div><div class="tl-meta">무응답 (통화시간 0초)</div></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 우: 스크립트+해시태그 -->
+        <div style="display:flex;flex-direction:column;overflow:hidden;">
+          <div class="section-label">맞춤 스크립트</div>
+          <div class="script-box">안녕하세요, 고객님. 한화손해보험 김○○입니다.
+3월에 한 번 통화드렸던 거 기억하시나요?
+
+그때 뇌혈관 쪽 보장이 없는 게 마음에 걸린다고 말씀하셨는데,
+그 말씀이 생각이 나서 다시 연락드렸어요.
+
+지금 확인해 보니까 아직 뇌혈관 쪽이 하나도 없으시더라고요.
+지난 11월에 암보험 챙기신 것처럼, 이번엔 뇌심혈관 쪽도 정리해 드리고 싶어서요.
+
+52세 되시면 이 상품 보험료가 올라가서
+지금이 사실 가장 좋은 타이밍이거든요.
+
+잠깐 말씀드려도 될까요?</div>
+          <div class="hashtag-section">
+            <div class="ht-title">고능률 상담사 접근 키워드</div>
+            <div class="ht-list">
+              <span class="hashtag">#과거통화맥락직접환기</span>
+              <span class="hashtag">#고객발언녹취반영</span>
+              <span class="hashtag">#최근가입연계제안</span>
+              <span class="hashtag">#지금이타이밍강조</span>
+            </div>
+            <div class="ht-note">※ 이력 고객 재통화 성공 콜 Top 3 (동일 캠페인·우호적 이력, Chroma 직접 조회) 기반 추출</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

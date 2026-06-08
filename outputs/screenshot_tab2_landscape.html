@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --bg:#f7f8fa;--card:#fff;--border:#e2e8f0;
+    --accent:#f37321;--accent-light:#fff5ee;
+    --green:#16a34a;--green-bg:#f0fdf4;
+    --yellow:#d97706;--yellow-bg:#fffbeb;
+    --gray:#64748b;--text:#1e293b;--text-sm:#475569;
+    --radius:8px;--shadow:0 1px 4px rgba(0,0,0,0.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Malgun Gothic','Noto Sans KR','Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:12px;width:1920px;height:1080px;overflow:hidden;}
+
+  .header{background:var(--accent);color:#fff;padding:9px 20px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;}
+  .header small{font-size:10px;opacity:.75;font-weight:400;margin-left:6px;}
+  .tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);padding:0 20px;}
+  .tab{padding:9px 18px;font-weight:500;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px;font-size:12px;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;}
+
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:12px;padding:12px 20px;height:calc(1080px - 72px);overflow:hidden;}
+  .left{display:flex;flex-direction:column;gap:8px;}
+  .panel{background:var(--card);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);border:1px solid var(--border);}
+  .ptitle{font-weight:700;font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+
+  .camp-list{display:flex;flex-direction:column;}
+  .camp-item{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12px;}
+  .camp-item.selected{background:var(--accent-light);border-left:3px solid var(--accent);}
+  .camp-name{font-weight:600;color:var(--text);}
+  .camp-meta{font-size:10px;color:var(--gray);margin-top:1px;}
+
+  .focus-banner{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:7px;padding:9px 12px;font-size:11px;line-height:1.65;}
+  .focus-banner strong{color:var(--green);}
+
+  /* right QA */
+  .right{display:flex;flex-direction:column;}
+  .right .panel{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+  .qa-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-shrink:0;}
+  .qa-title-text{font-weight:700;font-size:14px;}
+  .camp-badge{font-size:10px;padding:2px 8px;border-radius:99px;font-weight:700;background:#f0fdf4;color:#16a34a;}
+
+  .qa-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;overflow:hidden;}
+
+  .qa-step{margin-bottom:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;}
+  .qa-step.done{background:var(--green-bg);border-color:#bbf7d0;}
+  .qa-step.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-light);}
+  .qa-agent{display:flex;gap:7px;margin-bottom:7px;}
+  .qa-icon{width:22px;height:22px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0;}
+  .qa-text{font-size:12px;color:var(--text);line-height:1.5;flex:1;}
+  .qa-answer{background:var(--bg);border-radius:5px;padding:6px 8px;font-size:12px;font-weight:600;color:var(--green);}
+
+  .prev-card{background:var(--yellow-bg);border:1px solid #fde68a;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:12px;line-height:1.6;}
+  .result-summary{background:var(--green-bg);border:1.5px solid #86efac;border-radius:7px;padding:10px 12px;margin-bottom:8px;}
+  .rs-title{font-weight:700;font-size:12px;color:var(--green);margin-bottom:5px;}
+  .rs-body{font-size:12px;color:var(--text-sm);line-height:1.65;}
+  .strategy-note{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 11px;font-size:11px;line-height:1.65;color:var(--text-sm);margin-bottom:8px;}
+
+  .excel-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;}
+  .excel-table th{background:#e2e8f0;padding:5px 9px;text-align:left;font-weight:700;font-size:11px;}
+  .excel-table td{padding:4px 9px;border-bottom:1px solid var(--border);font-family:monospace;}
+  .excel-table tr:nth-child(even) td{background:#f8fafc;}
+  .btn-green{background:var(--green);color:#fff;padding:7px 16px;border:none;border-radius:6px;font-weight:700;font-size:12px;font-family:inherit;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+  멀티모달 기반 영업 상담·마케팅 에이전트
+  <small>한화손보 DB 영업 최적화를 위한 영업 데이터 지능화 시스템</small>
+</div>
+
+<div class="tabs">
+  <div class="tab">📞 맞춤 상담 스크립트 AI <span style="font-size:10px;color:var(--gray)">(상담사)</span></div>
+  <div class="tab active">📊 최적 마케팅 대상 선별 AI <span style="font-size:10px;color:var(--gray)">(본사 스태프)</span></div>
+</div>
+
+<div class="layout">
+
+  <!-- 좌측 -->
+  <div class="left">
+    <div class="panel" style="padding:0;overflow:hidden;flex-shrink:0;">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:12px;">캠페인 선택</div>
+      <div class="camp-list">
+        <div class="camp-item" style="color:var(--accent);"><div><div class="camp-name" style="color:var(--accent);">+ 신규 캠페인</div><div class="camp-meta">새로운 캠페인 대상 생성</div></div><span style="font-size:16px;color:var(--accent);">›</span></div>
+        <div class="camp-item"><div><div class="camp-name">보장분석TM_2026Q1</div><div class="camp-meta">TM 채널</div></div><span style="font-size:16px;color:var(--gray);">›</span></div>
+        <div class="camp-item selected"><div><div class="camp-name">뇌심혈관TM_2026Q1</div><div class="camp-meta">TM 채널</div></div><span style="font-size:16px;color:var(--accent);">›</span></div>
+        <div class="camp-item"><div><div class="camp-name">POM_2025Q3</div><div class="camp-meta">TM 채널</div></div><span style="font-size:16px;color:var(--gray);">›</span></div>
+        <div class="camp-item"><div><div class="camp-name">암보험_TM_2025Q4</div><div class="camp-meta">TM 채널</div></div><span style="font-size:16px;color:var(--gray);">›</span></div>
+        <div class="camp-item"><div><div class="camp-name">TM마동이벤트_2026Q2</div><div class="camp-meta">TM 채널 · <span style="color:var(--accent);font-weight:700;">이벤트</span></div></div><span style="font-size:16px;color:var(--gray);">›</span></div>
+        <div class="camp-item"><div><div class="camp-name">CM_갱신대상_2026Q2</div><div class="camp-meta">CM 채널 · <span style="color:#1d4ed8;font-weight:700;">갱신</span></div></div><span style="font-size:16px;color:var(--gray);">›</span></div>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="ptitle" style="margin-bottom:0;">이달 영업 포커스</div>
+        <button style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:#fff;font-weight:600;font-family:inherit;">편집</button>
+      </div>
+      <div class="focus-banner">
+        <strong>주력상품:</strong> 시그니처 여성 건강보험 4.0 (무배당) — 30~50대 여성 타겟<br>
+        <strong>이슈:</strong> 5세대 실손보험 출시(2026.05) — 4세대 대비 보험료 약 30%↓<br>
+        <strong>주목:</strong> 무배당 뇌심혈관 진단비 — 50대 남성 연결성공률 유지 중
+      </div>
+    </div>
+  </div>
+
+  <!-- 우측 -->
+  <div class="right">
+    <div class="panel">
+
+      <div class="qa-header">
+        <div class="qa-title-text">뇌심혈관TM_2026Q1</div>
+        <span class="camp-badge">기존 캠페인</span>
+      </div>
+
+      <div class="qa-body">
+
+        <!-- 좌: Step 0~3 완료 -->
+        <div style="overflow:hidden;">
+          <div class="qa-step done">
+            <div class="qa-agent"><div class="qa-icon">AI</div><div class="qa-text">어떤 캠페인을 진행하실 건가요?</div></div>
+            <div class="qa-answer">✓ 뇌심혈관 · TM 채널 · 남성 · 50대</div>
+          </div>
+          <div class="qa-step done">
+            <div class="qa-agent"><div class="qa-icon">AI</div><div class="qa-text">신규 추천 대상 리스트를 새로 만들까요?</div></div>
+            <div class="qa-answer">✓ 네, 새로 만들게요</div>
+          </div>
+          <div class="qa-step done">
+            <div class="qa-agent"><div class="qa-icon">AI</div><div class="qa-text">추출할 목표 인원 수를 입력해주세요.</div></div>
+            <div class="qa-answer">✓ 3,000명</div>
+          </div>
+          <div class="qa-step done">
+            <div class="qa-agent"><div class="qa-icon">AI</div><div class="qa-text">어떤 방식으로 추출할까요?</div></div>
+            <div class="qa-answer">✓ 과거 실적 기반</div>
+          </div>
+        </div>
+
+        <!-- 우: Step 4 결과 -->
+        <div style="overflow:hidden;">
+          <div class="qa-step active" style="height:100%;overflow:auto;">
+            <div class="qa-agent"><div class="qa-icon">AI</div><div class="qa-text"><strong>조건 요약 — 추출이 완료되었습니다.</strong></div></div>
+
+            <div class="prev-card">
+              <strong style="color:var(--yellow);">직전 캠페인 비교</strong>
+              <span style="font-size:10px;color:var(--gray);margin-left:5px;">과거 실적 참고치 · ML 예측 아님</span><br>
+              직전 캠페인: <strong>뇌심혈관TM_2025Q3</strong> &nbsp;|&nbsp; 체결율: <strong style="color:var(--green);font-size:14px;">18.3%</strong>
+            </div>
+
+            <div class="result-summary">
+              <div class="rs-title">추출 조건</div>
+              <div class="rs-body">
+                <strong>캠페인 유형:</strong> 뇌심혈관 · TM 채널 · 남성 · 50대<br>
+                <strong>신규 리스트:</strong> 신규 생성 &nbsp;|&nbsp; <strong>목표 인원:</strong> 3,000명<br>
+                <strong>추출 방식:</strong> 과거 실적 기반
+              </div>
+            </div>
+
+            <div class="strategy-note">
+              <strong style="color:var(--accent);">접근 전략 요약</strong><br>
+              50대 남성, 뇌심혈관 보장 공백 + 최근 6개월 TM 연결성공 이력 고객 기반 추출<br>
+              → 도입부에서 뇌졸중·심근경색 보장 공백 직접 언급 권장
+            </div>
+
+            <table class="excel-table">
+              <tr><th>CTMNO</th></tr>
+              <tr><td>CTM7842310</td></tr>
+              <tr><td>CTM5519033</td></tr>
+              <tr><td>CTM8801247</td></tr>
+              <tr><td style="color:var(--gray);font-style:italic;">… 2,997건 더</td></tr>
+            </table>
+            <button class="btn-green">📥 Excel 다운로드 (3,000명)</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
