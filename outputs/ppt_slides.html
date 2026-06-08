@@ -1,1100 +1,1040 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>멀티모달 기반 영업 상담·마케팅 에이전트</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Noto+Serif+KR:wght@400;600;700;900&family=Urbanist:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-  <style>
-    /* ── Reset & Base ── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 100%; height: 100%;
-      background: #0f0f14;
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Noto Sans KR', sans-serif;
-      overflow: hidden;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>멀티모달 기반 영업 상담·마케팅 에이전트 — 한화손보</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Urbanist:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hanwha: {
+                            orange: '#f37321',
+                            dark:   '#2d2926',
+                            gray:   '#706e6b',
+                        }
+                    },
+                    fontFamily: {
+                        sans:  ['Noto Sans KR', 'sans-serif'],
+                        urban: ['Urbanist', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* ── 슬라이드 쇼 레이아웃 ── */
+        body {
+            margin: 0; padding: 0;
+            background: #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Noto Sans KR', sans-serif;
+            color: #2d2926;
+            overflow: hidden;
+        }
 
-    /* ── Deck Container ── */
-    #deck {
-      position: relative;
-      width: 960px;
-      height: 540px;
-      overflow: hidden;
-      box-shadow: 0 32px 80px rgba(0,0,0,.7);
-    }
+        /* 슬라이드 래퍼 — 1280×720 고정 */
+        #slide-deck {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            box-shadow: 0 25px 60px rgba(0,0,0,.18), 0 8px 20px rgba(0,0,0,.10);
+        }
 
-    /* ── Slides ── */
-    .slide {
-      position: absolute; inset: 0;
-      width: 960px; height: 540px;
-      background: #f8fafc;
-      display: none;
-      overflow: hidden;
-    }
-    .slide.active { display: flex; flex-direction: column; }
+        .slide {
+            position: absolute;
+            inset: 0;
+            width: 1280px;
+            height: 720px;
+            background: #fff;
+            display: none;
+            overflow: hidden;
+        }
+        .slide.active { display: flex; flex-direction: column; }
 
-    /* ── Slide Number ── */
-    .slide-num {
-      position: absolute;
-      bottom: 14px; left: 50%; transform: translateX(-50%);
-      font-family: 'Urbanist', sans-serif;
-      font-size: 12px; font-weight: 600;
-      color: rgba(255,255,255,.45);
-      letter-spacing: .08em;
-      z-index: 50;
-    }
-    .slide-num.dark { color: rgba(255,255,255,.4); }
-    .slide-num.light { color: rgba(100,116,139,.6); }
+        /* ── 하단 컨트롤 바 ── */
+        #controls {
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            user-select: none;
+        }
+        .nav-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            color: #706e6b;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s, color .15s, border-color .15s;
+        }
+        .nav-btn:hover {
+            background: #f37321;
+            border-color: #f37321;
+            color: #fff;
+        }
+        #slide-counter {
+            font-family: 'Urbanist', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: #706e6b;
+            letter-spacing: .06em;
+            min-width: 52px;
+            text-align: center;
+        }
 
-    /* ── Nav Buttons ── */
-    .nav-btn {
-      position: fixed;
-      top: 50%; transform: translateY(-50%);
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      background: rgba(255,255,255,.10);
-      border: 1px solid rgba(255,255,255,.18);
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: background .2s;
-      z-index: 200;
-    }
-    .nav-btn:hover { background: rgba(243,115,33,.75); }
-    #btn-prev { left: calc(50% - 540px); }
-    #btn-next { right: calc(50% - 540px); }
+        /* ── 공통 헤더/푸터 ── */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 40px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            flex-shrink: 0;
+        }
+        .brand { font-family: 'Urbanist','Noto Sans KR',sans-serif; font-weight: 900; font-size: 17px; color: #f37321; letter-spacing: -.02em; }
+        .header-right { font-size: 11px; color: #706e6b; font-weight: 500; letter-spacing: .04em; }
 
-    /* ─────────────────────────────────────────
-       SLIDE 1 — Cover
-    ───────────────────────────────────────── */
-    #s1 {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%);
-      align-items: center; justify-content: center;
-      text-align: center;
-      position: relative;
-    }
-    #s1::before {
-      content: '';
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse 700px 400px at 80% 20%, rgba(243,115,33,.18) 0%, transparent 70%),
-        radial-gradient(ellipse 500px 300px at 15% 80%, rgba(243,115,33,.10) 0%, transparent 65%);
-    }
-    .s1-tag {
-      display: inline-block;
-      background: #f37321;
-      color: #fff;
-      font-family: 'Urbanist', sans-serif;
-      font-size: 11px; font-weight: 700;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-      padding: 5px 16px;
-      border-radius: 20px;
-      margin-bottom: 28px;
-      position: relative; z-index: 2;
-    }
-    .s1-title {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 36px; font-weight: 900;
-      color: #ffffff;
-      line-height: 1.3;
-      position: relative; z-index: 2;
-      letter-spacing: -.02em;
-      margin-bottom: 16px;
-    }
-    .s1-title span { color: #f37321; }
-    .s1-sub {
-      font-size: 15px; font-weight: 400;
-      color: rgba(255,255,255,.72);
-      line-height: 1.6;
-      position: relative; z-index: 2;
-      margin-bottom: 40px;
-    }
-    .s1-footer {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 13px; font-weight: 500;
-      color: rgba(255,255,255,.45);
-      letter-spacing: .06em;
-      position: relative; z-index: 2;
-    }
-    .s1-footer span { color: rgba(255,255,255,.65); }
+        .slide-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 12px 40px 18px;
+            border-top: 1px solid #f1f5f9;
+            flex-shrink: 0;
+        }
+        .page-num { font-family: 'Urbanist', sans-serif; font-weight: 900; font-size: 36px; color: #f37321; line-height: 1; }
 
-    /* ─────────────────────────────────────────
-       SLIDE 2 — Executive Summary
-    ───────────────────────────────────────── */
-    #s2 { padding: 0; }
-    .s2-inner {
-      display: flex; width: 100%; height: 100%;
-    }
-    .s2-left {
-      width: 42%; background: #1a1a2e;
-      padding: 48px 36px;
-      display: flex; flex-direction: column; justify-content: center;
-      position: relative;
-    }
-    .s2-left::after {
-      content: '';
-      position: absolute; right: 0; top: 15%; bottom: 15%;
-      width: 3px;
-      background: linear-gradient(to bottom, transparent, #f37321, transparent);
-    }
-    .s2-section-num {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 64px; font-weight: 900;
-      color: rgba(243,115,33,.15);
-      line-height: 1;
-      margin-bottom: 6px;
-    }
-    .s2-label {
-      font-size: 11px; font-weight: 700;
-      color: #f37321;
-      letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: 18px;
-    }
-    .s2-headline {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 17px; font-weight: 700;
-      color: #ffffff;
-      line-height: 1.7;
-    }
-    .s2-headline em {
-      font-style: normal;
-      color: #f37321;
-    }
-    .s2-right {
-      flex: 1;
-      padding: 40px 36px;
-      display: flex; flex-direction: column; justify-content: center;
-      gap: 18px;
-    }
-    .s2-compare-row {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-    }
-    .compare-card {
-      border-radius: 12px;
-      padding: 18px 20px;
-    }
-    .compare-card.asis {
-      background: #fff0eb;
-      border: 1.5px solid #fbd0b8;
-    }
-    .compare-card.tobe {
-      background: #fff8f4;
-      border: 1.5px solid #f37321;
-    }
-    .compare-card-label {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: 12px;
-    }
-    .compare-card.asis .compare-card-label { color: #b45309; }
-    .compare-card.tobe .compare-card-label { color: #f37321; }
-    .compare-item {
-      font-size: 13px; color: #334155;
-      padding: 5px 0;
-      border-bottom: 1px solid rgba(0,0,0,.06);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .compare-item:last-child { border-bottom: none; }
-    .compare-item i { font-size: 11px; width: 14px; text-align: center; }
-    .compare-card.asis .compare-item i { color: #dc2626; }
-    .compare-card.tobe .compare-item i { color: #f37321; }
+        /* ── 섹션 타이틀 유틸 ── */
+        .sec-title { font-size: 22px; font-weight: 900; color: #2d2926; letter-spacing: -.02em; }
+        .sec-sub   { font-size: 12px; color: #706e6b; font-weight: 500; }
 
-    /* ─────────────────────────────────────────
-       SLIDE 3 — Background
-    ───────────────────────────────────────── */
-    #s3 { padding: 44px 56px 50px; }
-    .slide-header {
-      display: flex; align-items: baseline; gap: 16px;
-      margin-bottom: 30px;
-    }
-    .sec-num {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 52px; font-weight: 900;
-      color: rgba(243,115,33,.18);
-      line-height: 1;
-    }
-    .slide-title {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 24px; font-weight: 700;
-      color: #1e293b;
-      letter-spacing: -.02em;
-    }
-    .pain-grid {
-      display: grid; grid-template-columns: repeat(3,1fr); gap: 16px;
-      margin-bottom: 22px;
-    }
-    .pain-card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 22px 20px;
-      border: 1.5px solid #e2e8f0;
-      position: relative;
-      overflow: hidden;
-    }
-    .pain-card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, #f37321, #fb923c);
-    }
-    .pain-icon {
-      width: 40px; height: 40px;
-      border-radius: 10px;
-      background: #fff7ed;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      color: #f37321;
-      margin-bottom: 14px;
-    }
-    .pain-title {
-      font-size: 14px; font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 8px;
-      line-height: 1.4;
-    }
-    .pain-desc {
-      font-size: 12.5px; color: #64748b;
-      line-height: 1.6;
-    }
-    .slide-cta {
-      text-align: center;
-      font-size: 14px; font-weight: 600;
-      color: #f37321;
-      background: #fff7ed;
-      border-radius: 10px;
-      padding: 12px 20px;
-      border: 1px solid #fed7aa;
-    }
+        /* ── 주황 pill ── */
+        .tag-pill { display: inline-block; background: #fff7ed; border: 1px solid #fed7aa; color: #f37321; font-weight: 700; font-size: 11px; border-radius: 20px; padding: 3px 12px; }
+        .tag-pill-solid { display: inline-block; background: #f37321; color: #fff; font-weight: 700; font-size: 11px; border-radius: 20px; padding: 3px 12px; }
 
-    /* ─────────────────────────────────────────
-       SLIDE 4 — WOW① Script
-    ───────────────────────────────────────── */
-    #s4 { padding: 0; }
-    .s4-inner { display: flex; width: 100%; height: 100%; }
-    .s4-left {
-      width: 38%;
-      background: #1a1a2e;
-      padding: 44px 30px;
-      display: flex; flex-direction: column; justify-content: center;
-    }
-    .s4-label {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      color: #f37321;
-      letter-spacing: .16em; text-transform: uppercase;
-      margin-bottom: 10px;
-    }
-    .s4-title {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 20px; font-weight: 700;
-      color: #fff;
-      line-height: 1.45;
-      margin-bottom: 28px;
-    }
-    .flow-steps { display: flex; flex-direction: column; gap: 0; }
-    .flow-step {
-      display: flex; align-items: flex-start; gap: 12px;
-      position: relative;
-    }
-    .flow-step + .flow-step { margin-top: 4px; }
-    .flow-dot-col {
-      display: flex; flex-direction: column; align-items: center;
-      min-width: 24px;
-    }
-    .flow-dot {
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      background: #f37321;
-      color: #fff;
-      font-family: 'Urbanist', sans-serif;
-      font-size: 11px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .flow-line {
-      width: 2px; flex: 1;
-      background: rgba(243,115,33,.3);
-      min-height: 14px;
-    }
-    .flow-text {
-      font-size: 12.5px; color: rgba(255,255,255,.8);
-      line-height: 1.5;
-      padding: 3px 0 10px;
-    }
-    .flow-text strong { color: #fb923c; font-weight: 600; }
-    .s4-right {
-      flex: 1;
-      background: #f8fafc;
-      padding: 36px 32px;
-      display: flex; flex-direction: column; justify-content: center;
-    }
-    .script-box {
-      background: #fff;
-      border-radius: 14px;
-      border: 1.5px solid #e2e8f0;
-      padding: 22px 24px;
-      position: relative;
-      margin-bottom: 16px;
-    }
-    .script-box-label {
-      position: absolute; top: -11px; left: 20px;
-      background: #f37321;
-      color: #fff;
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      letter-spacing: .1em;
-      padding: 3px 12px;
-      border-radius: 20px;
-    }
-    .script-text {
-      font-size: 13.5px; color: #1e293b;
-      line-height: 1.75;
-    }
-    .script-text em {
-      font-style: normal;
-      background: linear-gradient(120deg, rgba(243,115,33,.2), rgba(243,115,33,.1));
-      border-radius: 3px;
-      padding: 1px 3px;
-      color: #c2410c;
-      font-weight: 600;
-    }
-    .hashtag-row {
-      display: flex; flex-wrap: wrap; gap: 6px;
-    }
-    .hashtag {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 11px; font-weight: 700;
-      color: #f37321;
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      border-radius: 20px;
-      padding: 4px 12px;
-    }
+        /* ── 파이프라인 화살표 ── */
+        .pipe-arrow { width: 100%; text-align: center; color: #f37321; font-size: 13px; margin: 2px 0; }
 
-    /* ─────────────────────────────────────────
-       SLIDE 5 — System Integration + Campaign
-    ───────────────────────────────────────── */
-    #s5 { padding: 38px 50px 48px; }
-    .s5-top {
-      background: #1a1a2e;
-      border-radius: 14px;
-      padding: 20px 28px;
-      margin-bottom: 20px;
-      display: flex; gap: 24px; align-items: center;
-    }
-    .s5-top-icon {
-      font-size: 32px; color: #f37321;
-      flex-shrink: 0;
-    }
-    .s5-top-content { flex: 1; }
-    .s5-top-title {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 11px; font-weight: 800;
-      color: #f37321;
-      letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-    .s5-flow-line {
-      font-size: 13px; color: rgba(255,255,255,.85);
-      line-height: 1.6;
-    }
-    .s5-flow-line span {
-      color: #fb923c; font-weight: 600;
-    }
-    .s5-bottom { }
-    .s5-bottom-label {
-      font-size: 11px; font-weight: 700;
-      color: #94a3b8;
-      letter-spacing: .12em; text-transform: uppercase;
-      margin-bottom: 12px;
-    }
-    .campaign-grid {
-      display: grid; grid-template-columns: repeat(3,1fr); gap: 12px;
-    }
-    .campaign-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 18px 18px;
-      border: 1.5px solid #e2e8f0;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .campaign-card-num {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 28px; font-weight: 900;
-      color: rgba(243,115,33,.2);
-      line-height: 1;
-    }
-    .campaign-card-title {
-      font-size: 13px; font-weight: 700;
-      color: #1e293b;
-    }
-    .campaign-card-desc {
-      font-size: 12px; color: #64748b;
-      line-height: 1.5;
-    }
-
-    /* ─────────────────────────────────────────
-       SLIDE 6 — Impact
-    ───────────────────────────────────────── */
-    #s6 { padding: 40px 56px 50px; }
-    .impact-grid {
-      display: grid; grid-template-columns: repeat(3,1fr); gap: 16px;
-    }
-    .impact-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 28px 22px;
-      border: 1.5px solid #e2e8f0;
-      position: relative;
-      overflow: hidden;
-      display: flex; flex-direction: column; gap: 12px;
-    }
-    .impact-card::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, #f37321 0%, #fb923c 100%);
-    }
-    .impact-icon-wrap {
-      width: 48px; height: 48px;
-      border-radius: 14px;
-      background: #fff7ed;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-      color: #f37321;
-    }
-    .impact-title {
-      font-size: 15px; font-weight: 700;
-      color: #1e293b;
-      line-height: 1.4;
-    }
-    .impact-desc {
-      font-size: 12.5px; color: #64748b;
-      line-height: 1.65;
-    }
-
-    /* ─────────────────────────────────────────
-       SLIDE 7 — Architecture
-    ───────────────────────────────────────── */
-    #s7 { padding: 36px 48px 48px; background: #f8fafc; }
-    .arch-body {
-      display: flex; gap: 18px; margin-bottom: 18px;
-    }
-    .pipeline-col {
-      display: flex; flex-direction: column; gap: 8px; flex: 1;
-    }
-    .pipeline-col-title {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      color: #94a3b8;
-      letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-    .pipe-card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 12px 14px;
-      border: 1.5px solid #e2e8f0;
-      font-size: 12px; color: #334155;
-      line-height: 1.5;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .pipe-card i { color: #f37321; font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
-    .pipe-arrow {
-      font-size: 16px; color: rgba(243,115,33,.5);
-      text-align: center;
-    }
-    .arch-center {
-      display: flex; align-items: center;
-      padding: 0 8px;
-    }
-    .arch-arrow-big {
-      font-size: 22px; color: #f37321;
-    }
-    .agent-box {
-      flex: 1.4;
-      background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
-      border-radius: 14px;
-      padding: 20px 20px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .agent-box-label {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      color: #f37321; letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: 2px;
-    }
-    .agent-nodes {
-      display: flex; flex-wrap: wrap; gap: 6px;
-    }
-    .node-chip {
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.15);
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10.5px; font-weight: 600;
-      color: rgba(255,255,255,.8);
-    }
-    .agent-output {
-      display: flex; gap: 8px; margin-top: 4px;
-    }
-    .output-chip {
-      flex: 1;
-      background: rgba(243,115,33,.2);
-      border: 1px solid rgba(243,115,33,.35);
-      border-radius: 8px;
-      padding: 8px 12px;
-      text-align: center;
-      font-size: 11.5px; font-weight: 700;
-      color: #fb923c;
-    }
-    .stack-row {
-      display: flex; flex-wrap: wrap; gap: 6px;
-    }
-    .stack-tag {
-      background: #fff;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-family: 'Urbanist', sans-serif;
-      font-size: 11px; font-weight: 700;
-      color: #475569;
-    }
-    .stack-tag.orange {
-      background: #fff7ed;
-      border-color: #fed7aa;
-      color: #c2410c;
-    }
-
-    /* ─────────────────────────────────────────
-       SLIDE 8 — Vibe Coding
-    ───────────────────────────────────────── */
-    #s8 { padding: 40px 52px 50px; }
-    .vibe-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
-    }
-    .vibe-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 20px 20px;
-      border: 1.5px solid #e2e8f0;
-      display: flex; gap: 14px; align-items: flex-start;
-    }
-    .vibe-icon {
-      width: 36px; height: 36px;
-      border-radius: 10px;
-      background: #fff7ed;
-      display: flex; align-items: center; justify-content: center;
-      color: #f37321; font-size: 16px;
-      flex-shrink: 0;
-    }
-    .vibe-text { flex: 1; }
-    .vibe-title {
-      font-size: 13px; font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 6px;
-    }
-    .vibe-desc {
-      font-size: 12px; color: #64748b;
-      line-height: 1.6;
-    }
-    .vibe-desc em {
-      font-style: normal; color: #f37321; font-weight: 600;
-    }
-    .timeline-row {
-      margin-top: 18px;
-      background: #fff;
-      border-radius: 12px;
-      padding: 14px 20px;
-      border: 1.5px solid #e2e8f0;
-      display: flex; align-items: center; gap: 0;
-    }
-    .tl-item {
-      flex: 1; text-align: center; position: relative;
-    }
-    .tl-item + .tl-item::before {
-      content: '';
-      position: absolute; left: 0; top: 50%;
-      width: 100%; height: 2px;
-      background: #e2e8f0;
-      transform: translateY(-50%) translateX(-50%);
-      z-index: 0;
-    }
-    .tl-dot {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      background: #f37321;
-      color: #fff;
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 6px;
-      position: relative; z-index: 1;
-    }
-    .tl-label {
-      font-size: 11px; font-weight: 600;
-      color: #475569;
-      line-height: 1.4;
-    }
-    .tl-sub {
-      font-size: 10px; color: #94a3b8;
-    }
-
-    /* ─────────────────────────────────────────
-       SLIDE 9 — Closing
-    ───────────────────────────────────────── */
-    #s9 {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%);
-      align-items: center; justify-content: center;
-      text-align: center;
-      position: relative;
-    }
-    #s9::before {
-      content: '';
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse 600px 400px at 50% 50%, rgba(243,115,33,.12) 0%, transparent 70%);
-    }
-    .s9-tagline {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 34px; font-weight: 900;
-      color: #fff;
-      letter-spacing: -.02em;
-      line-height: 1.3;
-      margin-bottom: 12px;
-      position: relative; z-index: 2;
-    }
-    .s9-tagline span { color: #f37321; }
-    .s9-sub {
-      font-size: 14px; color: rgba(255,255,255,.6);
-      margin-bottom: 36px;
-      position: relative; z-index: 2;
-    }
-    .s9-links {
-      display: flex; gap: 16px; justify-content: center;
-      position: relative; z-index: 2;
-      margin-bottom: 36px;
-    }
-    .s9-link-card {
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 12px;
-      padding: 14px 28px;
-      min-width: 200px;
-    }
-    .s9-link-label {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 10px; font-weight: 800;
-      color: #f37321;
-      letter-spacing: .14em; text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .s9-link-val {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 14px; font-weight: 600;
-      color: rgba(255,255,255,.7);
-    }
-    .s9-footer {
-      font-family: 'Urbanist', sans-serif;
-      font-size: 12px; font-weight: 500;
-      color: rgba(255,255,255,.35);
-      letter-spacing: .08em;
-      position: relative; z-index: 2;
-    }
-    .s9-footer span { color: rgba(255,255,255,.55); }
-  </style>
+        @media print {
+            body { background: #fff; overflow: auto; }
+            #slide-deck { box-shadow: none; border: none; }
+            #controls { display: none; }
+            .slide { position: relative; display: flex !important; page-break-after: always; margin-bottom: 20px; }
+        }
+    </style>
 </head>
 <body>
 
-<!-- Nav Buttons -->
-<button class="nav-btn" id="btn-prev" onclick="changeSlide(-1)"><i class="fa fa-chevron-left"></i></button>
-<button class="nav-btn" id="btn-next" onclick="changeSlide(1)"><i class="fa fa-chevron-right"></i></button>
+<!-- ══════════════════════════════════
+     슬라이드 덱
+═══════════════════════════════════ -->
+<div id="slide-deck">
 
-<div id="deck">
+    <!-- ════════════════════════════════════
+         SLIDE 1 — 표지
+    ═════════════════════════════════════ -->
+    <div class="slide active" id="s1">
+        <!-- 배경 주황 장식 -->
+        <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(ellipse 900px 500px at 110% -10%, rgba(243,115,33,.07) 0%, transparent 70%);"></div>
+        <div class="absolute bottom-0 right-0 w-80 h-80 pointer-events-none" style="background: radial-gradient(circle at 100% 100%, rgba(243,115,33,.05) 0%, transparent 70%);"></div>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 1 — Cover
-  ─────────────────────────────────────────── -->
-  <section class="slide active" id="s1">
-    <div class="s1-tag"><i class="fa fa-trophy" style="margin-right:6px"></i>AI Vibe Coding Competition 2026</div>
-    <div class="s1-title">멀티모달 기반<br/><span>영업 상담·마케팅 에이전트</span></div>
-    <div class="s1-sub">
-      한화손보 DB 영업 최적화를 위한<br/>영업 데이터 지능화 시스템
-    </div>
-    <div class="s1-footer"><span>한화손해보험</span>&ensp;|&ensp;2026.06</div>
-    <div class="slide-num dark">1 / 9</div>
-  </section>
-
-  <!-- ───────────────────────────────────────
-       SLIDE 2 — Executive Summary
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s2">
-    <div class="s2-inner">
-      <div class="s2-left">
-        <div class="s2-section-num">02</div>
-        <div class="s2-label">Executive Summary</div>
-        <div class="s2-headline">
-          전사 고객 DB<br/>×&ensp;녹취 데이터<br/>×&ensp;고능률 노하우<br/><br/>
-          <em>→&ensp;맞춤 스크립트</em> +<br/>
-          <em>캠페인 타겟 즉시 생성</em>
+        <!-- 상단 브랜드 -->
+        <div class="flex items-center px-16 pt-12">
+            <span class="brand text-xl">한화손보</span>
         </div>
-      </div>
-      <div class="s2-right">
-        <div class="s2-compare-row">
-          <div class="compare-card asis">
-            <div class="compare-card-label"><i class="fa fa-times-circle" style="margin-right:5px"></i>AS-IS</div>
-            <div class="compare-item"><i class="fa fa-times"></i>고정 스크립트 — 맥락 없음</div>
-            <div class="compare-item"><i class="fa fa-times"></i>수작업 캠페인 대상 추출</div>
-            <div class="compare-item"><i class="fa fa-times"></i>녹취·이력 데이터 방치</div>
-            <div class="compare-item"><i class="fa fa-times"></i>ML 추천 — 상담사 미활용</div>
-          </div>
-          <div class="compare-card tobe">
-            <div class="compare-card-label"><i class="fa fa-check-circle" style="margin-right:5px"></i>TO-BE</div>
-            <div class="compare-item"><i class="fa fa-check"></i>개인화 스크립트 즉시 생성</div>
-            <div class="compare-item"><i class="fa fa-check"></i>AI 3전략 캠페인 추출</div>
-            <div class="compare-item"><i class="fa fa-check"></i>녹취 노하우 재현 (Few-Shot)</div>
-            <div class="compare-item"><i class="fa fa-check"></i>담보 gap + 이력 통합 활용</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="slide-num light">2 / 9</div>
-  </section>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 3 — Background
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s3">
-    <div class="slide-header">
-      <div class="sec-num">03</div>
-      <div class="slide-title">왜 만들었나?</div>
-    </div>
-    <div class="pain-grid">
-      <div class="pain-card">
-        <div class="pain-icon"><i class="fa fa-robot"></i></div>
-        <div class="pain-title">기존 ML 추천 — 상담사가 안 쓴다</div>
-        <div class="pain-desc">AutoGluon 기반 추천 결과는 상품명 + 고정 텍스트. 왜 이 상품인지 설명이 없어 현장에서 사실상 미활용.</div>
-      </div>
-      <div class="pain-card">
-        <div class="pain-icon"><i class="fa fa-microphone-slash"></i></div>
-        <div class="pain-title">녹취 5,000건 — 노하우 창고가 잠겨 있다</div>
-        <div class="pain-desc">고능률 상담사의 성공 콜 패턴이 WAV 파일로 쌓여있지만 텍스트 분석·재활용 없이 방치.</div>
-      </div>
-      <div class="pain-card">
-        <div class="pain-icon"><i class="fa fa-table"></i></div>
-        <div class="pain-title">캠페인 대상 추출 — 담당자 수작업 SQL</div>
-        <div class="pain-desc">기획자가 매번 Oracle SQL을 직접 작성해 리스트 생성. 캠페인마다 반복 작업, 오류·지연 발생.</div>
-      </div>
-    </div>
-    <div class="slide-cta">
-      <i class="fa fa-arrow-right" style="margin-right:8px;color:#f37321"></i>
-      분산된 영업 데이터를 AI로 연결 — 상담사·기획자 모두의 도구
-    </div>
-    <div class="slide-num light">3 / 9</div>
-  </section>
-
-  <!-- ───────────────────────────────────────
-       SLIDE 4 — WOW① Script
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s4">
-    <div class="s4-inner">
-      <div class="s4-left">
-        <div class="s4-label"><i class="fa fa-star" style="margin-right:5px"></i>WOW ①</div>
-        <div class="s4-title">콜 전,<br/>AI가 미리<br/>다 파악한다</div>
-        <div class="flow-steps">
-          <div class="flow-step">
-            <div class="flow-dot-col">
-              <div class="flow-dot">1</div>
-              <div class="flow-line"></div>
+        <!-- 중앙 콘텐츠 -->
+        <div class="flex-grow flex flex-col justify-center px-16 -mt-6">
+            <span class="font-urban font-bold text-base tracking-widest text-hanwha-gray mb-6">VIBE CODING COMPETITION</span>
+            <div class="flex flex-col gap-2 mb-8">
+                <h1 class="font-urban font-black text-6xl text-hanwha-dark tracking-tight leading-tight">멀티모달 기반</h1>
+                <h1 class="font-urban font-black text-7xl leading-none tracking-tight" style="color:#f37321;">영업 상담·마케팅 에이전트</h1>
             </div>
-            <div class="flow-text">고객번호 입력 → <strong>DB 즉시 조회</strong><br/>계약·담보·통화 이력 자동 수집</div>
-          </div>
-          <div class="flow-step">
-            <div class="flow-dot-col">
-              <div class="flow-dot">2</div>
-              <div class="flow-line"></div>
+            <p class="text-base text-hanwha-gray font-medium max-w-2xl leading-relaxed">
+                한화손보 DB 영업 최적화를 위한 영업 데이터 지능화 시스템
+            </p>
+        </div>
+
+        <!-- 푸터 -->
+        <div class="slide-footer">
+            <span class="text-xs text-hanwha-gray font-medium">한화손해보험 | AI 바이브코딩 경진대회 2026</span>
+            <span class="page-num">01</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 2 — Executive Summary
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s2">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-8 items-stretch">
+
+            <!-- 좌측: 핵심 메시지 -->
+            <div class="flex flex-col justify-center" style="width:42%; flex-shrink:0;">
+                <div class="mb-4">
+                    <span class="tag-pill-solid text-xs mb-4 inline-block">Executive Summary</span>
+                </div>
+                <h2 class="text-2xl font-black text-hanwha-dark leading-snug mb-3">
+                    전사 고객 데이터 × 녹취 분석<br>× 고능률 노하우
+                </h2>
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="h-px flex-grow" style="background: linear-gradient(90deg,#f37321,transparent);"></div>
+                </div>
+                <p class="text-lg font-bold" style="color:#f37321; line-height:1.7;">
+                    → 상담사 맞춤 스크립트 +<br>캠페인 타겟 즉시 생성
+                </p>
+                <p class="text-sm text-hanwha-gray font-medium mt-4 leading-relaxed">
+                    고객번호 하나로 상담사가 전략적 대화를 시작할 수 있도록,<br>
+                    10일 만에 만든 폐쇄망 완결형 AI 에이전트
+                </p>
             </div>
-            <div class="flow-text"><strong>HyDE</strong> — 가상 성공 요약 생성<br/>유사 고능률 콜 검색</div>
-          </div>
-          <div class="flow-step">
-            <div class="flow-dot-col">
-              <div class="flow-dot">3</div>
-              <div class="flow-line"></div>
+
+            <!-- 우측: AS-IS vs TO-BE -->
+            <div class="flex flex-col justify-center flex-grow gap-4">
+                <!-- AS-IS -->
+                <div class="rounded-xl border-2 p-5" style="border-color:#fbd0b8; background:#fff7f3;">
+                    <div class="text-xs font-black tracking-widest mb-3" style="color:#b45309;">AS-IS — 기존 방식</div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-start gap-2 text-sm text-slate-600">
+                            <i class="fa-solid fa-xmark mt-0.5 text-red-400 text-xs w-4 shrink-0"></i>
+                            <span>고정 스크립트 — 맥락 없이 모든 고객 동일</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-sm text-slate-600">
+                            <i class="fa-solid fa-xmark mt-0.5 text-red-400 text-xs w-4 shrink-0"></i>
+                            <span>수작업 캠페인 — 담당자가 직접 조건 필터링</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-sm text-slate-600">
+                            <i class="fa-solid fa-xmark mt-0.5 text-red-400 text-xs w-4 shrink-0"></i>
+                            <span>맥락 없는 ML 추천 — 결과 있어도 활용 안 함</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TO-BE -->
+                <div class="rounded-xl border-2 p-5" style="border-color:#f37321; background:#fffbf8;">
+                    <div class="text-xs font-black tracking-widest mb-3" style="color:#f37321;">TO-BE — 이 시스템</div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-start gap-2 text-sm text-slate-700">
+                            <i class="fa-solid fa-check mt-0.5 text-hanwha-orange text-xs w-4 shrink-0" style="color:#f37321;"></i>
+                            <span><b>개인화 스크립트</b> — 담보 gap·과거 통화·상품 문서 통합</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-sm text-slate-700">
+                            <i class="fa-solid fa-check mt-0.5 text-hanwha-orange text-xs w-4 shrink-0" style="color:#f37321;"></i>
+                            <span><b>AI 3전략 캠페인</b> — 과거 실적·활성도·룰 기반</span>
+                        </div>
+                        <div class="flex items-start gap-2 text-sm text-slate-700">
+                            <i class="fa-solid fa-check mt-0.5 text-hanwha-orange text-xs w-4 shrink-0" style="color:#f37321;"></i>
+                            <span><b>녹취·이력·담보 통합</b> — 고능률 노하우 AI가 학습</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flow-text"><strong>Dynamic Few-Shot</strong><br/>성공 콜 원문 → 어투 학습</div>
-          </div>
-          <div class="flow-step">
-            <div class="flow-dot-col">
-              <div class="flow-dot">4</div>
+        </div>
+
+        <div class="slide-footer">
+            <span class="text-xs text-hanwha-gray">상담사(Tab1) + 본사 스태프(Tab2) 투트랙 에이전트</span>
+            <span class="page-num">02</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 3 — 개발 배경
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s3">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0">
+            <div class="mb-5">
+                <span class="tag-pill text-xs">개발 배경</span>
+                <h2 class="sec-title mt-2">왜 만들었나</h2>
             </div>
-            <div class="flow-text"><strong>맞춤 스크립트</strong> 스트리밍 출력</div>
-          </div>
-        </div>
-      </div>
-      <div class="s4-right">
-        <div class="script-box">
-          <div class="script-box-label">AI 생성 스크립트 예시</div>
-          <div class="script-text">
-            안녕하세요, 고객님.<br/>
-            <em>3월에 통화드렸을 때 뇌혈관 보장이 걱정된다</em>고 하셨는데,<br/>
-            마침 요즘 고객님 연령대에서 관심이 높은 상품이 나왔습니다.<br/><br/>
-            현재 <em>암진단비 3천, 뇌혈관 미가입</em> 상태이신데,<br/>
-            월 3만원대로 뇌졸중 진단비 3,000만원까지 보장되는 구조입니다.
-          </div>
-        </div>
-        <div class="hashtag-row">
-          <span class="hashtag">#과거통화맥락직접환기</span>
-          <span class="hashtag">#담보GAP핵심언급</span>
-          <span class="hashtag">#지금이타이밍강조</span>
-          <span class="hashtag">#재통화전략</span>
-        </div>
-      </div>
-    </div>
-    <div class="slide-num dark" style="color:rgba(255,255,255,.35)">4 / 9</div>
-  </section>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 5 — Integration + Campaign 3 Strategies
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s5">
-    <div class="slide-header">
-      <div class="sec-num">05</div>
-      <div class="slide-title">시스템 연동 &amp; 캠페인 3전략</div>
-    </div>
-    <div class="s5-top">
-      <div class="s5-top-icon"><i class="fa fa-plug"></i></div>
-      <div class="s5-top-content">
-        <div class="s5-top-title"><i class="fa fa-star" style="margin-right:5px"></i>WOW ② — 레거시 연동</div>
-        <div class="s5-flow-line">
-          <span>생성된 스크립트</span> → Gradio API → <span>이노스 상담사 화면 상품추천란 직접 적재</span>
-        </div>
-        <div class="s5-flow-line" style="margin-top:4px">
-          <span>캠페인 리스트</span> → DB 직접 생성 → <span>전사DB통합관리시스템</span> → 캠페인 배정 원스톱
-        </div>
-      </div>
-    </div>
-    <div class="s5-bottom">
-      <div class="s5-bottom-label">캠페인 추천 대상 생성 — 3가지 전략</div>
-      <div class="campaign-grid">
-        <div class="campaign-card">
-          <div class="campaign-card-num">01</div>
-          <div class="campaign-card-title"><i class="fa fa-chart-bar" style="color:#f37321;margin-right:6px"></i>과거 실적 기반</div>
-          <div class="campaign-card-desc">배정 후 90일 체결 성공 세그먼트 조건 재현 — 성공한 방식 그대로 반복</div>
-        </div>
-        <div class="campaign-card">
-          <div class="campaign-card-num">02</div>
-          <div class="campaign-card-title"><i class="fa fa-bolt" style="color:#f37321;margin-right:6px"></i>활성도 기반</div>
-          <div class="campaign-card-desc">최근 6개월 연결성공 또는 캠페인 배정이력 고객 — 반응 가능성 높은 순 추출</div>
-        </div>
-        <div class="campaign-card">
-          <div class="campaign-card-num">03</div>
-          <div class="campaign-card-title"><i class="fa fa-sliders-h" style="color:#f37321;margin-right:6px"></i>룰베이스</div>
-          <div class="campaign-card-desc">담당자가 상품·채널·성별·연령 조건 직접 설정 — AI와 사람 판단의 균형</div>
-        </div>
-      </div>
-    </div>
-    <div class="slide-num light">5 / 9</div>
-  </section>
+            <!-- Pain Point 카드 3개 -->
+            <div class="grid grid-cols-3 gap-5 flex-grow">
+                <!-- Card 1 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 relative overflow-hidden shadow-sm">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-robot text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div>
+                        <p class="font-black text-base text-hanwha-dark leading-snug mb-2">기존 ML 추천 결과를<br>상담사가 안 쓴다</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
+                            추천 상품명과 고정 텍스트만 제공돼, 왜 이 상품인지·어떻게 말해야 하는지 맥락이 전혀 없었다.
+                            결국 상담사들은 화면을 열지 않았다.
+                        </p>
+                    </div>
+                    <div class="mt-auto">
+                        <span class="text-xs font-bold px-2 py-1 rounded" style="background:#fff7ed; color:#f37321;">맥락 없는 고정 텍스트</span>
+                    </div>
+                </div>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 6 — Impact
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s6">
-    <div class="slide-header">
-      <div class="sec-num">06</div>
-      <div class="slide-title">영업 자산이 일하게 된다</div>
-    </div>
-    <div class="impact-grid">
-      <div class="impact-card">
-        <div class="impact-icon-wrap"><i class="fa fa-users"></i></div>
-        <div class="impact-title">고능률 상담사<br/>노하우 전체 공유</div>
-        <div class="impact-desc">성공 콜 5,000건을 AI가 학습·재현. HyDE + Dynamic Few-Shot으로 어투·전략까지 현장에 전파.</div>
-      </div>
-      <div class="impact-card">
-        <div class="impact-icon-wrap"><i class="fa fa-layer-group"></i></div>
-        <div class="impact-title">분산 데이터<br/>통합 활용</div>
-        <div class="impact-desc">DB·녹취·상품문서·ML 추천 결과를 하나의 맥락으로 통합. 단편 정보가 아닌 고객 전체 그림 제공.</div>
-      </div>
-      <div class="impact-card">
-        <div class="impact-icon-wrap"><i class="fa fa-bullseye"></i></div>
-        <div class="impact-title">캠페인 운영<br/>고도화</div>
-        <div class="impact-desc">수작업 SQL → AI 3전략 선택. 과거 실적 참고치 제공으로 기획자 의사결정 근거 강화.</div>
-      </div>
-    </div>
-    <div class="slide-num light">6 / 9</div>
-  </section>
+                <!-- Card 2 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 relative overflow-hidden shadow-sm">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-microphone-slash text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div>
+                        <p class="font-black text-base text-hanwha-dark leading-snug mb-2">녹취 데이터가 방치된다</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
+                            수천 건의 통화 녹취 파일이 쌓여 있지만 청취·분석할 체계가 없어 그대로 사장된다.
+                            고능률 상담사의 성공 대화가 노하우로 전파되지 않는다.
+                        </p>
+                    </div>
+                    <div class="mt-auto">
+                        <span class="text-xs font-bold px-2 py-1 rounded" style="background:#fff7ed; color:#f37321;">인사이트 전환 체계 부재</span>
+                    </div>
+                </div>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 7 — Architecture
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s7">
-    <div class="slide-header" style="margin-bottom:18px">
-      <div class="sec-num">07</div>
-      <div class="slide-title">어떻게 동작하나</div>
-    </div>
-    <div class="arch-body">
-      <!-- Pipelines -->
-      <div class="pipeline-col">
-        <div class="pipeline-col-title">배치 파이프라인</div>
-        <div class="pipe-card"><i class="fa fa-microphone"></i><div><strong>Pipeline A</strong><br/>WAV → STT → 마스킹 → Chroma <em style="color:#f37321">calls</em></div></div>
-        <div class="pipe-card"><i class="fa fa-file-pdf"></i><div><strong>Pipeline B</strong><br/>PDF/DOCX/PPTX → 파싱 → Chroma <em style="color:#f37321">products</em></div></div>
-        <div class="pipe-card"><i class="fa fa-database"></i><div><strong>Pipeline C</strong><br/>Oracle → DuckDB mart (매일 cron)</div></div>
-      </div>
-      <!-- Arrow -->
-      <div class="arch-center"><div class="arch-arrow-big"><i class="fa fa-arrow-right"></i></div></div>
-      <!-- Agent -->
-      <div class="agent-box">
-        <div class="agent-box-label"><i class="fa fa-brain" style="margin-right:5px"></i>LangGraph Agent — Tab 1</div>
-        <div class="agent-nodes">
-          <span class="node-chip">classify</span>
-          <span class="node-chip">fetch_data</span>
-          <span class="node-chip">format_db</span>
-          <span class="node-chip">hyde</span>
-          <span class="node-chip">rag</span>
-          <span class="node-chip">analyze</span>
-          <span class="node-chip">prepare_prompt</span>
-          <span class="node-chip">LLM stream</span>
-        </div>
-        <div class="agent-output">
-          <div class="output-chip"><i class="fa fa-headset" style="margin-right:5px"></i>Tab 1<br/><span style="font-size:10px;font-weight:400">맞춤 스크립트</span></div>
-          <div class="output-chip"><i class="fa fa-file-excel" style="margin-right:5px"></i>Tab 2<br/><span style="font-size:10px;font-weight:400">캠페인 Excel</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="stack-row">
-      <span class="stack-tag orange">faster-whisper</span>
-      <span class="stack-tag orange">Qwen3.6-27B</span>
-      <span class="stack-tag orange">nomic-embed-text</span>
-      <span class="stack-tag">Chroma</span>
-      <span class="stack-tag">DuckDB</span>
-      <span class="stack-tag">LangGraph</span>
-      <span class="stack-tag">Gradio</span>
-      <span class="stack-tag">langchain-ollama</span>
-      <span class="stack-tag">Ollama</span>
-    </div>
-    <div class="slide-num light">7 / 9</div>
-  </section>
+                <!-- Card 3 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 relative overflow-hidden shadow-sm">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-list-check text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div>
+                        <p class="font-black text-base text-hanwha-dark leading-snug mb-2">캠페인 대상 추출이<br>매번 수작업이다</p>
+                        <p class="text-sm text-hanwha-gray leading-relaxed">
+                            기획자가 직접 조건을 설정하고 데이터를 필터링해 리스트를 만든다.
+                            과거 성과 분석과 조건 검증 없이 감(感)에 의존하는 경우가 많다.
+                        </p>
+                    </div>
+                    <div class="mt-auto">
+                        <span class="text-xs font-bold px-2 py-1 rounded" style="background:#fff7ed; color:#f37321;">데이터 기반 근거 없음</span>
+                    </div>
+                </div>
+            </div>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 8 — Vibe Coding
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s8">
-    <div class="slide-header">
-      <div class="sec-num">08</div>
-      <div class="slide-title">Claude와 함께 만들다</div>
-    </div>
-    <div class="vibe-grid">
-      <div class="vibe-card">
-        <div class="vibe-icon"><i class="fa fa-comments"></i></div>
-        <div class="vibe-text">
-          <div class="vibe-title">소통하며 설계</div>
-          <div class="vibe-desc"><em>/grill-me</em>로 설계 검토, 지속적 리팩토링.<br/>도메인 지식(보험 TM)은 사람 — 구현은 AI.</div>
+            <!-- 화살표 결론 -->
+            <div class="flex items-center gap-3 mt-4 mb-1">
+                <div class="flex-grow h-px bg-slate-200"></div>
+                <div class="flex items-center gap-2 rounded-full px-5 py-2 font-bold text-sm text-white" style="background:#f37321;">
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                    <span>세 가지를 하나의 AI로 연결한다</span>
+                </div>
+                <div class="flex-grow h-px bg-slate-200"></div>
+            </div>
         </div>
-      </div>
-      <div class="vibe-card">
-        <div class="vibe-icon"><i class="fa fa-lightbulb"></i></div>
-        <div class="vibe-text">
-          <div class="vibe-title">아이디어가 대화에서 나왔다</div>
-          <div class="vibe-desc"><em>HyDE / Dynamic Few-Shot / ReAct lite</em> — Grill Me 과정에서 도출. AI와 대화하며 설계가 구체화.</div>
-        </div>
-      </div>
-      <div class="vibe-card">
-        <div class="vibe-icon"><i class="fa fa-wrench"></i></div>
-        <div class="vibe-text">
-          <div class="vibe-title">"Agent인 척 룰베이스" 발견 → 리팩토링</div>
-          <div class="vibe-desc">초안은 분기문 덩어리. Claude와 검토 후 <em>LangGraph 8노드 StateGraph</em>로 실제 구현.</div>
-        </div>
-      </div>
-      <div class="vibe-card">
-        <div class="vibe-icon"><i class="fa fa-lock"></i></div>
-        <div class="vibe-text">
-          <div class="vibe-title">폐쇄망 제약도 함께 풀었다</div>
-          <div class="vibe-desc">인터넷 없는 서버 환경. <em>tar.gz 번들</em>, Ollama GGUF 직접 임포트, LangSmith 의존성 완전 제거.</div>
-        </div>
-      </div>
-    </div>
-    <div class="timeline-row">
-      <div class="tl-item">
-        <div class="tl-dot" style="font-size:9px">D1-3</div>
-        <div class="tl-label">데이터</div>
-        <div class="tl-sub">파이프라인</div>
-      </div>
-      <div class="tl-item">
-        <div class="tl-dot" style="font-size:9px">D4-6</div>
-        <div class="tl-label">Agent</div>
-        <div class="tl-sub">LangGraph</div>
-      </div>
-      <div class="tl-item">
-        <div class="tl-dot" style="font-size:9px">D7-9</div>
-        <div class="tl-label">UI</div>
-        <div class="tl-sub">Gradio 2탭</div>
-      </div>
-      <div class="tl-item">
-        <div class="tl-dot" style="font-size:9px">D10</div>
-        <div class="tl-label">배포</div>
-        <div class="tl-sub">폐쇄망 점검</div>
-      </div>
-    </div>
-    <div class="slide-num light">8 / 9</div>
-  </section>
 
-  <!-- ───────────────────────────────────────
-       SLIDE 9 — Closing
-  ─────────────────────────────────────────── -->
-  <section class="slide" id="s9">
-    <div class="s9-tagline">영업 데이터가<br/><span>드디어 일합니다</span></div>
-    <div class="s9-sub">30만 고객 DB × 녹취 5,000건 × 레거시 ML — 하나의 에이전트로</div>
-    <div class="s9-links">
-      <div class="s9-link-card">
-        <div class="s9-link-label"><i class="fa fa-globe" style="margin-right:5px"></i>Demo URL</div>
-        <div class="s9-link-val">[삽입 예정]</div>
-      </div>
-      <div class="s9-link-card">
-        <div class="s9-link-label"><i class="fab fa-github" style="margin-right:5px"></i>GitHub</div>
-        <div class="s9-link-val">[삽입 예정]</div>
-      </div>
+        <div class="slide-footer">
+            <span></span>
+            <span class="page-num">03</span>
+        </div>
     </div>
-    <div class="s9-footer"><span>한화손해보험</span>&ensp;|&ensp;AI 바이브코딩 경진대회 2026</div>
-    <div class="slide-num dark">9 / 9</div>
-  </section>
 
-</div><!-- /#deck -->
+
+    <!-- ════════════════════════════════════
+         SLIDE 4 — WOW① 맞춤 스크립트
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s4">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-8">
+
+            <!-- 좌측: 파이프라인 흐름 -->
+            <div class="flex flex-col justify-center gap-0" style="width:44%; flex-shrink:0;">
+                <span class="tag-pill text-xs mb-3">Tab 1 — 상담사 콜 전 준비</span>
+                <h2 class="sec-title mb-5">콜 전, AI가 미리 다 파악한다</h2>
+
+                <!-- 4단계 파이프라인 -->
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">1</div>
+                        <div>
+                            <p class="text-sm font-bold text-hanwha-dark">고객 조회</p>
+                            <p class="text-xs text-hanwha-gray">고객번호 입력 → 신규·미연결·이력 자동 분류</p>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">2</div>
+                        <div>
+                            <p class="text-sm font-bold text-hanwha-dark">DB 즉시 분석</p>
+                            <p class="text-xs text-hanwha-gray">계약 현황 · 담보 gap · 월 납입료 즉시 표시</p>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">3</div>
+                        <div>
+                            <p class="text-sm font-bold text-hanwha-dark">성공 콜 패턴 검색</p>
+                            <p class="text-xs text-hanwha-gray">HyDE + RAG — 유사 고객 성공 통화 원문 검색</p>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <div class="flex items-center gap-3 rounded-xl border-2 px-4 py-3 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-sm text-white" style="background:#f37321;">4</div>
+                        <div>
+                            <p class="text-sm font-bold" style="color:#f37321;">맞춤 스크립트 생성</p>
+                            <p class="text-xs text-hanwha-gray">담보보완 / 팔로업 / 신상품 각도 · LLM 스트리밍</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우측: 스크립트 예시 -->
+            <div class="flex flex-col justify-center flex-grow">
+                <p class="text-xs font-bold text-hanwha-gray mb-2 tracking-wide">실제 출력 예시</p>
+                <div class="rounded-xl border-2 p-5 bg-white shadow-sm flex flex-col gap-3" style="border-color:#f37321;">
+                    <!-- 계약 현황 미리보기 -->
+                    <div class="flex gap-4 text-xs border-b border-slate-100 pb-3">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-hanwha-gray">가입 상품 수</span>
+                            <span class="font-black text-hanwha-dark">3건</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-hanwha-gray">월 납입료</span>
+                            <span class="font-black text-hanwha-dark">124,000원</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-hanwha-gray">추천 통화 시간</span>
+                            <span class="font-black" style="color:#f37321;">평일 오전 10-11시</span>
+                        </div>
+                    </div>
+                    <!-- 스크립트 본문 -->
+                    <div class="flex flex-col gap-2">
+                        <p class="text-xs font-bold text-hanwha-gray">추천 스크립트</p>
+                        <p class="text-sm text-hanwha-dark leading-relaxed font-medium" style="font-style:normal;">
+                            "안녕하세요, 고객님. 3월에 통화드렸을 때 뇌혈관 보장이 걱정된다고 하셨는데,
+                            아직 그 부분이 없으셔서 다시 연락드렸어요. 요즘 같은 시기에 딱 맞는 특약을
+                            말씀드릴 수 있을 것 같아서요."
+                        </p>
+                    </div>
+                    <!-- 해시태그 -->
+                    <div class="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
+                        <span class="text-xs text-slate-500 font-bold">고능률 접근 키워드:</span>
+                        <span class="text-xs font-bold rounded-full px-3 py-0.5" style="background:#fff7ed; color:#f37321;">#과거통화맥락직접환기</span>
+                        <span class="text-xs font-bold rounded-full px-3 py-0.5" style="background:#fff7ed; color:#f37321;">#담보GAP핵심언급</span>
+                        <span class="text-xs font-bold rounded-full px-3 py-0.5" style="background:#fff7ed; color:#f37321;">#지금이타이밍강조</span>
+                    </div>
+                </div>
+
+                <!-- 기술 포인트 -->
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    <div class="flex items-start gap-2 text-xs text-slate-600">
+                        <i class="fa-solid fa-wand-magic-sparkles shrink-0 mt-0.5" style="color:#f37321;"></i>
+                        <span><b>HyDE</b> — 가상 성공 통화 생성 후 벡터 검색, 언어 공간 미스매치 해소</span>
+                    </div>
+                    <div class="flex items-start gap-2 text-xs text-slate-600">
+                        <i class="fa-solid fa-people-group shrink-0 mt-0.5" style="color:#f37321;"></i>
+                        <span><b>Dynamic Few-Shot</b> — 성공 콜 원문을 LLM 예시로 직접 주입</span>
+                    </div>
+                    <div class="flex items-start gap-2 text-xs text-slate-600">
+                        <i class="fa-solid fa-brain shrink-0 mt-0.5" style="color:#f37321;"></i>
+                        <span><b>CoT 2단계</b> — 고객 분석 JSON → 스크립트 생성 체인</span>
+                    </div>
+                    <div class="flex items-start gap-2 text-xs text-slate-600">
+                        <i class="fa-solid fa-bolt shrink-0 mt-0.5" style="color:#f37321;"></i>
+                        <span><b>2단계 출력</b> — DB 결과 즉시 표시 + LLM 스트리밍 병행</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide-footer">
+            <span></span>
+            <span class="page-num">04</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 5 — WOW② 현장 연동 + 캠페인 3전략
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s5">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <div class="flex-grow flex flex-col min-h-0 px-10 pb-0 gap-4">
+
+            <div>
+                <span class="tag-pill text-xs">현장 연동 + Tab 2 캠페인 전략</span>
+                <h2 class="sec-title mt-2">결과가 현장으로 바로 흐른다</h2>
+            </div>
+
+            <!-- 상단: 연동 포인트 2개 -->
+            <div class="grid grid-cols-2 gap-4 flex-shrink-0">
+                <div class="rounded-xl border border-slate-200 bg-white p-4 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background:#f37321;"></div>
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-plug text-base" style="color:#f37321;"></i>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <p class="font-bold text-sm text-hanwha-dark">이노스(상담사 화면) 연동</p>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            생성된 스크립트와 추천 상품을 Gradio API를 통해<br>
+                            기존 상담사 화면 상품추천란에 즉시 적재
+                        </p>
+                        <div class="flex items-center gap-1 text-xs font-bold mt-1" style="color:#f37321;">
+                            <span>AI 에이전트</span>
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                            <span>상담사 화면 자동 채움</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-white p-4 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background:#f37321;"></div>
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-table text-base" style="color:#f37321;"></i>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <p class="font-bold text-sm text-hanwha-dark">캠페인 배정 원스톱</p>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            추출된 타겟 리스트를 전사 관리시스템에 직접 연동,<br>
+                            Excel 다운로드 → 기존 콜링 시스템 업로드까지 한 번에
+                        </p>
+                        <div class="flex items-center gap-1 text-xs font-bold mt-1" style="color:#f37321;">
+                            <span>AI 추출</span>
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                            <span>배정 자동화</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 하단: 캠페인 3전략 -->
+            <div class="flex flex-col gap-2 flex-grow">
+                <p class="text-xs font-bold text-hanwha-gray tracking-wide">Tab 2 — 캠페인 추천 대상 생성 · 3가지 추출 전략</p>
+                <div class="grid grid-cols-3 gap-4 flex-grow">
+                    <!-- 전략 1 -->
+                    <div class="rounded-xl border-2 p-4 flex flex-col gap-2 shadow-sm" style="border-color:#f37321; background:#fffbf8;">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#f37321;">①</span>
+                            <p class="font-bold text-sm text-hanwha-dark">과거 실적 기반</p>
+                        </div>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            과거 배정 후 90일 내 체결 성공 고객의 공통 조건을 분석,
+                            동일 세그먼트를 재현해 새 캠페인 타겟 생성
+                        </p>
+                        <div class="mt-auto text-xs font-bold" style="color:#f37321;">
+                            <i class="fa-solid fa-chart-bar mr-1 text-xs"></i>성공 패턴 재현
+                        </div>
+                    </div>
+
+                    <!-- 전략 2 -->
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">②</span>
+                            <p class="font-bold text-sm text-hanwha-dark">활성도 기반</p>
+                        </div>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            최근 6개월 연결 성공 또는 캠페인 배정 이력 등
+                            실제 반응 가능성이 높은 고객을 DB 집계로 필터링
+                        </p>
+                        <div class="mt-auto text-xs font-bold text-hanwha-gray">
+                            <i class="fa-solid fa-signal mr-1 text-xs"></i>반응 가능성 우선
+                        </div>
+                    </div>
+
+                    <!-- 전략 3 -->
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs text-white shrink-0" style="background:#706e6b;">③</span>
+                            <p class="font-bold text-sm text-hanwha-dark">룰 베이스</p>
+                        </div>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            Step 0 칩 선택(상품·채널·성별·연령)으로
+                            담당자가 직접 조건을 설정해 타겟 추출
+                        </p>
+                        <div class="mt-auto text-xs font-bold text-hanwha-gray">
+                            <i class="fa-solid fa-sliders mr-1 text-xs"></i>담당자 판단 + AI 지원
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide-footer">
+            <span></span>
+            <span class="page-num">05</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 6 — 기대효과
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s6">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0">
+            <div class="mb-5">
+                <span class="tag-pill text-xs">기대효과</span>
+                <h2 class="sec-title mt-2">영업 자산이 드디어 일하게 된다</h2>
+            </div>
+
+            <!-- 3개 임팩트 카드 -->
+            <div class="grid grid-cols-3 gap-5 flex-grow">
+
+                <!-- 임팩트 1 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 bottom-0 w-1" style="background:#f37321;"></div>
+                    <div class="flex items-center gap-3 pl-3">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-trophy text-xl" style="color:#f37321;"></i>
+                        </div>
+                        <p class="font-black text-base text-hanwha-dark leading-snug">고능률 노하우 확산</p>
+                    </div>
+                    <p class="text-sm text-hanwha-gray leading-relaxed pl-3">
+                        상위 상담사의 성공 통화 패턴을 STT·벡터 검색으로 학습,
+                        모든 상담사가 동등하게 고능률 접근 방식을 활용할 수 있게 된다.
+                    </p>
+                    <div class="pl-3 mt-auto flex flex-col gap-1">
+                        <div class="flex items-center gap-2 text-xs text-slate-600">
+                            <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
+                            Dynamic Few-Shot으로 in-context 학습
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-600">
+                            <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
+                            파인튜닝 없이 성공 사례 즉시 반영
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 임팩트 2 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 bottom-0 w-1" style="background:#f37321;"></div>
+                    <div class="flex items-center gap-3 pl-3">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-link text-xl" style="color:#f37321;"></i>
+                        </div>
+                        <p class="font-black text-base text-hanwha-dark leading-snug">분산 데이터 통합</p>
+                    </div>
+                    <p class="text-sm text-hanwha-gray leading-relaxed pl-3">
+                        계약 이력, 통화 녹취, 상품 문서, 기존 ML 추천 결과를 하나의 맥락으로
+                        연결해 상담사에게 통합된 인사이트를 제공한다.
+                    </p>
+                    <div class="pl-3 mt-auto flex flex-col gap-1">
+                        <div class="flex items-center gap-2 text-xs text-slate-600">
+                            <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
+                            기존 ML 배치 결과 INPUT으로 활용
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-600">
+                            <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
+                            멀티모달 RAG (음성·문서·DB 통합)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 임팩트 3 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-6 flex flex-col gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 bottom-0 w-1" style="background:#f37321;"></div>
+                    <div class="flex items-center gap-3 pl-3">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                            <i class="fa-solid fa-bullseye text-xl" style="color:#f37321;"></i>
+                        </div>
+                        <p class="font-black text-base text-hanwha-dark leading-snug">캠페인 정밀 타겟팅</p>
+                    </div>
+                    <p class="text-sm text-hanwha-gray leading-relaxed pl-3">
+                        룰 기반 수작업에서 데이터 기반 3전략으로 전환.
+                        불필요한 접촉을 줄여 마케팅 비용을 절감하고 전환율을 높인다.
+                    </p>
+                    <div class="pl-3 mt-auto flex flex-col gap-1">
+                        <div class="flex items-center gap-2 text-xs text-slate-600">
+                            <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
+                            과거 실적 · 활성도 · 룰 기반 3전략
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-600">
+                            <i class="fa-solid fa-circle-dot text-xs" style="color:#f37321;"></i>
+                            갱신 가능성 높은 고객 접촉 최적화
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide-footer">
+            <span></span>
+            <span class="page-num">06</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 7 — 시스템 아키텍처
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s7">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <div class="flex-grow flex min-h-0 px-10 pb-0 gap-7">
+
+            <!-- 좌측: 데이터 소스 → 파이프라인 -->
+            <div class="flex flex-col justify-center gap-1" style="width:40%; flex-shrink:0;">
+                <span class="tag-pill text-xs mb-3">시스템 아키텍처</span>
+                <h2 class="sec-title mb-4">어떻게 동작하나</h2>
+
+                <!-- 파이프라인 3개 -->
+                <div class="flex flex-col gap-2">
+                    <!-- 음성 -->
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-hanwha-dark shadow-sm" style="min-width:120px;">
+                            <i class="fa-solid fa-microphone" style="color:#f37321;"></i> 음성 녹취 (WAV)
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm" style="min-width:110px;">
+                            <i class="fa-solid fa-wave-square text-xs" style="color:#706e6b;"></i> STT + 마스킹
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
+                        <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm" style="border-color:#f37321; color:#f37321; background:#fffbf8;">
+                            <i class="fa-solid fa-database text-xs"></i> 벡터 검색
+                        </div>
+                    </div>
+
+                    <!-- 문서 -->
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-hanwha-dark shadow-sm" style="min-width:120px;">
+                            <i class="fa-solid fa-file-pdf" style="color:#f37321;"></i> 상품 문서 (PDF 등)
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm" style="min-width:110px;">
+                            <i class="fa-solid fa-file-lines text-xs" style="color:#706e6b;"></i> 문서 파싱
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
+                        <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm" style="border-color:#f37321; color:#f37321; background:#fffbf8;">
+                            <i class="fa-solid fa-database text-xs"></i> 벡터 검색
+                        </div>
+                    </div>
+
+                    <!-- DB -->
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-hanwha-dark shadow-sm" style="min-width:120px;">
+                            <i class="fa-solid fa-server" style="color:#f37321;"></i> 고객 DB (Oracle)
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
+                        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm" style="min-width:110px;">
+                            <i class="fa-solid fa-arrows-rotate text-xs" style="color:#706e6b;"></i> 마트 갱신 (매일)
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-hanwha-gray text-xs"></i>
+                        <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm" style="border-color:#f37321; color:#f37321; background:#fffbf8;">
+                            <i class="fa-solid fa-bolt text-xs"></i> 분석 엔진
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 기술 스택 태그 -->
+                <div class="mt-5 flex flex-wrap gap-2">
+                    <span class="tag-pill-solid text-xs">Whisper</span>
+                    <span class="tag-pill-solid text-xs">Qwen3.6-27B</span>
+                    <span class="tag-pill-solid text-xs">Chroma</span>
+                    <span class="tag-pill-solid text-xs">DuckDB</span>
+                    <span class="tag-pill-solid text-xs">LangGraph</span>
+                    <span class="tag-pill-solid text-xs">Gradio</span>
+                </div>
+            </div>
+
+            <!-- 우측: LangGraph 8노드 플로우 -->
+            <div class="flex flex-col justify-center flex-grow">
+                <p class="text-xs font-bold text-hanwha-gray mb-3 tracking-wide">LangGraph 에이전트 — Tab 1 워크플로우</p>
+
+                <div class="flex flex-col gap-1.5">
+                    <!-- 노드 1-2 -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">1</span>
+                            <div><p class="font-bold text-hanwha-dark">분류 (classify)</p><p class="text-hanwha-gray">신규·미연결·이력 자동 분기</p></div>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">2</span>
+                            <div><p class="font-bold text-hanwha-dark">데이터 수집 (fetch_data)</p><p class="text-hanwha-gray">계약·담보·통화이력 병렬 조회</p></div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <!-- 노드 3-4 -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">3</span>
+                            <div><p class="font-bold text-hanwha-dark">포맷 (format_db)</p><p class="text-hanwha-gray">계약현황·보장현황 즉시 출력</p></div>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">4</span>
+                            <div><p class="font-bold text-hanwha-dark">가상쿼리 (hyde)</p><p class="text-hanwha-gray">가상 성공 통화 생성 → 벡터 검색</p></div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <!-- 노드 5-6 -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">5</span>
+                            <div><p class="font-bold text-hanwha-dark">성공사례 검색 (rag)</p><p class="text-hanwha-gray">Chroma 3단계 폴백 검색</p></div>
+                        </div>
+                        <div class="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">6</span>
+                            <div><p class="font-bold text-hanwha-dark">분석 (analyze)</p><p class="text-hanwha-gray">접근각도·포인트·추가검색 필요 여부</p></div>
+                        </div>
+                    </div>
+                    <div class="pipe-arrow text-xs"><i class="fa-solid fa-chevron-down"></i></div>
+
+                    <!-- 노드 7 (조건부) + 8 -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-lg border px-3 py-2.5 text-xs shadow-sm flex items-center gap-2" style="border-color:#e2e8f0; background:#f8fafc;">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs shrink-0" style="background:#e2e8f0; color:#706e6b;">7</span>
+                            <div><p class="font-bold text-hanwha-gray">추가 상품 검색 (조건부)</p><p class="text-hanwha-gray">ReAct lite — LLM 판단 시 실행</p></div>
+                        </div>
+                        <div class="rounded-lg border-2 px-3 py-2.5 text-xs shadow-sm flex items-center gap-2" style="border-color:#f37321; background:#fffbf8;">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0" style="background:#f37321;">8</span>
+                            <div><p class="font-bold" style="color:#f37321;">스크립트 생성 (LLM 스트리밍)</p><p class="text-hanwha-gray">few-shot + CoT → 최종 출력</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide-footer">
+            <span></span>
+            <span class="page-num">07</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 8 — 바이브코딩 개발 과정
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s8">
+        <div class="slide-header">
+            <span class="brand">한화손보</span>
+            <span class="header-right">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <div class="flex-grow flex flex-col px-10 pb-0 min-h-0 gap-4">
+
+            <div>
+                <span class="tag-pill text-xs">바이브코딩 개발 과정</span>
+                <h2 class="sec-title mt-2">Claude와 함께 만들다</h2>
+            </div>
+
+            <!-- 2×2 카드 그리드 -->
+            <div class="grid grid-cols-2 gap-4 flex-grow">
+
+                <!-- 카드 1 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-comments text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <p class="font-black text-sm text-hanwha-dark">Grill Me 활용</p>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            설계 검토에 가장 많이 활용했다.
+                            HyDE, Dynamic Few-Shot, ReAct lite 아이디어도
+                            Grill Me 대화 과정에서 도출됐다.
+                        </p>
+                        <span class="text-xs font-bold" style="color:#f37321;">"설계 스트레스 테스트 → 아이디어 발굴"</span>
+                    </div>
+                </div>
+
+                <!-- 카드 2 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-people-arrows text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <p class="font-black text-sm text-hanwha-dark">도메인은 사람, 구현은 AI</p>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            보험 TM 채널의 실제 운영 방식, 상담사 워크플로우,
+                            컴플라이언스 제약은 사람이 정의했다.
+                            코드 구현과 리팩토링은 Claude가 담당했다.
+                        </p>
+                        <span class="text-xs font-bold" style="color:#f37321;">"역할 분담의 명확화"</span>
+                    </div>
+                </div>
+
+                <!-- 카드 3 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-code-compare text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <p class="font-black text-sm text-hanwha-dark">지속적 리팩토링</p>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            처음엔 if-else 분기로 에이전트인 척 하는 룰베이스로 시작했다.
+                            Grill Me를 통한 설계 재검토 후 LangGraph 실제 구현으로 고도화했다.
+                        </p>
+                        <span class="text-xs font-bold" style="color:#f37321;">"룰베이스 → LangGraph StateGraph"</span>
+                    </div>
+                </div>
+
+                <!-- 카드 4 -->
+                <div class="rounded-xl border border-slate-200 bg-white p-5 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1" style="background: linear-gradient(90deg,#f37321,#fb923c);"></div>
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background:#fff7ed;">
+                        <i class="fa-solid fa-lightbulb text-lg" style="color:#f37321;"></i>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <p class="font-black text-sm text-hanwha-dark">HyDE · Dynamic Few-Shot · ReAct</p>
+                        <p class="text-xs text-hanwha-gray leading-relaxed">
+                            세 가지 모두 Grill Me 과정에서 나온 아이디어다.
+                            RAG 품질 문제를 논의하다 HyDE로 이어졌고,
+                            노하우 전파 논의에서 Few-Shot이 나왔다.
+                        </p>
+                        <span class="text-xs font-bold" style="color:#f37321;">"AI와의 대화가 설계를 바꿨다"</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 타임라인 -->
+            <div class="flex items-center gap-0 shrink-0 mb-1">
+                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#fff7ed; color:#f37321; border: 1px solid #fed7aa;">
+                    <i class="fa-solid fa-database text-xs"></i> Day 1-3 데이터 파이프라인
+                </div>
+                <div class="flex-grow h-px border-t-2 border-dashed mx-2" style="border-color:#f37321;"></div>
+                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#fff7ed; color:#f37321; border: 1px solid #fed7aa;">
+                    <i class="fa-solid fa-diagram-project text-xs"></i> Day 4-6 에이전트
+                </div>
+                <div class="flex-grow h-px border-t-2 border-dashed mx-2" style="border-color:#f37321;"></div>
+                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#fff7ed; color:#f37321; border: 1px solid #fed7aa;">
+                    <i class="fa-solid fa-display text-xs"></i> Day 7-9 UI
+                </div>
+                <div class="flex-grow h-px border-t-2 border-dashed mx-2" style="border-color:#f37321;"></div>
+                <div class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold" style="background:#f37321; color:#fff;">
+                    <i class="fa-solid fa-rocket text-xs"></i> Day 10 배포
+                </div>
+            </div>
+        </div>
+
+        <div class="slide-footer">
+            <span></span>
+            <span class="page-num">08</span>
+        </div>
+    </div>
+
+
+    <!-- ════════════════════════════════════
+         SLIDE 9 — 마무리
+    ═════════════════════════════════════ -->
+    <div class="slide" id="s9">
+        <!-- 배경 장식 -->
+        <div class="absolute inset-0 pointer-events-none" style="background: radial-gradient(ellipse 900px 600px at 50% 50%, rgba(243,115,33,.04) 0%, transparent 70%);"></div>
+
+        <!-- 상단 브랜드 -->
+        <div class="flex items-center justify-between px-16 pt-12">
+            <span class="brand text-xl">한화손보</span>
+            <span class="text-xs text-hanwha-gray font-medium tracking-wide">VIBE CODING COMPETITION — 멀티모달 기반 영업 상담·마케팅 에이전트</span>
+        </div>
+
+        <!-- 중앙 콘텐츠 -->
+        <div class="flex-grow flex flex-col items-center justify-center gap-6 px-16">
+            <!-- 주황 따옴표 장식 -->
+            <div class="font-urban font-black text-8xl leading-none select-none" style="color:#f37321; opacity:.25;">"</div>
+
+            <!-- 핵심 메시지 -->
+            <h1 class="font-black text-5xl text-center text-hanwha-dark tracking-tight leading-tight -mt-8">
+                영업 데이터가 드디어<br>
+                <span style="color:#f37321;">일합니다.</span>
+            </h1>
+
+            <!-- 데모 / GitHub 카드 -->
+            <div class="flex gap-5 mt-4">
+                <div class="flex items-center gap-3 rounded-xl border-2 px-6 py-4 shadow-sm" style="border-color:#f37321; background:#fffbf8; min-width:240px;">
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:#f37321;">
+                        <i class="fa-solid fa-play text-white text-sm"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-hanwha-gray">Demo URL</p>
+                        <p class="text-sm font-black text-hanwha-dark">[삽입 예정]</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm" style="min-width:240px;">
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-hanwha-dark" style="background:#2d2926;">
+                        <i class="fa-brands fa-github text-white text-sm"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-hanwha-gray">GitHub</p>
+                        <p class="text-sm font-black text-hanwha-dark">[삽입 예정]</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 푸터 -->
+        <div class="slide-footer">
+            <span class="text-xs text-hanwha-gray font-medium">한화손해보험 | AI 바이브코딩 경진대회 2026</span>
+            <span class="page-num">09</span>
+        </div>
+    </div>
+
+</div><!-- /#slide-deck -->
+
+
+<!-- ══ 컨트롤 바 ══ -->
+<div id="controls">
+    <button class="nav-btn" id="btn-prev" title="이전 (←)">
+        <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <span id="slide-counter">1 / 9</span>
+    <button class="nav-btn" id="btn-next" title="다음 (→)">
+        <i class="fa-solid fa-chevron-right"></i>
+    </button>
+</div>
+
 
 <script>
-  const TOTAL = 9;
-  let current = 0;
+    const slides = document.querySelectorAll('.slide');
+    const counter = document.getElementById('slide-counter');
+    const total   = slides.length;
+    let current   = 0;
 
-  const slides = document.querySelectorAll('.slide');
-  const btnPrev = document.getElementById('btn-prev');
-  const btnNext = document.getElementById('btn-next');
+    function goTo(n) {
+        slides[current].classList.remove('active');
+        current = (n + total) % total;
+        slides[current].classList.add('active');
+        counter.textContent = (current + 1) + ' / ' + total;
+    }
 
-  function showSlide(idx) {
-    slides[current].classList.remove('active');
-    current = (idx + TOTAL) % TOTAL;
-    slides[current].classList.add('active');
-    btnPrev.style.opacity = current === 0 ? '0.3' : '1';
-    btnNext.style.opacity = current === TOTAL - 1 ? '0.3' : '1';
-  }
+    document.getElementById('btn-prev').addEventListener('click', () => goTo(current - 1));
+    document.getElementById('btn-next').addEventListener('click', () => goTo(current + 1));
 
-  function changeSlide(dir) { showSlide(current + dir); }
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   changeSlide(-1);
-  });
-
-  // init
-  showSlide(0);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  goTo(current + 1);
+        if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    goTo(current - 1);
+    });
 </script>
 </body>
 </html>

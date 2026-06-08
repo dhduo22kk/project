@@ -281,6 +281,31 @@ AutoGluon ML 추천 결과(상품군 확률) + 담보 Gap(현재 미가입 영�
 - 실제 측정되지 않은 수치를 예측치로 포장하는 표현
 - "100% 자동화", "완전 대체" 등 과장 표현
 - "TM/CM 채널" 병기 — TM 중심으로 서술
+- **내부 테이블명** (tbl_customer, tbl_call_detail, AI_* 등) — 심사위원이 알 수 없는 내부 용어
+- **구체적 데이터 건수** (30만 명, 5,000건 등) — 근거 없이 나열하면 신뢰도 저하
+- 내부 시스템명 (Oracle AI_* 테이블, mart_new.db 등 구현 세부사항)
+- GPT 테크니컬 리포트에 없는 것: 내부 DB 스키마, ETL 세부 쿼리, 파일명 나열
+
+---
+
+## 발표자료 디자인 필수 기준
+
+### PPT (ppt_slides.html) 기준 파일
+`outputs/ai_consultation_agent_interim_report_v2.html` **디자인을 그대로 따를 것**
+
+- **기술 스택**: Tailwind CSS + Font Awesome + Noto Sans KR + Urbanist (Google Fonts)
+- **슬라이드 크기**: 1280×720px, 흰 배경 (`bg-white`), 연회색 외부 배경 (`bg-slate-100`)
+- **색상**: 주황 `#f37321`, 다크 `#2d2926`, 그레이 `#706e6b`
+- **보라색·파란색·어두운 배경 절대 금지** — 흰 카드 + 주황 포인트가 유일한 강조
+- 슬라이드 상단: `한화손보` (주황 bold) + 우측 슬라이드 제목 (그레이 small)
+- 슬라이드 하단: 대형 주황 숫자 (`01`, `02`...)
+- 카드 스타일: `border border-slate-200 shadow-2xl rounded-lg`
+
+### 테크니컬 리포트 (technical_report.html) 기준
+GPT 테크니컬 리포트처럼: 단일 컬럼, 흰 배경, 학술 문서 형식
+- 내용 수준: 심사위원(내부, AI 비전문가)이 읽고 이해할 수 있는 언어로
+- 기술 설명은 "무엇을 왜" 위주 — 구현 세부사항(테이블명·파일명·쿼리) 제외
+- GPT 테크니컬 리포트에서 쓰는 것: Abstract, 섹션 번호, Figure/Table 캡션, 간결한 다이어그램
 
 ---
 
