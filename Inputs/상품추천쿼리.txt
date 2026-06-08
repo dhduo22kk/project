@@ -1,0 +1,2259 @@
+## 1. 가입상품 생성 쿼리 #
+-- 장기 TM 에서 판매중인 상품 리스트 가져오기
+DROP TABLE GDREC_TMGD_LIST PURGE;
+CREATE TABLE GDREC_TMGD_LIST  AS (	
+SELECT 
+	DISTINCT 
+	A.*
+	, CASE WHEN B.GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+           WHEN B.GDNM LIKE '%더건강 더실속%' OR B.MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+            WHEN GDNM LIKE '%더건강%' THEN 'L01'
+           WHEN B.GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+      	   WHEN B.MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+      	   WHEN B.MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+      	   WHEN B.MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+      	   WHEN B.MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+      	   WHEN B.MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+      	   WHEN B.GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+           WHEN B.GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+      	   WHEN REGEXP_LIKE(B.GDNM, '참 편한|WELL100|간편|3N5|355')  THEN 'SI'
+      	   WHEN B.MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+      	   ELSE 'ETC' END AS GD_TYPE
+    , B.GDNM
+    , D.DTCNM AS SL_CHNCD
+FROM
+(SELECT * FROM IGD_GD_SL_TRM
+WHERE SL_NDDT >= SYSDATE
+AND GDCD LIKE '%LA%') A
+LEFT JOIN M_CRM_GD_CSF_INFO B
+ON 0=0
+	AND A.GDCD = B.GDCD
+LEFT JOIN IGD_GD_SL_CHN_REL C
+ON 0=0
+	AND A.GDCD = C.GDCD
+LEFT JOIN SL_CHNCD D
+ON 0=0
+	AND C.SL_CHNCD = D.SL_CHNCD
+WHERE 1=1
+    AND D.DTCNM = 'TM'
+    AND A.GDCD IN (SELECT DISTINCT GDCD FROM TB_LNG_BJONG_MASTER WHERE SALE_END_YN = 'Y')
+);
+
+
+-- 상품/담보별 가입 연령 및 필수담보여부
+DROP TABLE GDREC_TMGD_LIST_INFO PURGE;
+CREATE TABLE GDREC_TMGD_LIST_INFO  AS (	
+SELECT 
+	DISTINCT 
+	A.*
+	, B.CVRCD 
+	, B.CVR_PRSNM  -- 담보명
+	, B.CVR_CLA_CN  -- 담보약관내용
+	, B.CVR_BA_TRT_FLGCD -- 특약여부
+	, B.ISAMT_NEED_YN -- 가입금액필요여부
+	, B.MN_IS_AGE  -- 최소가입연령
+	, B.MX_IS_AGE  -- 최대가입연령
+	, B.IS_AV_SEXCD  -- 성별코드
+	, C.ESSN_IS_YN  -- 필수가입여부
+	, C.MN_IS_AV_AGE
+	, C.MX_IS_AV_AGE
+	, C.ISAMT_MNVL  -- 최소가입금액
+	, C.ISAMT_MXVL  -- 최대가입금액
+	, C.REC_CVR_YN  -- 추천담보여부
+	, CASE WHEN F.GDCD IS NOT NULL THEN 1 ELSE 0 END AS 무사고_YN
+FROM SDADAM.GDREC_TMGD_LIST A
+LEFT JOIN IGD_GD_CVR B
+ON 0=0
+	AND A.GDCD = B.GDCD
+LEFT JOIN INS_GD_CE_PL_CVR C
+ON 0=0
+	AND A.GDCD = C.GDCD
+	AND B.CVRCD = C.CVRCD 
+LEFT JOIN IGD_GD_CVR_ACM_RK D
+ON 0=0
+	AND B.CVRCD = D.CVRCD
+LEFT JOIN IGD_GD_US_ATR F
+ON 0=0
+  AND F.GDCD = A.GDCD
+  AND F.ATRCD         ='PA00119'
+	);
+	
+
+## 2. 상품 가입 현황 통계 ##
+-- 담보보장조건 코드 매핑
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T01  AS
+(
+SELECT  A1.THCP_GN_CND_SEQNO             AS THCP_GN_CND_SEQNO                   /*당사보장조건순번*/
+       ,A1.THCP_GD_XCPT_MTT              AS THCP_GD_XCPT_MTT                    /*당사상품예외사항*/
+       ,A1.THCP_CVRCD                    AS THCP_CVRCD                          /*당사담보코드*/
+       ,A1.THCP_IBAMT_STNM               AS THCP_IBAMT_STNM                     /*당사보험금액기준명*/
+       ,A1.THCP_INS_MULT_STAMT           AS THCP_INS_MULT_STAMT                 /*당사보험배수기준금액*/
+       ,A1.THCP_INSTR_CSFNM              AS THCP_INSTR_CSFNM                    /*당사보험기간분류명*/
+       ,A1.THCP_INSTR_MNVL               AS THCP_INSTR_MNVL                     /*당사보험기간최소값*/
+       ,A1.THCP_INSTR_MXVL               AS THCP_INSTR_MXVL                     /*당사보험기간최대값*/
+       ,A1.THCP_INS_AGE_MNVL             AS THCP_INS_AGE_MNVL                   /*당사보험연령최소값*/
+       ,A1.THCP_INS_AGE_MXVL             AS THCP_INS_AGE_MXVL                   /*당사보험연령최대값*/
+       ,A1.THCP_AN_PY_CT                 AS THCP_AN_PY_CT                       /*당사연금지급횟수*/
+       ,A1.THCP_AN_ND_DTNM               AS THCP_AN_ND_DTNM                     /*당사연금만료세부명*/
+       ,A1.THCP_AN_TRM_NM                AS THCP_AN_TRM_NM                      /*당사연금기간명*/
+       ,A1.THCP_GNAMT_ITCD               AS THCP_GNAMT_ITCD                     /*당사보장금액항목코드*/
+       ,A1.THCP_GNAMT                    AS THCP_GNAMT                          /*당사보장금액*/
+
+FROM  SFA_THCP_CVR_GN_CND A1                                              /**당사담보보장조건**/
+WHERE 1=1
+AND   (CASE WHEN  A1.THCP_INSTR_MNVL IN (13,25)                                 /*당사보험기간최소값*/
+             AND  A1.THCP_INSTR_MXVL < 59                                       /*당사보험기간최대값*/
+             AND (A1.THCP_INSTR_MNVL IN (13,25)
+              OR  A1.THCP_INSTR_MXVL IN (12,24)
+                 )   THEN '0'
+                     ELSE '1'
+       END) = '1'
+AND A1.THCP_INSTR_CSFNM   = '만기'
+) ;
+-- 장기 TM 보유고객 가져오기
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T02 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T02  AS
+(
+SELECT  A2.CLS_YYMM
+	   ,A2.PLYNO                     AS PLYNO                                   /*증권번호*/
+       ,A2.CTMNO                     AS CTMNO                                   /*고객번호(장기피보험자)*/
+       ,A2.RELPC_SEQNO               AS RELPC_SEQNO                             /*관계자순번*/
+       ,A2.STFNO                     AS STFNO                                   /*직원번호*/
+       ,A2.USRNO                     AS USRNO                                   /*사용인번호*/
+       ,A2.GDCD                      AS GDCD                                    /*상품코드*/
+       ,A2.INS_ST                    AS INS_ST                                  /*보험시기*/
+       ,A2.INS_CLSTR                 AS INS_CLSTR                               /*보험종기*/
+       ,A2.BRTH                      AS BRTH
+       ,CASE WHEN F_ISDATE(A2.BRTH) = 'T'
+                  THEN (CASE WHEN A2.CTM_TPCD = '01'                           /*고객구분코드:개인*/
+                     THEN  EXTRACT(YEAR FROM to_yminterval(AGE(ADD_MONTHS(F_LAST_DAY(A2.CLS_YYMM), +6), TO_DATE(A2.BRTH, 'YYYYMMDD'))  DEFAULT '000-00' ON CONVERSION ERROR ))
+                       - (CASE WHEN EXTRACT(MONTH FROM to_yminterval(AGE(ADD_MONTHS(F_LAST_DAY(A2.CLS_YYMM), +6), TO_DATE(A2.BRTH,'YYYYMMDD') ) DEFAULT '000-00' ON CONVERSION ERROR) ) = 1
+                           AND SUBSTR(ADD_MONTHS(F_LAST_DAY(A2.CLS_YYMM), +6) ,6,2) = SUBSTR(A2.BRTH,6,2)
+                                                  THEN 1                       /*해당월의 해당일자까지 비교후 출생일이전이면 -1을 셋팅*/
+                                                  ELSE 0                       /*해당월이 아닐경우 기본값으로만 처리하기위해  0을 셋팅*/
+                                        END)
+                        END)
+        END                AS INS_AGE    
+        
+        
+FROM (SELECT  /*+ FULL(A1) FULL(B1) LEADING(A1) */
+			  T.CLS_YYMM
+             , A1.PLYNO                          AS PLYNO                        /*증권번호*/
+             ,B1.CTMNO                          AS CTMNO                        /*고객번호(장기피보험자)*/
+             ,B1.RELPC_SEQNO                    AS RELPC_SEQNO                  /*관계자순번*/
+             ,A1.DH_STFNO                       AS STFNO                        /*직원번호*/
+             ,COALESCE(A1.DH_USR_NO,'9999999')  AS USRNO                        /*사용인번호*/
+             ,A1.GDCD                           AS GDCD                         /*상품코드*/
+             ,A1.INS_ST                         AS INS_ST                       /*보험시기*/
+             ,A1.INS_CLSTR                      AS INS_CLSTR                    /*보험종기*/
+             ,ROW_NUMBER() OVER(PARTITION BY A1.PLYNO                           /*증권번호*/
+                                            ,B1.CTMNO                           /*고객번호*/
+                                            ,T.CLS_YYMM
+                                    ORDER BY B1.RELPC_SEQNO) AS RN              /*관계자순번*/
+            ,F_BIRTH_DAY_DEC(B1.CTM_DSCNO) AS BRTH 
+            ,C.CTM_TPCD
+      FROM 
+      (SELECT 
+        	A.*
+        	, B.GDNM_CLEAN	
+        FROM GDREC_ORIGIN_INS_CR_PRED A
+        LEFT JOIN M_CRM_REC_GDNM_TM B
+        ON 0=0
+        	AND A.GDCD = B.GDCD
+        WHERE 1=1 AND TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+        ) A1                                        /**월별보유계약**/
+	  INNER JOIN GDRES_SYS_YYMM_PRED T 
+	  ON A1.CLS_YYMM = T.CLS_YYMM
+      INNER JOIN
+          INS_CR_RELPC          B1                                        /**계약관계자**/
+      ON   1 = 1
+      AND  A1.PLYNO                  = B1.PLYNO                                 /*증권번호*/
+      AND  B1.IKD_GRPCD              IN ('LA')                                  /*보종군코드:장기보험(종피 포함)*/
+      AND  B1.RELPC_STCD             IN ('01','04')                             /*관계자상태코드:정상,납입면제*/
+      AND  B1.RELPC_TPCD             = '02'                                     /*관계자유형코드:피보험자*/
+      AND  B1.VALD_NDS_YN            = '1'                                      /*유효배서여부*/
+	    AND  B1.NDS_AP_STR_DTHMS <= T.CLS_NDDT
+	    AND  B1.NDS_AP_ND_DTHMS > T.CLS_NDDT      
+      AND  B1.CTMNO                  IS NOT NULL                                /*고객번호 존재건*/
+    LEFT JOIN CUS_CTM C 
+      ON 0=0
+        AND B1.CTMNO = C.CTMNO
+      WHERE 1=1
+      AND  A1.IKD_GRPCD              = 'LA'                                     /*보종군코드:장기보험*/
+-----      AND b1.RELPC_SEQNO NOT IN (607,467,262,259,256,253,174,138,50,37,11,10,7,5,3,2)
+     ) A2
+WHERE  1=1
+AND  A2.RN = 1
+) ;
+-- 담보 가입금액 추출
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T03  AS
+(
+SELECT /*+ FULL(A1) FULL(B1) FULL(C1) LEADING(A1) */
+        A1.CLS_YYMM
+       ,A1.PLYNO                     AS PLYNO                                   /*증권번호*/
+       ,B1.CVRCD                     AS CVRCD                                   /*담보코드*/
+       ,B1.CVR_SEQNO                 AS CVR_SEQNO                               /*담보순번*/
+       ,A1.CTMNO                     AS CTMNO                                   /*고객번호*/
+       ,A1.RELPC_SEQNO               AS RELPC_SEQNO                             /*관계자순번*/
+       ,A1.STFNO                     AS STFNO                                   /*직원번호*/
+       ,A1.USRNO                     AS USRNO                                   /*사용인번호*/
+       ,A1.INS_ST                    AS INS_ST                                  /*보험시기*/
+       ,A1.INS_CLSTR                 AS INS_CLSTR                               /*보험종기*/
+       ,A1.GDCD                      AS GDCD                                    /*상품코드*/
+       ,A1.BRTH                      AS BRTH
+       ,A1.INS_AGE                   AS INS_AGE
+       ,B1.CVR_STCD                  AS CVR_STCD                                /*담보상태코드*/
+       ,B1.INS_ST                    AS CVR_INS_ST                              /*담보보험시기*/
+       ,B1.INS_CLSTR                 AS CVR_INS_CLSTR                           /*담보보험종기*/
+       ,F_DIFF_DATE('MM',TO_CHAR(B1.INS_CLSTR ,'YYYYMMDD'),TO_CHAR(F_LAST_DAY(A1.CLS_YYMM),'YYYYMMDD'))
+                           AS CVR_CLSTR_ST_RNDMC                                /*담보종기기준경과월수(현재일자~담보보험종기의 월수)*/
+       ,F_DIFF_DATE('MM',TO_CHAR(B1.INS_ST ,'YYYYMMDD'),TO_CHAR(F_LAST_DAY(A1.CLS_YYMM),'YYYYMMDD'))
+                           AS CVR_ST_ST_RNDMC     
+       ,B1.AP_PRM                    AS AP_PRM                                  /*적용보험료*/
+       ,B1.ISAMT                     AS ISAMT                                   /*가입금액*/
+       ,B1.AUTO_RNW_AV_YN            AS AUTO_RNW_AV_YN                          /*자동갱신가능여부*/
+       ,B1.AUTO_RNW_CVR_CNLDT        AS AUTO_RNW_CVR_CNLDT                      /*자동갱신담보해지일자*/
+       ,B1.RNW_NDDT                  AS RNW_NDDT                                /*갱신종료일자*/
+       ,C1.MDCS_RGT_BJ_YN            AS MDCS_RGT_BJ_YN                          /*의료비등록대상여부*/
+       ,C1.RLPMI_CVR_YN              AS RLPMI_CVR_YN                            /*실손담보여부*/
+
+FROM  M_BIZ_CTM_INFO_CVR_LIST_RECT_T02  A1                                  /**월별보유계약정보**/
+INNER JOIN (SELECT T.CLS_YYMM
+                  , B1.*
+                  ,ROW_NUMBER() OVER (PARTITION BY T.CLS_YYMM, PLYNO, RELPC_OJ_SEQNO, CVRCD, CVR_SEQNO ORDER BY NDSNO DESC) RN
+                FROM  
+                (
+                SELECT 
+                	B1.CVR_STCD
+                	, B1.INS_ST
+                	, B1.INS_CLSTR
+                	, B1.AP_PRM
+                	, B1.ISAMT
+                	, B1.AUTO_RNW_AV_YN
+                	, B1.AUTO_RNW_CVR_CNLDT
+                	, B1.RNW_NDDT
+                	, B1.RELPC_OJ_SEQNO
+                	, B1.PLYNO
+                	, B1.CVRCD
+                	, B1.CVR_SEQNO
+                	, B1.NDS_AP_STR_DTHMS
+                	, B1.NDS_AP_ND_DTHMS
+                	, B1.NDSNO
+                FROM 
+    			INS_CR_CVR B1
+    			WHERE 1=1
+    			    AND EXISTS (SELECT 1 FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T01 A2 WHERE A2.THCP_CVRCD = B1.CVRCD)
+    			    AND  B1.IKD_GRPCD                = 'LA'   
+    				AND  B1.VALD_NDS_YN              = '1'                                          /*유효배서여부*/
+    				AND  B1.CVR_STCD                IN ('01','07','08')                             /*담보상태코드:정상,완납,납입면제*/
+    				AND  B1.CVR_BJ_FLGCD            IN ('01','03')                                  /*담보대상구분코드:인담보,적립담보*/
+    				) B1     
+                INNER JOIN GDRES_SYS_YYMM_PRED T 
+    	            ON 0=0                                                /**계약담보**/
+                	  AND  B1.NDS_AP_STR_DTHMS <= T.CLS_NDDT
+    	              AND  B1.NDS_AP_ND_DTHMS > T.CLS_NDDT
+            ) B1
+ON   1 = 1
+AND  A1.PLYNO                    = B1.PLYNO                                     /*증권번호*/
+AND  A1.RELPC_SEQNO              = B1.RELPC_OJ_SEQNO                            /*관계자목적물순번*/
+AND  B1.INS_CLSTR               >= F_LAST_DAY(B1.CLS_YYMM)                                   /*담보보험종기 >= 기준일자*/
+AND  B1.RN=1
+
+LEFT OUTER JOIN
+     IGD_GD_CVR    C1                                                     /**상품담보**/
+ON   1 = 1
+AND  B1.CVRCD                    = C1.CVRCD                                     /*담보코드*/
+AND  A1.GDCD                     = C1.GDCD                                      /*상품코드*/
+AND  C1.AP_NDDT                  >  F_LAST_DAY(B1.CLS_YYMM)                                   /*적용종료일자*/
+AND  C1.AP_STRDT                 <= F_LAST_DAY(B1.CLS_YYMM)
+
+) ;
+
+-- 담보보장조건 코드랑 담보코드랑 매핑
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T04 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T04  AS
+(
+SELECT * 
+FROM
+(SELECT  /*+ FULL(A1) FULL(B1) LEADING(B1) */
+       A1.CLS_YYMM
+       ,A1.PLYNO                        AS PLYNO                                /*증권번호*/
+       ,A1.CVRCD                        AS CVRCD                                /*담보코드*/
+       ,A1.CVR_SEQNO                    AS CVR_SEQNO                            /*담보순번*/
+       ,A1.CTMNO                        AS CTMNO                                /*고객번호*/
+       ,A1.RELPC_SEQNO                  AS RELPC_SEQNO                          /*관계자순번*/
+       ,A1.STFNO                        AS STFNO                                /*직원번호*/
+       ,A1.USRNO                        AS USRNO                                /*사용인번호*/
+       ,A1.INS_ST                       AS INS_ST                               /*보험시기*/
+       ,A1.INS_CLSTR                    AS INS_CLSTR                            /*보험종기*/
+       ,A1.GDCD                         AS GDCD                                 /*상품코드*/
+       ,A1.CVR_STCD                     AS CVR_STCD                             /*담보상태코드*/
+       ,A1.INS_ST                       AS CVR_INS_ST                           /*담보보험시기*/
+       ,A1.INS_CLSTR                    AS CVR_INS_CLSTR                        /*담보보험종기*/
+       ,A1.AP_PRM                       AS AP_PRM                               /*적용보험료*/
+       ,A1.ISAMT                        AS ISAMT                                /*가입금액*/
+       ,A1.AUTO_RNW_AV_YN               AS AUTO_RNW_AV_YN                       /*자동갱신가능여부*/
+       ,A1.AUTO_RNW_CVR_CNLDT           AS AUTO_RNW_CVR_CNLDT                   /*자동갱신담보해지일자*/
+       ,A1.RNW_NDDT                     AS RNW_NDDT                             /*갱신종료일자*/
+       ,A1.MDCS_RGT_BJ_YN               AS MDCS_RGT_BJ_YN                       /*의료비등록대상여부*/
+       ,A1.RLPMI_CVR_YN                 AS RLPMI_CVR_YN                         /*실손담보여부*/
+       ,A1.BRTH                         AS BRTH
+       ,A1.INS_AGE                      AS INS_AGE
+       ,A1.CVR_ST_ST_RNDMC
+       ,A1.CVR_CLSTR_ST_RNDMC
+        /**당사담보보장조건정보**/
+       ,B1.THCP_GN_CND_SEQNO            AS THCP_GN_CND_SEQNO                    /*당사보장조건순번*/
+       ,B1.THCP_GD_XCPT_MTT             AS THCP_GD_XCPT_MTT                     /*당사상품예외사항*/
+       ,B1.THCP_CVRCD                   AS THCP_CVRCD                           /*당사담보코드*/
+       ,B1.THCP_IBAMT_STNM              AS THCP_IBAMT_STNM                      /*당사보험금액기준명*/
+       ,B1.THCP_INS_MULT_STAMT          AS THCP_INS_MULT_STAMT                  /*당사보험배수기준금액*/
+       ,B1.THCP_INSTR_CSFNM             AS THCP_INSTR_CSFNM                     /*당사보험기간분류명*/
+       ,B1.THCP_INSTR_MNVL              AS THCP_INSTR_MNVL                      /*당사보험기간최소값*/
+       ,B1.THCP_INSTR_MXVL              AS THCP_INSTR_MXVL                      /*당사보험기간최대값*/
+       ,B1.THCP_INS_AGE_MNVL            AS THCP_INS_AGE_MNVL                    /*당사보험연령최소값*/
+       ,B1.THCP_INS_AGE_MXVL            AS THCP_INS_AGE_MXVL                    /*당사보험연령최대값*/
+       ,B1.THCP_AN_PY_CT                AS THCP_AN_PY_CT                        /*당사연금지급횟수*/
+       ,B1.THCP_AN_ND_DTNM              AS THCP_AN_ND_DTNM                      /*당사연금만료세부명*/
+       ,B1.THCP_AN_TRM_NM               AS THCP_AN_TRM_NM                       /*당사연금기간명*/
+       ,B1.THCP_GNAMT_ITCD              AS THCP_GNAMT_ITCD                      /*당사보장금액항목코드*/
+       ,B1.THCP_GNAMT                   AS THCP_GNAMT                           /*당사보장금액*/
+       ,CASE WHEN B1.THCP_GNAMT_ITCD IN ('SH0001','SH0003','WJ0001')      /*당사보장금액항목코드:일상생활배상책임,화재벌금,운전자벌금*/
+                 THEN ROW_NUMBER() OVER(PARTITION BY A1.CLS_YYMM
+                                                     ,A1.CTMNO            /*고객번호*/
+                                                     ,B1.THCP_GNAMT_ITCD  /*당사보장금액항목코드*/
+                                                   ORDER BY A1.INS_ST DESC)     /*보험시기*/
+                        ELSE 1
+                   END AS RN
+FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T03    A1                                 /**당사보유계약담보정보**/
+INNER JOIN
+     M_BIZ_CTM_INFO_CVR_LIST_RECT_T01    B1                                 /**당사담보보장조건정보**/
+ON   1 = 1
+AND  A1.CVRCD               = B1.THCP_CVRCD                                     /*담보코드=당사담보코드*/
+AND (B1.THCP_GD_XCPT_MTT    IS  NULL                                            /*당사상품예외사항 IS NULL*/
+ OR  B1.THCP_GD_XCPT_MTT    LIKE '%'||A1.GDCD||'%'                              /*당사상품예외사항 LIKE '%당사상품코드%"*/
+    ))
+WHERE RN = 1
+) ;
+
+--가입금액 보정
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T06 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T06  AS
+(
+SELECT  A2.*
+       ,(CASE WHEN A2.THCP_IBAMT_STNM IN ('가입금액')                           /*당사보험금액기준명=가입금액*/
+               AND A2.THCP_GNAMT_ITCD IN ('JH0004','JH0005','JH0006','JH0007','JH0008','JH0009')
+                                                             THEN A2.ISAMT                                                                /*후유장해 6개담보에 대해서만 실제가입금액*/
+              WHEN A2.THCP_IBAMT_STNM IN ('가입금액')        THEN (A2.ISAMT / A2.THCP_INS_MULT_STAMT) * A2.THCP_GNAMT                     /*지급금액 = (실제가입금액/당사보험배수기준금액) * 당사보장금액*/
+              WHEN A2.THCP_IBAMT_STNM IN ('정액')            THEN A2.THCP_GNAMT * 10000                                                   /*지급금액 = 고정된 금액지급(단위:만원, 따라서 10000 곱)*/
+              WHEN A2.THCP_IBAMT_STNM IN ('보험료','일시납') THEN ((A2.AP_PRM / 10000) / A2.THCP_INS_MULT_STAMT) * A2.THCP_GNAMT * 10000  /*지급금액 = ((회당납입보험료/10000) / 당사보험배수기준금액) * 당사보장금액*10000*/
+                                                             ELSE 0
+         END) * A2.PYCT    AS IS_CVAMT                                          /*가입금액*/
+
+ FROM (SELECT /*+ FULL(A1) */
+               A1.*
+              ,CASE WHEN A1.THCP_AN_ND_DTNM IN ('보증')                         /*당사연금만료세부명=보증*/
+                     AND A1.THCP_AN_TRM_NM  IN ('만기') THEN                    /*당사연금기간명=만기*/
+                         (CASE WHEN A1.CVR_CLSTR_ST_RNDMC < A1.THCP_AN_PY_CT    /*담보종기기준경과월수 < 당사연금지급횟수*/
+                                    THEN A1.THCP_AN_PY_CT                       /*당사연금지급횟수*/
+                                    ELSE A1.CVR_CLSTR_ST_RNDMC                  /*담보종기기준경과월수*/
+                          END)
+                    WHEN A1.THCP_AN_ND_DTNM IN ('확정')  THEN A1.THCP_AN_PY_CT  /*당사연금만료세부명=확정*/
+                                                         ELSE 1
+               END            AS PYCT                                           /*보장금액을 계산용*/
+              ,CASE WHEN A1.INS_ST < F_LAST_DAY(A1.CLS_YYMM)  THEN                         /*보험시기 < 현재일자*/
+                         (CASE WHEN A1.CVR_ST_ST_RNDMC + 1 BETWEEN A1.THCP_INSTR_MNVL AND A1.THCP_INSTR_MXVL
+                                    THEN 'Y'
+                                    ELSE 'N'
+                          END)
+                    ELSE
+                         (CASE WHEN A1.CVR_ST_ST_RNDMC BETWEEN A1.THCP_INSTR_MNVL AND A1.THCP_INSTR_MXVL
+                                    THEN 'Y'
+                                    ELSE 'N'
+                          END)
+               END            AS FLGCD_1                                        /*경과기간 체크*/
+              ,CASE WHEN A1.INS_AGE BETWEEN A1.THCP_INS_AGE_MNVL AND A1.THCP_INS_AGE_MXVL
+                                  THEN 'Y'
+                                  ELSE 'N'
+               END            AS FLGCD_2                                        /*보험연령 체크*/
+
+       FROM M_BIZ_CTM_INFO_CVR_LIST_RECT_T04   A1
+       WHERE 1=1
+       AND  A1.THCP_INSTR_CSFNM   = '만기'                                      /*당사보험기간분류명=만기*/
+       AND  A1.INS_ST             IS NOT NULL                                   /*보험시기 존재건*/
+      ) A2
+WHERE 1 = 1
+AND  A2.FLGCD_1     = 'Y'                                                       /*담보시기기준경과월수가 당사보험기간최소,최대값내 존재건*/
+AND  A2.FLGCD_2     = 'Y'                                                       /*보험연령이 당사보험연령최소,최대값내 존재건*/
+AND  A2.PYCT        > 0                                                         /*보장금액을 계산용 지급횟수 > 0*/
+) ;
+
+-- 담보분류 코드별 누적가입담보금액 추출
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T07 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T07  AS
+(
+SELECT  A1.CLS_YYMM
+       , A1.CTMNO                             AS CTMNO                           /*고객번호*/
+       , A1.THCP_GNAMT_ITCD                   AS CRM_CVR_CSFCD                   /*CRM담보분류코드*/
+       , A1.PLYNO
+       ,SUM(A1.IS_CVAMT)                     AS ACM_IS_CVAMT                    /*누적가입담보금액*/
+
+FROM  (SELECT  MG1.*
+              ,ROW_NUMBER() OVER(PARTITION BY CLS_YYMM
+                                             ,STFNO                             /*직원번호*/
+                                             ,USRNO                             /*사용인번호*/
+                                             ,PLYNO                             /*증권번호*/
+                                             ,INS_ST                            /*보험시기*/
+                                             ,INS_CLSTR                         /*보험종기*/
+                                             ,CTMNO                             /*고객번호*/
+                                             ,RELPC_SEQNO                       /*계약관계자순번*/
+                                             ,GDCD                              /*상품코드*/
+                                             ,CVRCD                             /*담보코드*/
+                                             ,CVR_INS_ST                        /*담보보험시기*/
+                                             ,CVR_INS_CLSTR                     /*담보보험종기*/
+                                             ,AP_PRM                            /*적용보험료*/
+                                             ,ISAMT                             /*가입금액*/
+                                             ,CVR_STCD                          /*담보상태코드*/
+                                             ,AUTO_RNW_AV_YN                    /*자동갱신가능여부*/
+                                             ,AUTO_RNW_CVR_CNLDT                /*자동갱신담보해지일자*/
+                                             ,RNW_NDDT                          /*갱신종료일자*/
+                                             ,MDCS_RGT_BJ_YN                    /*의료비등록대상여부*/
+                                             ,RLPMI_CVR_YN                      /*실손담보여부*/
+                                             ,THCP_GNAMT_ITCD                   /*당사보장금액항목코드*/
+                                     ORDER BY THCP_GD_XCPT_MTT DESC
+                                             ) AS SQ      /*당사상품예외사항*/
+       FROM  M_BIZ_CTM_INFO_CVR_LIST_RECT_T06  MG1
+      )   A1
+WHERE  1=1
+AND  A1.SQ = 1
+GROUP BY A1.CLS_YYMM, A1.CTMNO, A1.THCP_GNAMT_ITCD, A1.PLYNO
+) ;
+
+-- 질병수술비 가입금액 추가
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T08 PURGE;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T08  AS
+(
+SELECT  
+        A1.CLS_YYMM
+       ,A1.CTMNO                     AS CTMNO                                   /*고객번호*/
+       , A1.PLYNO
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10661','ARLA10662') THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS FOCUS_ANTI_MEDI_APPR_MDCF     /*표적항암약물허가치료비*/
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10233')             THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS DSAS_OPCCS_14_KND_AMT         /*질병수술비14종류금액*/
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10135')             THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS DSAS_OPCCS_16_KND_AMT         /*질병수술비16종류금액*/
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10287')             THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS DSAS_OPCCS_18_KND_AMT         /*질병수술비18종류금액*/
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10369')             THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS DSAS_OPCCS_34_KND_AMT         /*질병수술비34종류금액*/
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10629')             THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS DSAS_OPCCS_56_KND_AMT         /*질병수술비56종류금액*/
+       ,SUM(CASE WHEN B1.ACM_RKCD IN ('ARLA10681')             THEN A1.ISAMT * B1.ACM_MULT ELSE 0 END) AS DSAS_OPCCS_121_KND_AMT        /*질병수술비121종류금액*/
+
+FROM  M_BIZ_CTM_INFO_CVR_LIST_RECT_T03  A1                                  /**월별보유계약정보**/
+INNER JOIN
+      IGD_GD_CVR_ACM_RK               B1                                  /**상품담보누적위험**/
+ON   A1.CVRCD    = B1.CVRCD                                                     /*담보코드*/
+AND  A1.GDCD     = B1.GDCD                                                      /*상품코드*/
+AND  B1.ACM_RKCD IN ('ARLA10662','ARLA10661','ARLA10233','ARLA10135'
+                    ,'ARLA10287','ARLA10369','ARLA10629','ARLA10681')           /*누적위험코드*/
+
+GROUP BY A1.CTMNO, A1.CLS_YYMM, A1.PLYNO
+) ;
+
+-- 항목별 담보 가입금액 추출
+DROP TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T09;
+CREATE TABLE M_BIZ_CTM_INFO_CVR_LIST_RECT_T09  AS
+(
+SELECT /*+ FULL(A1) FULL(B1) LEADING(B1) */
+        COALESCE(A1.CLS_YYMM, B1.CLS_YYMM)                                            AS CLS_YYMM
+       ,COALESCE(A1.CTMNO, B1.CTMNO)                                                  AS CTMNO                         /*고객번호*/
+       ,COALESCE(A1.PLYNO, B1.PLYNO)                                                  AS PLYNO
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SM0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSDE_AMT                      /*질병사망금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SM0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_DE_AMT                   /*상해사망금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SM0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CANCR_DE_AMT                  /*암사망금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SM0002' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS TRF_INJR_DE_AMT               /*교통상해사망금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JH0009' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_SLOBS_AMT                /*질병후유장해금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JH0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_DGR_SLOBS_AMT            /*질병고도후유장해금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JH0005' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_SLOBS_AMT                /*상해후유장해금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JH0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_DGR_SLOBS_AMT            /*상해고도후유장해금액*/
+       
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0019' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS SMLY_CANCR_DASCS_AMT          /*유사암진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CANCR_DASCS_AMT               /*암진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0002' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS HAMT_CANCR_DASCS_AMT          /*고액암진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS RE_DGN_CANCR_AMT              /*재진단암금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0005' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CANCR_HSP_DDALW_AMT           /*암입원일당금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SS0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CANCR_OPCCS_AMT               /*암수술비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CRLR_DSAS_DASCS_AMT           /*뇌혈관질환진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0005' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS STRK_DASCS_AMT                /*뇌졸중진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0006' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CBHMH_DASCS_AMT               /*뇌출혈진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SS0005' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CRLR_DSAS_OPCCS_AMT           /*뇌혈관질환수술비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0008' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS ISMC_HEART_DSAS_DASCS_AMT     /*허혈성심장질환진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0009' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS AMIFN_INCR_DASCS_AMT          /*급성심근경색증진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SS0006' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS ISMC_HEART_DSAS_OPCCS_AMT     /*허혈성심장질환수술비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0023' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CI_AMT                        /*CI금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0024' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS GI_AMT                        /*GI금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SB0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_HSP_RLPMI_AMT            /*질병입원실손금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SB0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_OTP_RLPMI_AMT            /*질병통원실손금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SB0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_HSP_RLPMI_AMT            /*상해입원실손금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SB0002' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_OTP_RLPMI_AMT            /*상해통원실손금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_HSP_DDALW_1_AMT          /*질병입원일당1금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_HSP_DDALW_4_AMT          /*질병입원일당4금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_HSP_DDALW_1_AMT          /*상해입원일당1금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0002' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_HSP_DDALW_4_AMT          /*상해입원일당4금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SS0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DSAS_OPCCS_AMT                /*질병수술비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SS0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS INJR_OPCCS_AMT                /*상해수술비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0018' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS MILD_DEMEN_AMT                /*경증치매금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0010' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS SERI_DEMEN_AMT                /*중증치매금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0017' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS LTRM_RCPR_DGN_RANK4_AMT       /*장기요양진단4급금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0016' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS LTRM_RCPR_DGN_RANK1_AMT       /*장기요양진단1급금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'WJ0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS BDIN_CCA_SUAMT_AMT            /*대인형사합의지원금금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'WJ0002' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS LWR_SNRT_CS_AMT               /*변호사선임비용금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'WJ0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS DRV_PNLTY_AMT                 /*운전자벌금금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'WJ0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS AUTO_CRCLM_INJ_URAMT          /*자동차사고부상발생금금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SH0003' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS FIRE_PNLTY_AMT                /*화재벌금금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SH0001' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS USLLF_LBTRS_AMT               /*일상생활배상책임금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SH0002' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS IMPL_MDCF_AMT                 /*임플란트치료비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'SH0004' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS CROW_MDCF_AMT                 /*크라운치료비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0011' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS FRCTR_DASCS_AMT               /*골절진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'JD0012' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS BURN_DASCS_AMT                /*화상진단비금액*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0008' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS GB_AMT               /*간병비1*/
+       ,SUM(CASE WHEN A1.CRM_CVR_CSFCD = 'IY0009' THEN A1.ACM_IS_CVAMT ELSE 0 END)    AS GB_AMT2                /*간병비2*/
+FROM  M_BIZ_CTM_INFO_CVR_LIST_RECT_T07   A1                                 /**보유고객누적담보정보**/
+FULL OUTER JOIN
+      M_BIZ_CTM_INFO_CVR_LIST_RECT_T08   B1                                 /**보유고객추가담보정보**/
+ON   A1.CTMNO           = B1.CTMNO                                              /*고객번호*/
+  AND A1.CLS_YYMM       = B1.CLS_YYMM
+  AND A1.PLYNO = B1.PLYNO
+GROUP BY COALESCE(A1.CTMNO, B1.CTMNO),COALESCE(A1.CLS_YYMM, B1.CLS_YYMM),COALESCE(A1.PLYNO, B1.PLYNO)
+) ;
+
+-- 연령별 상위 75% 가입금액 추출(장기 _ L01)
+DROP TABLE M_BIZ_RECT_GDINFO_L01;
+CREATE TABLE M_BIZ_RECT_GDINFO_L01  AS
+SELECT
+	GDNM_CLEAN
+	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END AS AGE_SEG
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY LTRM_MPY_CV_PRM DESC) AS LTRM_MPY_CV_PRM
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN CRLR_DSAS_DASCS_AMT > 0 THEN CRLR_DSAS_DASCS_AMT END DESC) AS 뇌혈관질환진단비금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN ISMC_HEART_DSAS_DASCS_AMT > 0 THEN ISMC_HEART_DSAS_DASCS_AMT END DESC) AS 허혈성심장질환진단비금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN CANCR_DASCS_AMT > 0 THEN CANCR_DASCS_AMT END DESC) AS 암진단비금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN DSDE_AMT > 0 THEN DSDE_AMT END DESC) AS 질병사망금액
+FROM
+	(SELECT 
+	  A1.*
+	  , B1.CRLR_DSAS_DASCS_AMT         /* 뇌혈관질환진단비금액 */
+	  , B1.ISMC_HEART_DSAS_DASCS_AMT   /* 허혈성심장질환진단비금액 */
+	  , B1.CANCR_DASCS_AMT             /* 암진단비금액 */
+	  , B1.DSDE_AMT                    /* 질병사망금액 */
+	  , B1.GB_AMT                      /* 간병비1 */
+	  , B1.GB_AMT2                     /* 간병비2 */
+	FROM 
+	  (SELECT 
+	  A.*
+	  , B.GDNM_CLEAN
+	  , B.GD_TYPE
+	  FROM GDREC_ORIGIN_INS_CR_PRED A
+	  LEFT JOIN M_CRM_REC_GDNM_TM B
+	  ON 0=0
+	  AND A.GDCD = B.GDCD
+	  WHERE B.GDCD IS NOT NULL AND TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+	  ) A1   
+	LEFT JOIN 
+	M_BIZ_CTM_INFO_CVR_LIST_RECT_T09 B1
+	ON 0=0
+	  AND A1.PLYNO = B1.PLYNO
+	  )
+WHERE GD_TYPE IN ('L01', '유병자','L04')
+GROUP BY GDNM_CLEAN, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END
+;
+-- 연령별 상위 75% 가입금액 추출(장기 _ L03)
+DROP TABLE M_BIZ_RECT_GDINFO_L03;
+CREATE TABLE M_BIZ_RECT_GDINFO_L03  AS
+SELECT
+	GDNM_CLEAN
+	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END AS AGE_SEG
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY LTRM_MPY_CV_PRM DESC) AS LTRM_MPY_CV_PRM
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN BDIN_CCA_SUAMT_AMT > 0 THEN BDIN_CCA_SUAMT_AMT END DESC) AS 대인형사합의지원금금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN LWR_SNRT_CS_AMT > 0 THEN LWR_SNRT_CS_AMT END DESC) AS 변호사선임비용금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN DRV_PNLTY_AMT > 0 THEN DRV_PNLTY_AMT END DESC) AS 운전자벌금금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN AUTO_CRCLM_INJ_URAMT > 0 THEN AUTO_CRCLM_INJ_URAMT END DESC) AS 자동차사고부상발생금금액
+FROM
+	(SELECT 
+	  A1.*
+	  , B1.BDIN_CCA_SUAMT_AMT            /*대인형사합의지원금금액*/
+	  , B1.LWR_SNRT_CS_AMT               /*변호사선임비용금액*/
+	  , B1.DRV_PNLTY_AMT                 /*운전자벌금금액*/
+	  , B1.AUTO_CRCLM_INJ_URAMT          /*자동차사고부상발생금금액*/
+	FROM 
+	  (SELECT 
+	  A.*
+	  , B.GDNM_CLEAN	
+	  , B.GD_TYPE
+	  FROM GDREC_ORIGIN_INS_CR_PRED A
+	  LEFT JOIN M_CRM_REC_GDNM_TM B
+	  ON 0=0
+	  AND A.GDCD = B.GDCD
+	  WHERE B.GDCD IS NOT NULL AND TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+	  ) A1   
+	LEFT JOIN 
+	M_BIZ_CTM_INFO_CVR_LIST_RECT_T09 B1
+	ON 0=0
+	  AND A1.PLYNO = B1.PLYNO
+	  )
+WHERE GD_TYPE IN ('L03')
+GROUP BY GDNM_CLEAN	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END
+;
+-- 연령별 상위 75% 가입금액 추출(장기 _ 실손)
+DROP TABLE M_BIZ_RECT_GDINFO_SS;
+CREATE TABLE M_BIZ_RECT_GDINFO_SS  AS
+SELECT
+	GDNM_CLEAN
+	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END AS AGE_SEG
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY LTRM_MPY_CV_PRM DESC) AS LTRM_MPY_CV_PRM
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN DSAS_HSP_RLPMI_AMT > 0 THEN DSAS_HSP_RLPMI_AMT END DESC) AS 질병입원실손금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN DSAS_OTP_RLPMI_AMT > 0 THEN DSAS_OTP_RLPMI_AMT END DESC) AS 질병통원실손금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN INJR_HSP_RLPMI_AMT > 0 THEN INJR_HSP_RLPMI_AMT END DESC) AS 상해입원실손금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN INJR_OTP_RLPMI_AMT > 0 THEN INJR_OTP_RLPMI_AMT END DESC) AS 상해통원실손금액
+FROM
+	(SELECT 
+	  A1.*
+	  , B1.DSAS_HSP_RLPMI_AMT            /*질병입원실손금액*/
+	  , B1.DSAS_OTP_RLPMI_AMT            /*질병통원실손금액*/
+	  , B1.INJR_HSP_RLPMI_AMT            /*상해입원실손금액*/
+	  , B1.INJR_OTP_RLPMI_AMT            /*상해통원실손금액*/
+	FROM 
+	  (SELECT 
+	  A.*
+	  , B.GDNM_CLEAN	
+	  , B.GD_TYPE
+	  FROM GDREC_ORIGIN_INS_CR_PRED A
+	  LEFT JOIN M_CRM_REC_GDNM_TM B
+	  ON 0=0
+	  AND A.GDCD = B.GDCD
+	  WHERE B.GDCD IS NOT NULL AND TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+	  ) A1   
+	LEFT JOIN 
+	M_BIZ_CTM_INFO_CVR_LIST_RECT_T09 B1
+	ON 0=0
+	  AND A1.PLYNO = B1.PLYNO
+	  )
+WHERE GD_TYPE IN ('SS')
+GROUP BY GDNM_CLEAN	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END
+;
+-- 연령별 상위 75% 가입금액 추출(장기 _ 치매)
+DROP TABLE M_BIZ_RECT_GDINFO_L08;
+CREATE TABLE M_BIZ_RECT_GDINFO_L08  AS
+SELECT
+	GDNM_CLEAN
+	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END AS AGE_SEG
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY LTRM_MPY_CV_PRM DESC) AS LTRM_MPY_CV_PRM
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN MILD_DEMEN_AMT > 0 THEN MILD_DEMEN_AMT END DESC) AS 경증치매금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN SERI_DEMEN_AMT > 0 THEN SERI_DEMEN_AMT END DESC) AS 중증치매금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN LTRM_RCPR_DGN_RANK4_AMT > 0 THEN LTRM_RCPR_DGN_RANK4_AMT END DESC) AS 장기요양진단4급금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN LTRM_RCPR_DGN_RANK1_AMT > 0 THEN LTRM_RCPR_DGN_RANK1_AMT END DESC) AS 장기요양진단1급금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN GB_AMT > 0 THEN GB_AMT END DESC) AS GB_AMT
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN GB_AMT2 > 0 THEN GB_AMT2 END DESC) AS GB_AMT2
+FROM
+	(SELECT 
+	  A1.*
+	  , B1.MILD_DEMEN_AMT                /*경증치매금액*/
+	  , B1.SERI_DEMEN_AMT                /*중증치매금액*/
+	  , B1.LTRM_RCPR_DGN_RANK4_AMT       /*장기요양진단4급금액*/
+	  , B1.LTRM_RCPR_DGN_RANK1_AMT       /*장기요양진단1급금액*/
+	  , GB_AMT
+	  , GB_AMT2
+	  
+	FROM 
+	  (SELECT 
+	  A.*
+	  , B.GDNM_CLEAN	
+	  , B.GD_TYPE
+	  FROM GDREC_ORIGIN_INS_CR_PRED A
+	  LEFT JOIN M_CRM_REC_GDNM_TM B
+	  ON 0=0
+	  AND A.GDCD = B.GDCD
+	  WHERE B.GDCD IS NOT NULL AND TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+	  ) A1   
+	LEFT JOIN 
+	M_BIZ_CTM_INFO_CVR_LIST_RECT_T09 B1
+	ON 0=0
+	  AND A1.PLYNO = B1.PLYNO
+	  )
+WHERE GD_TYPE IN ('L08')
+GROUP BY GDNM_CLEAN, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END
+;
+-- 연령별 상위 75% 가입금액 추출(장기 _ 일배책)
+DROP TABLE M_BIZ_RECT_GDINFO_L11;
+CREATE TABLE M_BIZ_RECT_GDINFO_L11  AS
+SELECT
+	GDNM_CLEAN
+	, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END AS AGE_SEG
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY LTRM_MPY_CV_PRM DESC) AS LTRM_MPY_CV_PRM
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN FIRE_PNLTY_AMT > 0 THEN FIRE_PNLTY_AMT END DESC) AS 화재벌금금액
+	, PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CASE WHEN USLLF_LBTRS_AMT > 0 THEN USLLF_LBTRS_AMT END DESC) AS 일상생활배상책임금액
+FROM
+	(SELECT 
+	  A1.*
+	  , B1.FIRE_PNLTY_AMT                /*화재벌금금액*/
+	  , B1.USLLF_LBTRS_AMT               /*일상생활배상책임금액*/
+	  
+	FROM 
+	  (SELECT 
+	  A.*
+	  , B.GDNM_CLEAN	
+	  , B.GD_TYPE
+	  FROM GDREC_ORIGIN_INS_CR_PRED A
+	  LEFT JOIN M_CRM_REC_GDNM_TM B
+	  ON 0=0
+	  AND A.GDCD = B.GDCD
+	  WHERE B.GDCD IS NOT NULL AND TO_CHAR(A.INS_ST,'YYYYMM') = F_PREV_MONTH(A.CLS_YYMM,'1')
+	  ) A1   
+	LEFT JOIN 
+	M_BIZ_CTM_INFO_CVR_LIST_RECT_T09 B1
+	ON 0=0
+	  AND A1.PLYNO = B1.PLYNO
+	  )
+WHERE GD_TYPE IN ('L11','ETC')
+GROUP BY GDNM_CLEAN, CASE WHEN MN_NRDPS_FAGE >= '60' THEN '60'
+	    WHEN MN_NRDPS_FAGE >= '50' THEN '50'
+	    WHEN MN_NRDPS_FAGE >= '40' THEN '40'
+	    WHEN MN_NRDPS_FAGE >= '30' THEN '30'
+	    WHEN  MN_NRDPS_FAGE < '30' THEN '20'
+	    ELSE NULL END
+;
+
+## 3.학습데이터 생성 쿼리 ##
+-- 현재시점 기준 날자세팅
+DROP TABLE GDRES_SYS_YYMM_PRED PURGE;
+CREATE TABLE GDRES_SYS_YYMM_PRED AS (
+            SELECT
+                YYMM AS CLS_YYMM
+                ,F_ADD_MONTHS_A(F_LAST_DAY(YYMM),-2) AS CLS_YYMM_2MB
+                ,F_ADD_MONTHS_A(F_LAST_DAY(YYMM),-1) AS CLS_YYMM_1MB
+                ,FIRST_DAY(YYMM) AS CLS_STRDT
+                ,LEAST(SYSDATE, YYMM_NDDT) AS CLS_NDDT
+                ,LEAST(SYSDATE, TO_DATE(TO_CHAR(YYMM_NDDT, 'YYYY-MM-DD') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) AS CLS_NDDT_TS
+                ,LEAST(CAST(F_LAST_DAY(YYMM) AS DATE), SYSDATE) AS CLS_NDDT_LD
+            FROM M_COD_YYMM
+            WHERE YYMM = TO_CHAR(SYSDATE,'YYYYMM')
+            );
+            
+
+
+-- 현재시점 기준 직원 소속 채널 세팅
+DROP TABLE GDREC_SYS_STF_PRED PURGE;
+CREATE TABLE GDREC_SYS_STF_PRED AS (
+    SELECT
+	  B.CLS_YYMM
+	  , B.STFNO
+	  , CASE WHEN B.STFNO = '8901911'                       THEN '61'
+	          WHEN B.STFNO = '6009607' THEN '11' /* 이관고객 전속으로 포함 */
+            WHEN B.BZ_ATRCD IN ('30', '31')                THEN '62' /* LIFE WITH */
+            WHEN B.BRNM LIKE '%LIFE%'                      THEN '62' /*LIFE WITH*/
+            WHEN B.TMNM LIKE '%교차%'            THEN '12'  /* 생보형GA이외 교차는 교차로 배정 */
+            WHEN B.BR_ORGCD IN ('1301406','1301908','1302142') THEN '12'
+            WHEN B.TMNM LIKE '%한생GA팀%'                    THEN '20' /* 한생GA적용 */
+            WHEN B.BZ_FML_QUFCD IN ('G01')                 THEN '20' /* 생보형GA(한생+미래에셋 GA) 적용 */
+            WHEN B.BZ_ATRCD IN ('15','16','18','97','27')  THEN '12' /* ATCH_CRO_FLGCD 오류 보정 */
+            WHEN B.BZ_FML_QUFCD IN ('39','47','56')        THEN '12' /* 교차사업소장, 교차매니저, 교차육성팀장  */
+            WHEN B.BZ_PART_FLGCD = '06'
+	            AND  COALESCE(B.BZ_ATRCD, '00') NOT IN ('15','16','18','97','27')
+	            AND BRNM NOT LIKE '%TM%' THEN  '11'                  /*(24.11) TM이면 다이렉트로 배정 */
+            WHEN B.BZ_PART_FLGCD = '06'
+	            AND  B.BZ_FML_QUFCD IS NULL
+	            AND BRNM NOT LIKE '%TM%'THEN  '11'                   /*(24.11) TM이면 다이렉트로 배정 */
+            WHEN B.BRNM LIKE '%지역단%' THEN  '11'
+            WHEN B.BRNM LIKE '%GA사업단%' THEN '20'
+            WHEN B.BRNM LIKE '%HF%' THEN  '20'
+            WHEN (B.HDQT_ORGCD IN ('1300011', '1302011','1303011'))               /* GA영업본부 */
+            OR   (B.HDQT_ORGCD='1301318' AND B.BR_ORGCD='1301321')  /* 대구GA: 13.10~14.06 */
+            OR   (B.HDQT_ORGCD='1300007' AND B.BR_ORGCD='1301040')  /* 중부GA: 13.10~14.06 */
+            OR   (B.HDQT_ORGCD='1300008' AND B.BR_ORGCD='1301322')  /* 부산GA: 13.10~14.06 */
+            OR   (B.BR_ORGCD = '1301409')                           /* 호남GA: 14.07~14.12 */
+            OR   (B.BR_ORGCD = '1300163' AND B.BZP_ORGCD='1301383') /* 제주GA(가상): 14.02~ */
+            OR   (B.BR_ORGCD = '1301040' AND B.BZP_ORGCD='1301396') /* 호남GA 영업 소파트 */
+            OR   (B.BR_ORGCD = '1300090' AND B.BZP_ORGCD='1301384') /* 속초가상지점: 14.02 ~ 14.07 */  THEN '20'
+            WHEN B.STFNO = '8066063'
+            AND  B.BZP_ORGCD = '1301581'                                                          THEN '31' /* 20이후 사실상 폐쇄 */
+            WHEN B.STFNO IN ('8066063', '8066059', '6010186', '3449868')                          THEN '32'
+            WHEN B.HDQT_ORGCD IN ('1300013', '1300287','1300288')                                  THEN '40' /* 방카영업1-2부, 방카영업부: 18.12~ */
+            WHEN B.HDQT_ORGCD IN ('1300012', '1301363','1303053') THEN '31'      /* 장기TM 영업부, 업무지원센터 */
+            WHEN B.BR_ORGCD IN ('1300280', '1301363', '1303054', '1303055')    THEN '31'        /* 장기TM 영업부, 업무지원센터 */
+            WHEN B.BR_ORGCD IN ('1300287', '1201452')                                             THEN '40' /* 방카영업부(김태현수정) */
+            WHEN B.HDQT_ORGCD IN ('1301776', '1301362', '1301828') THEN '50'
+            WHEN B.BZ_PART_FLGNM = '법인영업'
+            AND  B.BZP_NM NOT LIKE '%신채널%'                                                       THEN '50'
+            WHEN B.BZP_ORGCD IN ( '1301364','1301365','1301366','1301367','1301368'
+                                , '1301369','1301370','1301371','1301372','1301373'
+                                , '1301618','1301750','1301751','1301752','1301753'
+                                , '1301754','1301755','1301756','1301757','1301758'
+                                , '1301786','1301968','1302015','1302016')                        THEN '50'
+            WHEN (
+                 B.BZP_NM LIKE '%기업영업%'
+            OR   B.BZP_NM LIKE '%법인영업%'
+            OR   B.BRNM LIKE '%기업영업%'
+            OR   B.BRNM LIKE '%법인영업%'
+            OR   B.HDQNM LIKE '%기업영업%'
+            OR   B.HDQNM LIKE '%법인영업%'
+            OR   B.BRNM LIKE '%전략영업%'
+            OR   B.BRNM LIKE '%GA영업%'
+                 )                                                                                THEN '50'
+            WHEN B.BZ_PART_FLGNM ='본사/기타'
+            AND  B.BRNM NOT LIKE '%TM%'                                                           THEN '61'
+            ELSE '61'
+            END  AS CHNL
+        ,CHN_CL_ATRCD
+  FROM GDRES_SYS_YYMM_PRED T
+  INNER JOIN M_ORG_MTHY_BZ_ORGN B
+  ON 0=0
+    AND T.CLS_YYMM = B.CLS_YYMM
+  WHERE 0=0
+      AND STF_BZ_STCD ='01'
+);
+
+
+-- 장기TM 취급상품 추출
+DROP TABLE GDREC_ORIGIN_INS_CR_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CR_PRED AS
+  SELECT 
+  	*
+  FROM
+  (
+    SELECT 
+    	A.*
+    FROM GDRES_SYS_YYMM_PRED T
+    INNER JOIN M_CRM_MTHY_PS_CR  A
+    ON 0=0
+    	AND A.CLS_YYMM = T.CLS_YYMM
+    WHERE 1=1
+      AND IKD_GRPCD = 'LA'
+      AND EXISTS (SELECT 1 FROM GDREC_SYS_STF_PRED B WHERE A.DH_STFNO = B.STFNO AND A.CLS_YYMM = B.CLS_YYMM AND B.CHNL = '31')  -- 대상 고객 : 장기 TM 
+    	--AND EXISTS (SELECT 1 FROM REC_GD_PROG_CR_TEMP B WHERE A.CRT_CTMNO = B.CRT_CTMNO AND T.CLS_YYMM = B.CLS_YYMM) 대상 고객 : 전체
+  	)
+  --WHERE RN = 1
+  	;
+
+
+-- 상품 정보 매핑 GD_TYPE
+DROP TABLE GDREC_ORIGIN_INS_GD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_GD_PRED AS
+SELECT 
+  *
+FROM
+  (
+    SELECT 
+      CLS_YYMM
+      ,CRT_CTMNO
+      ,MN_NRDPS_CTMNO
+      ,GD_TYPE
+      ,COUNT(DISTINCT PLYNO) AS PLY_CNT
+    FROM
+      (
+        SELECT 
+          A.*
+          , CASE WHEN GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+                WHEN GDNM LIKE '%더건강 더실속%' OR MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+                WHEN GDNM LIKE '%더건강%' THEN 'L01'
+                WHEN GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+        	      WHEN MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+        	      WHEN MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+        	      WHEN MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+        	      WHEN MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+        	      WHEN MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+        	      WHEN GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+                WHEN GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+        	      WHEN REGEXP_LIKE(GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+        	      WHEN MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+        	   	  ELSE 'ETC' END AS GD_TYPE 
+          --, RANK() OVER (PARTITION BY CRT_CTMNO ORDER BY CLS_YYMM DESC) AS RN2
+        FROM GDREC_ORIGIN_INS_CR_PRED A
+        )
+    --WHERE RN2 = 1
+    GROUP BY 
+      CLS_YYMM
+      ,CRT_CTMNO
+      ,MN_NRDPS_CTMNO
+      ,GD_TYPE
+      )
+  PIVOT
+  (
+  	MAX(PLY_CNT)
+  	FOR GD_TYPE IN ('L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,'SAFE' AS SAFE , 'SS' AS SS, '유병자'  AS 유병자,'L11' AS L11,'L123' AS L123)
+  ) P ;
+
+-- 고객의 채널당 가입 상품 갯수 추출
+DROP TABLE GDREC_ORIGIN_INS_CHNL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CHNL_PRED AS
+SELECT 
+  *
+FROM
+  (
+    SELECT 
+      CLS_YYMM
+      ,CRT_CTMNO
+      ,MN_NRDPS_CTMNO
+      ,CHNL
+      ,COUNT(DISTINCT PLYNO) AS PLY_CNT
+    FROM
+      (
+        SELECT 
+          A.*
+          , B.CHNL
+          , RANK() OVER (PARTITION BY A.CRT_CTMNO ORDER BY A.CLS_YYMM DESC) AS RN2
+        FROM GDREC_ORIGIN_INS_CR_PRED A
+        LEFT JOIN GDREC_SYS_STF_PRED B
+        ON 0=0
+        	AND A.CLS_YYMM = B.CLS_YYMM
+        	AND A.CE_STFNO = B.STFNO
+        )
+    WHERE RN2 = 1
+    GROUP BY 
+      CLS_YYMM
+      ,CRT_CTMNO
+      ,MN_NRDPS_CTMNO
+      ,CHNL
+    )
+  PIVOT
+  (
+  	MAX(PLY_CNT)
+  	FOR CHNL IN ('11' AS 전속,'12' AS 교차,'20' AS GA,'31' AS TM,'32' AS CM,'40' AS 방카,'50' AS 기업,'61' AS LIFEWITH,'62' AS 본사기타)
+  ) P ;
+
+
+ -- 고객의 상품별 가입 갯수 추출
+DROP TABLE GDREC_ORIGIN_INS_ADDGD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_ADDGD_PRED AS
+SELECT 
+  *
+FROM
+  (
+    SELECT 
+      CLS_YYMM
+      ,CRT_CTMNO
+      ,MN_NRDPS_CTMNO
+      ,GD_TYPE
+      ,COUNT(DISTINCT PLYNO) AS PLY_CNT
+    FROM
+      (
+        SELECT 
+          A.*
+          , CASE WHEN GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+                WHEN GDNM LIKE '%더건강 더실속%' OR MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+                WHEN GDNM LIKE '%더건강%' THEN 'L01'
+                WHEN GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+        	      WHEN MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+        	      WHEN MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+        	      WHEN MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+        	      WHEN MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+        	      WHEN MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+        	      WHEN GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+                WHEN GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+        	      WHEN REGEXP_LIKE(GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+        	      WHEN MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+        	   	  ELSE 'ETC' END AS GD_TYPE 
+          --, RANK() OVER (PARTITION BY CRT_CTMNO ORDER BY CLS_YYMM DESC) AS RN2
+        FROM GDREC_ORIGIN_INS_ADDCR_PRED A
+        )
+    --WHERE RN2 = 1
+    GROUP BY 
+      CLS_YYMM
+      ,CRT_CTMNO
+      ,MN_NRDPS_CTMNO
+      ,GD_TYPE
+      )
+  PIVOT
+  (
+  	MAX(PLY_CNT)
+  	FOR GD_TYPE IN ('L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,'SAFE' AS SAFE , 'SS' AS SS, '유병자'  AS 유병자,'L11' AS L11,'L123' AS L123)
+  ) P ;
+  	
+-- 고객의 전체 가입갯수 및 보험료  	
+DROP TABLE GDREC_ORIGIN_INS_PRMCNT_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_PRMCNT_PRED AS
+  (
+    SELECT 
+      CLS_YYMM
+      , CRT_CTMNO
+      , MN_NRDPS_CTMNO
+      , SUM(LTRM_MPY_CV_PRM) PRM
+      , COUNT(DISTINCT PLYNO) PLY_CNT
+    FROM GDREC_ORIGIN_INS_CR_PRED
+    GROUP BY 
+      CLS_YYMM
+      , CRT_CTMNO
+      , MN_NRDPS_CTMNO
+  );
+-- 계약자의 피보험자 보유 갯수랑 미성년 피보험자 보유갯수
+DROP TABLE GDREC_ORIGIN_INS_NRD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_NRD_PRED AS
+  SELECT 
+  	A.CLS_YYMM
+  	, A.CRT_CTMNO
+  	, COUNT(DISTINCT B.CTMNO) AS NRD_CNT
+  	, MAX(CASE WHEN 
+  		CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(a.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12) 
+  				  ELSE NULL
+  				  END < 20
+  		THEN 1
+  		ELSE 0 END) KIDS_YN 
+  FROM 
+    (SELECT 
+      DISTINCT 
+        CRT_CTMNO
+        ,PLYNO
+        ,CLS_YYMM
+      FROM 
+    GDREC_ORIGIN_INS_CR_PRED) A
+  INNER JOIN INS_CR_RELPC B
+  ON 0=0
+  	AND A.PLYNO = B.PLYNO
+  	AND B.AP_STRDT <= SYSDATE
+  	AND B.AP_NDDT > SYSDATE
+  	AND B.RELPC_TPCD IN ('02')
+  GROUP BY 
+  	A.CLS_YYMM
+  	, A.CRT_CTMNO
+  	;
+
+-- 계약자의 자동차보험 보유 갯수
+DROP TABLE GDREC_ORIGIN_INS_CA_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CA_PRED AS
+SELECT 
+	A.CLS_YYMM
+	, A.CRT_CTMNO
+	, COUNT(DISTINCT B.PLYNO) AS CA_CNT
+FROM 
+  (SELECT 
+    DISTINCT 
+      CRT_CTMNO
+      ,CLS_YYMM
+  FROM 
+  GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN 
+(SELECT * FROM M_CRM_MTHY_PS_CR
+WHERE IKD_GRPCD = 'CA') B
+ON 0=0
+	AND A.CRT_CTMNO = B.MN_NRDPS_CTMNO
+	AND A.CLS_YYMM = B.CLS_YYMM
+GROUP BY 
+	A.CLS_YYMM
+	, A.CRT_CTMNO;
+	
+-- 계약자의 최초 보험 가입 후 경과 기간
+DROP TABLE GDREC_ORIGIN_INS_INSDIFF_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_INSDIFF_PRED AS 
+SELECT 
+	CLS_YYMM
+	, CRT_CTMNO
+	, TRUNC(MONTHS_BETWEEN(F_LAST_DAY(CLS_YYMM),INS_ST),0) AS INS_DIFF
+FROM
+(SELECT 
+	A.* 
+	, ROW_NUMBER() OVER (PARTITION BY CRT_CTMNO,CLS_YYMM ORDER BY INS_ST) AS RN_INS
+FROM GDREC_ORIGIN_INS_CR_PRED A)
+WHERE RN_INS = 1;
+
+-- 고객 연령 성별
+DROP TABLE GDREC_ORIGIN_INS_CRTINFO_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CRTINFO_PRED AS 
+SELECT 
+	A.*
+	, CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END AS CTM_AGE
+	,CASE WHEN F_SEX_DEC(B.CTM_DSCNO)='M' THEN '1.M'
+			WHEN F_SEX_DEC(B.CTM_DSCNO)='F' THEN '2.F'
+			ELSE NULL
+			END AS CTM_SEX
+FROM 
+  (SELECT 
+    DISTINCT 
+      CRT_CTMNO
+      ,CLS_YYMM
+  FROM 
+  GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN CUS_CTM B
+ON 0=0
+	AND B.CTMNO = A.CRT_CTMNO;
+	
+-- 피보험자 연령 성별
+DROP TABLE GDREC_ORIGIN_INS_NRDINFO_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_NRDINFO_PRED AS 
+SELECT 
+	A.*
+	, CASE WHEN F_ISDATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO)) = 'T' THEN TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM), TO_DATE(F_BIRTH_DAY_DEC(B.CTM_DSCNO),'YYYYMMDD')) / 12) 
+				  ELSE NULL
+				  END AS CTM_AGE
+	,CASE WHEN F_SEX_DEC(B.CTM_DSCNO)='M' THEN '1.M'
+			WHEN F_SEX_DEC(B.CTM_DSCNO)='F' THEN '2.F'
+			ELSE NULL
+			END AS CTM_SEX
+FROM 
+  (SELECT 
+    DISTINCT 
+      MN_NRDPS_CTMNO
+      ,CLS_YYMM
+  FROM 
+  GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN CUS_CTM B
+ON 0=0
+	AND B.CTMNO = A.MN_NRDPS_CTMNO;
+	
+-- 계약자 직업
+DROP TABLE GDREC_ORIGIN_INS_CRTJB_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CRTJB_PRED AS 
+SELECT 
+A.*
+	 ,CASE WHEN SPJOB_YN = 1 THEN '전문직'
+		WHEN STF_YN = '내근직' THEN '내근직'
+		WHEN STF_YN = '영업가족' THEN '영업가족'
+		WHEN JB_TYPE IN ('1', '2' ,'3') THEN '화이트'
+		WHEN JB_TYPE IN ('4', '5') THEN '자영업'
+		WHEN JB_TYPE IN ('B1', 'C','B2') THEN '주부/학생'
+		ELSE '블루' END AS JB_SEG
+FROM
+  (SELECT
+     A.*
+     ,E2.JBNM
+     ,E3.BZPS_TPCD
+     ,CASE WHEN (E2.JBNM LIKE '%전문 간호%'	
+                OR E2.JBNM LIKE '%조종사%'
+                OR E2.JBNM LIKE '%관제사%'
+                OR E2.JBNM LIKE '%항해사%'
+                OR E2.JBNM LIKE '%선박 기관사%'
+                OR E2.JBNM LIKE '%선장%'
+                OR E2.JBNM LIKE '%교수%'
+                OR E2.JBNM LIKE '%고위%'
+                OR E2.JBNM LIKE '%임원%'
+                OR E2.JBNM LIKE '%경무관 이상%'
+                OR E2.JBNM LIKE '%소방감 이상%'
+                OR E2.JBNM LIKE '%계리%'
+                OR E2.JBNM LIKE '%금융 상품%'
+                OR E2.JBNM LIKE '%자산%'
+                OR E2.JBNM LIKE '%외환 딜러%'
+                OR E2.JBNM LIKE '%소프트웨어%'
+                OR E2.JBNM LIKE '%프로그래머%'
+                OR E2.JBNM LIKE '%데이터%'
+                OR E2.JBNM LIKE '%프로그래머%'
+                OR E2.JBNM LIKE '%감독%'
+                OR E2.JBNM LIKE '%장학관%'
+                OR E2.JBNM LIKE '%판사%'
+                OR E2.JBNM LIKE '%검사%'
+                OR E2.JBNM LIKE '%변호사%'
+                OR E2.JBNM LIKE '%법무사%'
+                OR E2.JBNM LIKE '%변리사%'
+                OR E2.JBNM LIKE '%노무사%'
+                OR E2.JBNM LIKE '%회계사%'
+                OR E2.JBNM LIKE '%세무사%'
+                OR E2.JBNM LIKE '%감정평가사%'
+                OR E2.JBNM LIKE '%관세사%'
+                OR E2.JBNM LIKE '%의사%'
+                OR E2.JBNM LIKE '%치과의사%'
+                OR E2.JBNM LIKE '%수의사%'
+                OR E2.JBNM LIKE '%한의사%'
+                OR E2.JBNM LIKE '%약사%'
+                OR E2.JBNM LIKE '%손해사정사%'
+                OR E2.JBNM LIKE '%건축사%'
+                OR E2.JBNM LIKE '%행정사%'
+                OR E2.JBNM LIKE '%도선사%'
+                )	
+                AND E2.JBNM NOT LIKE '%장의사%'	
+                AND E2.JBNM NOT LIKE '%스포츠%'	
+                AND E2.JBNM NOT LIKE '%건설%'	
+                AND E2.JBNM NOT LIKE '%코치%'	
+                AND E2.JBNM NOT LIKE '%검사원%'	
+                AND E2.JBNM NOT LIKE '%검사공%'	
+                AND E2.JBNM NOT LIKE '%검사기사%'	
+                AND E2.JBNM NOT LIKE '%사육%'	
+                AND E2.JBNM NOT LIKE '%판매%'	
+                AND E2.JBNM NOT LIKE '%사무원%'	
+                AND E2.JBNM NOT LIKE '%종사원%'	
+                AND E2.JBNM NOT LIKE '%의료인%'	
+                AND E2.JBNM NOT LIKE '%공무원%'	
+                AND E2.JBNM NOT LIKE '%보조원%'	
+                AND E2.JBNM NOT LIKE '%현장기술%'	
+                AND E2.JBNM NOT LIKE '%감독자%'	
+                AND E2.JBNM NOT LIKE '%제조%'	
+                AND E2.JBNM NOT LIKE '%공급%'	
+                AND E2.JBNM NOT LIKE '%사무및감독%'	
+                AND E2.JBNM NOT LIKE '%경비원%'
+                THEN 1 ELSE 0 END AS SPJOB_YN
+     ,CASE WHEN E4.BZ_PART_FLGCD = '09' AND STF_BZ_STCD = '01' THEN '내근직'
+    	WHEN E4.STFNO IS NOT NULL AND STF_BZ_STCD = '01' THEN '영업가족'
+    	ELSE NULL END AS STF_YN
+    , CASE WHEN E2.JBNM LIKE '%주부%' THEN 'B2'
+				WHEN E1.JBCD = '0' AND E1.JB_CH_SEQNO = '2' THEN '1'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '2' THEN '2'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '3' THEN '1'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '4' THEN '1'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '2' THEN '2'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '3' THEN '2'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '4' THEN '2'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '2' THEN '2'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '3' THEN '3'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '4' THEN '3'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '3' THEN '4'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '4' THEN '4'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '2' THEN '4'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '1' THEN '4'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '1' THEN '4'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '1' THEN '4'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '2' THEN '5'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '3' THEN '5'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '4' THEN '5'
+				WHEN E1.JBCD = '1' AND E1.JB_CH_SEQNO = '1' THEN '6'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '3' THEN '6'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '4' THEN '6'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '2' THEN '6'
+				WHEN E1.JBCD = '4' AND E1.JB_CH_SEQNO = '1' THEN '7'
+				WHEN E1.JBCD = '5' AND E1.JB_CH_SEQNO = '1' THEN '7'
+				WHEN E1.JBCD = '6' AND E1.JB_CH_SEQNO = '2' THEN '7'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '2' THEN '7'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '2' THEN '7'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '3' THEN '7'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '4' THEN '7'
+				WHEN E1.JBCD = '3' AND E1.JB_CH_SEQNO = '1' THEN '8'
+				WHEN E1.JBCD = '7' AND E1.JB_CH_SEQNO = '1' THEN '8'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '3' THEN '8'
+				WHEN E1.JBCD = '8' AND E1.JB_CH_SEQNO = '4' THEN '8'
+				WHEN E1.JBCD = '2' AND E1.JB_CH_SEQNO = '1' THEN '9'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '3' THEN '9'
+				WHEN E1.JBCD = '9' AND E1.JB_CH_SEQNO = '4' THEN '9'
+				WHEN E1.JBCD = 'A' AND E1.JB_CH_SEQNO = '2' THEN 'A'
+				WHEN E1.JBCD = 'A' AND E1.JB_CH_SEQNO = '3' THEN 'A'
+				WHEN E1.JBCD = 'A' AND E1.JB_CH_SEQNO = '4' THEN 'A'
+				WHEN E1.JBCD = 'B' AND E1.JB_CH_SEQNO = '2' THEN 'B1'
+				WHEN E1.JBCD = 'B' AND E1.JB_CH_SEQNO = '3' THEN 'B1'
+				WHEN E1.JBCD = 'B' AND E1.JB_CH_SEQNO = '4' THEN 'B1'
+				WHEN E2.JBCD = 'B3200'  THEN 'B2'
+				ELSE 'C'
+			END AS JB_TYPE
+  FROM
+  (	
+SELECT AA.CLS_YYMM
+		, AA.CTMNO
+		, BB.JBCD
+		, BB.JB_CH_SEQNO
+		, ROW_NUMBER() OVER (PARTITION BY AA.CLS_YYMM, AA.CTMNO ORDER BY BB.AP_STR_DTHMS DESC) AS RN
+FROM 
+  (SELECT 
+    DISTINCT 
+      CRT_CTMNO AS CTMNO
+      ,CLS_YYMM
+  FROM 
+  GDREC_ORIGIN_INS_CR_PRED) AA
+LEFT OUTER JOIN CUS_CTM_JB_CRR BB
+ON 0=0
+	AND AA.CTMNO = BB.CTMNO
+	AND BB.AP_STR_DTHMS <= F_LAST_DAY(AA.CLS_YYMM)
+	AND BB.AP_ND_DTHMS >  F_LAST_DAY(AA.CLS_YYMM)
+		  ) A
+	LEFT JOIN CUS_JB E1
+	ON 0=0
+		AND SUBSTR(A.JBCD, 1,1) = E1.JBCD
+		AND A.JB_CH_SEQNO = E1.JB_CH_SEQNO
+	LEFT JOIN CUS_JB E2
+	ON 0=0
+		AND A.JBCD = E2.JBCD
+		AND A.JB_CH_SEQNO = E2.JB_CH_SEQNO
+	LEFT JOIN CUS_CTM E3
+	ON 0=0
+		AND A.CTMNO = E3.CTMNO
+	LEFT JOIN M_ORG_BZ_ORGN E4
+	ON 0=0
+		AND E3.CTM_DSCNO = E4.RSNO
+WHERE A.RN = 1) A
+;
+-- 연체보험료 추출을 위한 납입 보험료 추출
+DROP TABLE GDREC_ORIGIN_INS_OVD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_OVD_PRED AS
+SELECT 
+  DISTINCT 
+		A.*
+		,C1.CTMNO
+	FROM GDRES_SYS_YYMM_PRED T
+  INNER JOIN INS_DCN_PRM A
+    ON 0=0
+      AND A.CLS_YYMM BETWEEN  F_PREV_MONTH(T.CLS_YYMM,'12') AND T.CLS_YYMM
+	INNER JOIN INS_CR_RELPC C1
+		ON 0=0
+			AND A.PLYNO = C1.PLYNO
+			AND C1.NDS_AP_STR_DTHMS <= F_LAST_DAY(T.CLS_YYMM)
+			AND C1.NDS_AP_ND_DTHMS > F_LAST_DAY(T.CLS_YYMM)
+			AND C1.RELPC_TPCD IN ('01') /*관계자유형 = 계약자, 피보험자*/
+			AND C1.RELPC_STCD IN ('01','04') /*관계자상태코드 = 정상, 납입면제*/
+			AND C1.RELPC_DSCNO_FLGCD IN ('01', '05') -- 개인고객(법인고객 제외)
+	WHERE 0=0
+	  AND A.CLS_BFAF_FLGCD = '03'  -- 확정 마감
+	  AND A.DU_AR_FLGCD IN ('01','02')  -- 응당
+	  AND C1.IKD_GRPCD = 'LA'
+	  AND EXISTS (SELECT 1 FROM GDREC_ORIGIN_INS_CR_PRED B WHERE C1.CTMNO = B.CRT_CTMNO AND T.CLS_YYMM = B.CLS_YYMM)
+	;
+
+-- 사고일자 지급금 (장기 , 자동차)
+DROP TABLE GDREC_ORIGIN_INS_CLM_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_CLM_PRED AS
+SELECT
+	T.CLS_YYMM
+	,T.CLS_NDDT
+	,A.MN_NRDPS_CTMNO
+	,CASE WHEN B.IKD_GRPCD IN ('FA','MA') THEN 'FAMA' ELSE B.IKD_GRPCD END AS IKD_GRPCD
+	,B.CLMDT
+	,SUM(B.WONCR_CV_PYAMT) AS PY_AMT
+FROM GDRES_SYS_YYMM_PRED T
+INNER JOIN GDREC_ORIGIN_INS_CR_PRED A
+ON 0=0
+	AND T.CLS_YYMM = A.CLS_YYMM
+LEFT JOIN M_CMP_GN_CVRCL_PY_IBNF_LIST B
+ON 0=0
+	AND A.MN_NRDPS_CTMNO = B.CLMPS_CTMNO
+WHERE 0=0
+	AND B.CLMDT BETWEEN F_LAST_DAY(F_PREV_MONTH(T.CLS_YYMM,'60')) AND T.CLS_NDDT
+GROUP BY
+	T.CLS_YYMM
+	,T.CLS_NDDT
+	,A.MN_NRDPS_CTMNO
+	,CASE WHEN B.IKD_GRPCD IN ('FA','MA') THEN 'FAMA' ELSE B.IKD_GRPCD END 
+	,B.CLMDT
+
+UNION
+
+SELECT
+	CLS_YYMM
+	,CLS_NDDT
+	,MN_NRDPS_CTMNO
+	,IKD_GRPCD
+	,CLMDT
+	,SUM(RPBL_PY_IBAMT) + SUM(OPTN_PY_IBAMT) AS PY_AMT
+FROM
+	(
+	SELECT DISTINCT
+		T.CLS_YYMM
+		,T.CLS_NDDT
+		,A.MN_NRDPS_CTMNO
+		,'CA' AS IKD_GRPCD 
+		,C.CLMDT
+		,B.RPBL_PY_IBAMT
+		,B.OPTN_PY_IBAMT
+	FROM GDRES_SYS_YYMM_PRED T
+	INNER JOIN GDREC_ORIGIN_INS_CR_PRED A
+	ON 0=0
+		AND T.CLS_YYMM = A.CLS_YYMM
+	LEFT JOIN M_CMP_CR_CLM_CRST B
+	ON 0=0
+		AND A.MN_NRDPS_CTMNO = B.NRDPS_CTMNO
+	LEFT JOIN M_CMP_CR_CMP_CLM_CR C
+	ON 0=0
+		AND B.RCPDT = C.RCPDT
+		AND B.RCP_NV_SEQNO = C.RCP_NV_SEQNO
+	WHERE 0=0
+		AND C.CLMDT BETWEEN F_LAST_DAY(F_PREV_MONTH(T.CLS_YYMM,'60')) AND T.CLS_NDDT
+	) AA
+GROUP BY
+	CLS_YYMM
+	,CLS_NDDT
+	,MN_NRDPS_CTMNO
+	,IKD_GRPCD
+	,CLMDT
+;
+-- 해지 해약 계약 이력
+DROP TABLE GDREC_ORIGIN_INS_PRVGD_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_PRVGD_PRED AS
+SELECT 
+	DISTINCT 
+	A.CLS_YYMM
+	, A.MN_NRDPS_CTMNO
+	, A.CRT_CTMNO
+	, B.PLYNO
+	, D.CR_STCD
+  , CASE WHEN E.GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+           WHEN E.GDNM LIKE '%더건강 더실속%' OR E.MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+            WHEN GDNM LIKE '%더건강%' THEN 'L01'
+           WHEN E.GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+      	   WHEN E.MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+      	   WHEN E.MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+      	   WHEN E.MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+      	   WHEN E.MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+      	   WHEN E.MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+      	   WHEN E.GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+           WHEN E.GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+      	   WHEN REGEXP_LIKE(E.GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+      	   WHEN E.MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+      	   ELSE 'ETC' END AS GD_TYPE
+  , C.INS_ST
+FROM
+(SELECT 
+	DISTINCT 
+		CRT_CTMNO
+		,MN_NRDPS_CTMNO
+		,CLS_YYMM
+FROM GDREC_ORIGIN_INS_CR_PRED) A
+LEFT JOIN INS_CR_RELPC B
+ON 0=0
+	AND A.CRT_CTMNO = B.CTMNO
+	AND B.AP_STRDT <= F_LAST_DAY(A.CLS_YYMM)
+	AND B.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+	AND B.RELPC_TPCD IN ('01')
+LEFT JOIN INS_CR_RELPC B2
+ON 0=0
+	AND A.MN_NRDPS_CTMNO = B2.CTMNO
+	AND B2.AP_STRDT <= F_LAST_DAY(A.CLS_YYMM)
+	AND B2.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+	AND B2.RELPC_TPCD IN ('02')
+INNER JOIN INS_INS_CR C
+ON 0=0
+	AND B.PLYNO = C.PLYNO
+	AND C.AP_STRDT <= F_LAST_DAY(A.CLS_YYMM)
+	AND C.AP_NDDT > F_LAST_DAY(A.CLS_YYMM)
+INNER JOIN INS_CR_ST_CRR D
+ON 0=0
+	AND D.PLYNO = B.PLYNO
+	AND D.NDS_AP_STR_DTHMS <= F_LAST_DAY(A.CLS_YYMM)
+	AND D.NDS_AP_ND_DTHMS > F_LAST_DAY(A.CLS_YYMM)
+INNER JOIN M_CRM_GD_CSF_INFO E
+ON 0=0
+	AND C.GDCD = E.GDCD
+WHERE C.IKD_GRPCD = 'LA' AND D.CR_STCD NOT IN ('00','10') ;
+
+-- 부담보 표준하체할증 가입 이력
+DROP TABLE GDREC_ORIGIN_INS_NOCVR_XC_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_INS_NOCVR_XC_PRED  AS (	
+SELECT 
+	DISTINCT
+	A.CLS_YYMM
+	, A.PLYNO
+	, A.MN_NRDPS_CTMNO AS CTMNO 
+	, C1.AP_STRDT -- 부담보 시작일
+	, C1.CVRCD
+	, C1.ATRVL
+	, CASE WHEN C1.PLYNO IS NULL THEN 0 ELSE 1 END AS NO_CVR_YN -- 부담보
+	, CASE WHEN D1.PLYNO IS NULL THEN 0 ELSE 1 END AS XC_YN -- 표준하체할증
+FROM
+  GDREC_ORIGIN_INS_CR_PRED A
+LEFT JOIN INS_CVR_AD_ATRVL C1 /*부담보(전기간 또는 5년) 가입*/
+ON 0=0
+	AND A.PLYNO = C1.PLYNO
+	AND C1.CVRCD = 'CLA00503' -- 부담보조건1
+	AND C1.ATRCD = 'CA00119' -- 부담보상세항목
+	AND C1.AP_STRDT < F_LAST_DAY(A.CLS_YYMM)
+	AND C1.AP_NDDT >= F_LAST_DAY(A.CLS_YYMM)
+LEFT JOIN INS_CR_CVR  D1
+ON 0=0
+	AND A.PLYNO = D1.PLYNO
+	AND D1.SUSTD_XC_RK_NDX > 0
+	AND D1.CVR_STCD = '01'
+	AND D1.AP_STRDT < F_LAST_DAY(A.CLS_YYMM)
+	AND D1.AP_NDDT >= F_LAST_DAY(A.CLS_YYMM)
+	);
+	
+	
+	
+-- 테이블 1차 취합
+DROP TABLE GDREC_ORIGIN_MAIN99_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_MAIN99_PRED  AS (	
+SELECT 
+	A.*
+	, B1.NRD_CNT
+	, B1.KIDS_YN
+	, B2.CA_CNT
+	, B3.INS_DIFF
+	, B7.CTM_AGE
+	, B7.CTM_SEX
+	, B77.CTM_AGE NRD_AGE
+	, B77.CTM_SEX NRD_SEX
+	, B4.JB_SEG
+	, B5.CLM_CNT
+	, B5.PY_AMT
+	, B6.NO_CVR_YN
+	, B6.XC_YN
+	, B8.DELAY_YYMM
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+LEFT JOIN  GDREC_ORIGIN_INS_NRD_PRED B1
+ON 0=0
+	AND A.CLS_YYMM = B1.CLS_YYMM
+	AND A.CRT_CTMNO = B1.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CA_PRED B2
+ON 0=0
+	AND A.CLS_YYMM = B2.CLS_YYMM
+	AND A.CRT_CTMNO = B2.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_INSDIFF_PRED B3
+ON 0=0
+	AND A.CLS_YYMM = B3.CLS_YYMM
+	AND A.CRT_CTMNO = B3.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CRTJB_PRED B4
+ON 0=0
+	AND A.CLS_YYMM = B4.CLS_YYMM
+	AND A.CRT_CTMNO = B4.CTMNO
+LEFT JOIN 
+	(
+		SELECT 
+			CLS_YYMM
+			, MN_NRDPS_CTMNO
+			, COUNT(DISTINCT CLMDT) CLM_CNT
+			, SUM(PY_AMT)  PY_AMT
+		FROM 
+			GDREC_ORIGIN_INS_CLM_PRED
+		GROUP BY 
+			CLS_YYMM
+			, MN_NRDPS_CTMNO
+			) B5
+ON 0=0
+	AND A.CLS_YYMM = B5.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B5.MN_NRDPS_CTMNO
+LEFT JOIN 
+	(
+		SELECT 
+			CLS_YYMM
+			, CTMNO
+			, MAX(NO_CVR_YN) NO_CVR_YN
+			, MAX(XC_YN) XC_YN
+		FROM 
+			GDREC_ORIGIN_INS_NOCVR_XC_PRED 
+		GROUP BY 			
+			CLS_YYMM
+			, CTMNO
+	) B6
+ON 0=0
+	AND A.CLS_YYMM = B6.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B6.CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_CRTINFO_PRED B7
+ON 0=0
+	AND A.CLS_YYMM = B7.CLS_YYMM
+	AND A.CRT_CTMNO = B7.CRT_CTMNO
+LEFT JOIN GDREC_ORIGIN_INS_NRDINFO_PRED  B77
+ON 0=0
+	AND A.CLS_YYMM = B77.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B77.MN_NRDPS_CTMNO
+LEFT JOIN 
+	(
+	  SELECT 
+    	CLS_YYMM
+      	, CTMNO
+      	, SUM(CASE WHEN DU_AR_FLGCD = '01' THEN AP_PRM ELSE NULL END) AP_PRM    --납입 보험료
+      	, SUM(CASE WHEN DU_AR_FLGCD = '02' THEN AP_PRM ELSE NULL END) DELAY_PRM    --연체 보험료 
+      	, COUNT(DISTINCT CASE WHEN DU_AR_FLGCD = '02' THEN CLS_YYMM ELSE NULL END) DELAY_YYMM    --연체 횟수
+      	, SUM(CASE WHEN DU_AR_FLGCD = '02' AND NW_AR_CTUAR_FLGCD = '03' THEN AP_PRM ELSE NULL END) CTU_DELAY_PRM    --계속 연체 보험료
+      	, COUNT(DISTINCT CASE WHEN DU_AR_FLGCD = '02' AND NW_AR_CTUAR_FLGCD = '03' THEN CLS_YYMM ELSE NULL END) CTU_DELAY_YYMM    --계속 연체 횟수
+      FROM 
+      	GDREC_ORIGIN_INS_OVD_PRED
+      GROUP BY 
+    	CLS_YYMM
+    	, CTMNO
+	) B8
+ON 0=0
+	AND A.CLS_YYMM = B8.CLS_YYMM
+	AND A.CRT_CTMNO = B8.CTMNO
+);
+
+-- 설계 정보
+DROP TABLE GDREC_ORIGIN_PL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_PL_PRED  AS (	
+SELECT *
+FROM
+(SELECT DISTINCT
+	AA.PL_YYMM --설계년월
+	, AA.PLNO --설계번호
+	, AA.PLDT --설계일자
+	, AA.PL_STCD --설계상태코드
+	, AA.PL_ST_CHDT -- 설계상태변경일자
+	, AA.DH_STFNO AS CE_STFNO-- 취급직원번호
+	, AA.USRNO AS CE_USRNO
+	, BB.CTMNO CRT_CTMNO -- 고개번호
+	, BBB.CTMNO MN_NRDPS_CTMNO-- 관계자유형코드
+	, AA.PLNM
+	, AA.GD_TYPE
+	, AA.PL_FIN_CD
+  , ROW_NUMBER() OVER (PARTITION BY AA.PLNO ORDER BY AA.PLDT DESC) AS RN
+FROM (
+	SELECT
+		TO_CHAR(A.PLDT, 'YYYYMM') AS PL_YYMM --설계년월
+		, A.PLNO --설계번호
+		, A.PLDT --설계일자
+		, A.CGAF_CH_SEQNO -- 발행후변경순번
+		, A.PL_STCD -- 설계상태코드
+		, A.PL_ST_CHDT -- 설계상태변경일자
+		, B.DH_STFNO -- 취급직원번호
+		, B.USRNO
+		, C.PLNM
+		, CASE WHEN E.GDNM LIKE '%Young%' THEN 'L04' -- 자녀
+           WHEN E.GDNM LIKE '%더건강 더실속%' OR E.MKTG_GD_CSFCD in ('L02','L01')					THEN 'L01' -- 종합
+            WHEN GDNM LIKE '%더건강%' THEN 'L01'
+           WHEN E.GDNM LIKE '%시그니처 여성 건강%'	THEN 'L01'        -- 종합
+      	   WHEN E.MKTG_GD_CSFCD = 'L03'							THEN 'L03' -- 운전자
+      	   WHEN E.MKTG_GD_CSFCD = 'L04'							THEN 'L04' -- 자녀
+      	   WHEN E.MKTG_GD_CSFCD = 'L06'							THEN 'L06' -- 암
+      	   WHEN E.MKTG_GD_CSFCD = 'L11'							THEN 'L11' -- 재물
+      	   WHEN E.MKTG_GD_CSFCD = 'L08'							THEN 'L08' -- 간병
+      	   WHEN E.GDNM LIKE '%세이프투게더%'						THEN 'SAFE' -- 세이프투게더
+           WHEN E.GDNM LIKE '%실손의료보험%'						THEN 'SS' -- 실손
+      	   WHEN REGEXP_LIKE(E.GDNM, '참 편한|WELL100|간편|3N5|355')  THEN '유병자'
+      	   WHEN E.MKTG_GD_CSFCD in ('L12','L13')				THEN 'L123' --연저축가입자수가 부족해서 기타로 분류
+      	   ELSE 'ETC' END AS GD_TYPE
+       , CASE WHEN A.PL_STCD IN ('03','04','05','06','07','08','09') THEN 1 ELSE 0 END AS PL_FIN_CD  -- 설계완료여부
+	FROM  INS_INS_PL A
+	LEFT OUTER JOIN INS_PL_DH_STF  B    				/* 설계취급자 */
+    ON   0=0
+		    AND A.PLNO = B.PLNO
+        AND A.CGAF_CH_SEQNO = B.CGAF_CH_SEQNO
+        AND B.DH_STF_TPCD = '01'                 			/* 모집직원 */
+        AND B.IKD_GRPCD = 'LA'
+	LEFT JOIN INS_GD_CE_PL C
+	ON 0=0
+		AND A.PLCD = C.PLCD
+		AND A.GDCD = C.GDCD
+	LEFT JOIN M_CRM_GD_CSF_INFO E
+	ON 0=0
+		AND A.GDCD = E.GDCD
+	WHERE 1=1
+		--AND A.PL_STCD IN ('03','04','05','06','07','08','09') -- '01':설계중 / '02' :단순설계 제외,  '03': 설계완료 ~ '09' : 수납완료
+		AND A.PL_FLGCD = '01' -- 설계구분 : "가입"설계
+		AND A.IKD_GRPCD = 'LA' -- 장기
+		AND A.VALD_PL_YN = '1' -- 유효설계
+		--AND A.PLDT >= (SELECT FIRST_DAY(MIN(CLS_YYMM)) FROM GDRES_SYS_YYMM)
+) AA
+INNER JOIN INS_PL_RELPC BB
+ON 0=0
+	AND AA.PLNO = BB.PLNO
+	AND AA.CGAF_CH_SEQNO = BB.CGAF_CH_SEQNO
+	AND BB.IKD_GRPCD = 'LA'
+	AND BB.RELPC_TPCD IN ('01') -- 계약자/피보험자
+	AND BB.CTMNO IN (SELECT DISTINCT CRT_CTMNO FROM GDREC_ORIGIN_INS_PRMCNT_PRED)
+INNER JOIN INS_PL_RELPC BBB
+ON 0=0
+	AND AA.PLNO = BBB.PLNO
+	AND AA.CGAF_CH_SEQNO = BBB.CGAF_CH_SEQNO
+	AND BBB.IKD_GRPCD = 'LA'
+	AND BBB.RELPC_TPCD IN ('02') -- 계약자/피보험자
+	AND BBB.CTMNO IN (SELECT DISTINCT MN_NRDPS_CTMNO FROM GDREC_ORIGIN_INS_PRMCNT_PRED)
+)
+WHERE RN = 1)
+	;
+
+-- 상품별 설계 횟수
+DROP TABLE GDREC_ORIGIN_PL_ALL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_PL_ALL_PRED  AS (	
+SELECT 
+  *
+FROM
+  (SELECT 
+    CLS_YYMM
+    ,CRT_CTMNO
+    , MN_NRDPS_CTMNO
+    ,GD_TYPE
+    ,COUNT(DISTINCT PLNO) AS PLNO_CNT
+  FROM
+    (
+		SELECT 
+			A.*
+			, B.PLDT
+			, B.PL_STCD
+			, B.GD_TYPE
+			, B.PLNO
+			, RANK() OVER (PARTITION BY A.CRT_CTMNO, A.MN_NRDPS_CTMNO ORDER BY CLS_YYMM DESC) AS RN
+		FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+		LEFT JOIN GDREC_ORIGIN_PL_PRED B
+		ON 0=0
+			AND A.CRT_CTMNO = B.CRT_CTMNO
+			AND F_LAST_DAY(A.CLS_YYMM) >= B.PLDT
+			AND A.MN_NRDPS_CTMNO = B.MN_NRDPS_CTMNO
+      )
+  WHERE RN = 1
+  GROUP BY 
+    CLS_YYMM
+    ,CRT_CTMNO
+    , MN_NRDPS_CTMNO
+    ,GD_TYPE)
+  PIVOT
+  (
+  	MAX(PLNO_CNT)
+  	FOR GD_TYPE IN ('L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,'SAFE' AS SAFE , 'SS' AS SS, '유병자'  AS 유병자,'L11' AS L11,'L123' AS L123)
+  ) P
+  );
+-- 상품설 설계 완료 건수
+DROP TABLE GDREC_ORIGIN_PL_CL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_PL_CL_PRED  AS (	
+SELECT 
+  *
+FROM
+  (SELECT 
+    CLS_YYMM
+    ,CRT_CTMNO
+    , MN_NRDPS_CTMNO
+    ,GD_TYPE
+    ,COUNT(DISTINCT PLNO) AS PLNO_CNT
+  FROM
+    (
+		SELECT 
+			A.*
+			, B.PLDT
+			, B.PL_STCD
+			, B.GD_TYPE
+			, B.PLNO
+			, RANK() OVER (PARTITION BY A.CRT_CTMNO,A.MN_NRDPS_CTMNO ORDER BY CLS_YYMM DESC) AS RN
+		FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+		LEFT JOIN GDREC_ORIGIN_PL_PRED B
+		ON 0=0
+			AND A.CRT_CTMNO = B.CRT_CTMNO
+			AND F_LAST_DAY(A.CLS_YYMM) >= B.PLDT
+			AND A.MN_NRDPS_CTMNO = B.MN_NRDPS_CTMNO
+		WHERE PL_FIN_CD = 1
+      )
+  WHERE RN = 1
+  GROUP BY 
+    CLS_YYMM
+    ,CRT_CTMNO
+    , MN_NRDPS_CTMNO
+    ,GD_TYPE)
+  PIVOT
+  (
+  	MAX(PLNO_CNT)
+  	FOR GD_TYPE IN ('L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,'SAFE' AS SAFE , 'SS' AS SS, '유병자'  AS 유병자,'L11' AS L11,'L123' AS L123)
+  ) P
+  );	
+
+-- 데이터합치기 2
+DROP TABLE GDREC_ORIGIN_MAIN9_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_MAIN9_PRED  AS (	
+SELECT 
+	A.*
+	, NVL(B1.L01,0) L01_기가입
+	, NVL(B1.L03,0) L03_기가입
+	, NVL(B1.L04,0) L04_기가입
+	, NVL(B1.L06,0) L06_기가입
+	, NVL(B1.L08,0) L08_기가입
+	, NVL(B1.SAFE,0) SAFE_기가입
+	, NVL(B1.SS,0) SS_기가입_기가입
+	, NVL(B1.유병자,0) 유병자_기가입
+	, NVL(B1.L11,0) L11_기가입
+	, NVL(B1.L123,0) L123_기가입
+	, NVL(B2.전속,0) 전속_기가입
+	, NVL(B2.교차,0) 교차_기가입
+	, NVL(B2.GA,0) GA_기가입
+	, NVL(B2.TM,0) TM_기가입
+	, NVL(B2.CM,0) CM_기가입
+	, NVL(B2.방카,0) +  NVL(B2.기업,0) +  NVL(B2.LIFEWITH,0) +  NVL(B2.본사기타,0)  AS 그외채널_기가입
+	, NVL(B3.DSDE_AMT,0)  DSDE_AMT
+	, NVL(B3.INJR_DE_AMT,0)  INJR_DE_AMT
+	, NVL(B3.CANCR_DE_AMT,0) CANCR_DE_AMT
+	, NVL(B3.TRF_INJR_DE_AMT,0) TRF_INJR_DE_AMT
+	, NVL(B3.DSAS_SLOBS_AMT,0) DSAS_SLOBS_AMT
+	, NVL(B3.DSAS_DGR_SLOBS_AMT,0) DSAS_DGR_SLOBS_AMT
+	, NVL(B3.INJR_SLOBS_AMT,0) INJR_SLOBS_AMT
+	, NVL(B3.INJR_DGR_SLOBS_AMT,0) INJR_DGR_SLOBS_AMT
+	, NVL(B3.SMLY_CANCR_DASCS_AMT,0) SMLY_CANCR_DASCS_AMT
+	, NVL(B3.CANCR_DASCS_AMT,0) CANCR_DASCS_AMT
+	, NVL(B3.HAMT_CANCR_DASCS_AMT,0) HAMT_CANCR_DASCS_AMT
+	, NVL(B3.RE_DGN_CANCR_AMT,0) RE_DGN_CANCR_AMT
+	, NVL(B3.CANCR_HSP_DDALW_AMT,0) CANCR_HSP_DDALW_AMT
+	, NVL(B3.CANCR_OPCCS_AMT,0) CANCR_OPCCS_AMT
+	, NVL(B3.CRLR_DSAS_DASCS_AMT,0) CRLR_DSAS_DASCS_AMT
+	, NVL(B3.STRK_DASCS_AMT,0) STRK_DASCS_AMT
+	, NVL(B3.CBHMH_DASCS_AMT,0) CBHMH_DASCS_AMT
+	, NVL(B3.CRLR_DSAS_OPCCS_AMT,0) CRLR_DSAS_OPCCS_AMT
+	, NVL(B3.ISMC_HEART_DSAS_DASCS_AMT,0) ISMC_HEART_DSAS_DASCS_AMT
+	, NVL(B3.AMIFN_INCR_DASCS_AMT,0) AMIFN_INCR_DASCS_AMT
+	, NVL(B3.ISMC_HEART_DSAS_OPCCS_AMT,0) ISMC_HEART_DSAS_OPCCS_AMT
+	, NVL(B3.CI_AMT,0) CI_AMT
+	, NVL(B3.GI_AMT,0) GI_AMT
+	, NVL(B3.DSAS_HSP_RLPMI_AMT,0) DSAS_HSP_RLPMI_AMT
+	, NVL(B3.DSAS_OTP_RLPMI_AMT,0) DSAS_OTP_RLPMI_AMT
+	, NVL(B3.INJR_HSP_RLPMI_AMT,0) INJR_HSP_RLPMI_AMT
+	, NVL(B3.INJR_OTP_RLPMI_AMT,0) INJR_OTP_RLPMI_AMT
+	, NVL(B3.DSAS_HSP_DDALW_1_AMT,0) DSAS_HSP_DDALW_1_AMT
+	, NVL(B3.DSAS_HSP_DDALW_4_AMT,0) DSAS_HSP_DDALW_4_AMT
+	, NVL(B3.INJR_HSP_DDALW_1_AMT,0) INJR_HSP_DDALW_1_AMT
+	, NVL(B3.INJR_HSP_DDALW_4_AMT,0) INJR_HSP_DDALW_4_AMT
+	, NVL(B3.DSAS_OPCCS_AMT,0) DSAS_OPCCS_AMT
+	, NVL(B3.INJR_OPCCS_AMT,0) INJR_OPCCS_AMT
+	, NVL(B3.MILD_DEMEN_AMT,0) MILD_DEMEN_AMT
+	, NVL(B3.SERI_DEMEN_AMT,0) SERI_DEMEN_AMT
+	, NVL(B3.LTRM_RCPR_DGN_RANK4_AMT,0) LTRM_RCPR_DGN_RANK4_AMT
+	, NVL(B3.LTRM_RCPR_DGN_RANK1_AMT,0) LTRM_RCPR_DGN_RANK1_AMT
+	, NVL(B3.BDIN_CCA_SUAMT_AMT,0) BDIN_CCA_SUAMT_AMT
+	, NVL(B3.LWR_SNRT_CS_AMT,0) LWR_SNRT_CS_AMT
+	, NVL(B3.DRV_PNLTY_AMT,0)  DRV_PNLTY_AMT
+	, NVL(B3.AUTO_CRCLM_INJ_URAMT,0) AUTO_CRCLM_INJ_URAMT
+	, NVL(B3.FIRE_PNLTY_AMT,0) FIRE_PNLTY_AMT
+	, NVL(B3.USLLF_LBTRS_AMT,0) USLLF_LBTRS_AMT
+	, NVL(B3.IMPL_MDCF_AMT,0) IMPL_MDCF_AMT
+	, NVL(B3.CROW_MDCF_AMT,0) CROW_MDCF_AMT
+	, NVL(B3.FRCTR_DASCS_AMT,0) FRCTR_DASCS_AMT
+	, NVL(B3.BURN_DASCS_AMT,0) BURN_DASCS_AMT
+	, NVL(B3.FOCUS_ANTI_MEDI_APPR_MDCF,0) FOCUS_ANTI_MEDI_APPR_MDCF
+	, NVL(B3.DSAS_OPCCS_14_KND_ISYN,0) DSAS_OPCCS_14_KND_ISYN
+	, NVL(B3.DSAS_OPCCS_16_KND_ISYN,0) DSAS_OPCCS_16_KND_ISYN
+	, NVL(B3.DSAS_OPCCS_18_KND_ISYN,0) DSAS_OPCCS_18_KND_ISYN
+	, NVL(B3.DSAS_OPCCS_34_KND_ISYN,0) DSAS_OPCCS_34_KND_ISYN
+	, NVL(B3.DSAS_OPCCS_56_KND_ISYN,0) DSAS_OPCCS_56_KND_ISYN
+	, NVL(B3.DSAS_OPCCS_121_KND_ISYN,0) DSAS_OPCCS_121_KND_ISYN
+	, NVL(B3.GB_AMT,0) GB_AMT
+	, NVL(B3.GB_AMT2,0) GB_AMT2
+	, NVL(B5.L01,0) L01_이력
+	, NVL(B5.L03,0) L03_이력
+	, NVL(B5.L04,0) L04_이력
+	, NVL(B5.L06,0) L06_이력
+	, NVL(B5.L08,0) L08_이력
+	, NVL(B5.SAFE,0) SAFE_이력
+	, NVL(B5.SS,0) SS_이력
+	, NVL(B5.유병자,0) 유병자_이력
+	, NVL(B5.L11,0) L11_이력
+	, NVL(B5.L123,0)	 L123_이력
+	, NVL(B4.PRED_INCOME,0) PRED_INCOME
+FROM GDREC_ORIGIN_MAIN99_PRED A
+LEFT JOIN 
+	GDREC_ORIGIN_INS_GD_PRED B1
+ON 0=0
+	AND A.CLS_YYMM = B1.CLS_YYMM
+	AND A.CRT_CTMNO = B1.CRT_CTMNO
+	AND A.MN_NRDPS_CTMNO = B1.MN_NRDPS_CTMNO
+LEFT JOIN 	
+	GDREC_ORIGIN_INS_CHNL_PRED B2
+ON 0=0
+	AND A.CLS_YYMM = B2.CLS_YYMM
+	AND A.CRT_CTMNO = B2.CRT_CTMNO
+	AND A.MN_NRDPS_CTMNO = B2.MN_NRDPS_CTMNO
+LEFT JOIN 
+	SDADAM.M_BIZ_CTM_INFO_CVR_LIST B3
+ON 0=0
+	AND A.CLS_YYMM = F_PREV_MONTH(B3.CLS_YYMM,'-1')
+	AND A.MN_NRDPS_CTMNO = B3.CTMNO
+LEFT JOIN 
+	SDADAM.FINANCIAL_DAM_PRED B4
+ON 0=0
+	AND A.CLS_YYMM  = F_PREV_MONTH(B4.STYYMM,'-1')
+	AND A.CRT_CTMNO = B4.CTMNO
+LEFT JOIN 
+	(
+	SELECT * 
+	FROM 
+	(
+	SELECT 
+		CLS_YYMM
+		, CRT_CTMNO
+		, MN_NRDPS_CTMNO
+		, GD_TYPE
+		, COUNT(DISTINCT PLYNO) AS PLY_CNT
+	FROM GDREC_ORIGIN_INS_PRVGD_PRED
+	GROUP BY 
+		CLS_YYMM
+		, CRT_CTMNO
+		, MN_NRDPS_CTMNO
+		, GD_TYPE
+		)
+	  PIVOT
+	  (
+	  	MAX(PLY_CNT)
+	  	FOR GD_TYPE IN ('L01' AS L01,'L03' AS L03,'L04' AS L04,'L06' AS L06,'L08' AS L08,'SAFE' AS SAFE , 'SS' AS SS, '유병자'  AS 유병자,'L11' AS L11,'L123' AS L123)
+	  ) P 
+	  ) B5
+ON 0=0
+	AND A.CLS_YYMM = B5.CLS_YYMM
+	AND A.CRT_CTMNO = B5.CRT_CTMNO
+	AND A.MN_NRDPS_CTMNO = B5.MN_NRDPS_CTMNO) ;
+	
+-- 설계 정보 종합
+DROP TABLE GDREC_TMGD_PL_INFO_PRED PURGE;
+CREATE TABLE GDREC_TMGD_PL_INFO_PRED  AS (	
+SELECT 
+	A.CLS_YYMM
+	, A.CRT_CTMNO
+	, A.MN_NRDPS_CTMNO
+	, NVL(B1.L01,0) L01_설계이력
+	, NVL(B1.L03,0) L03_설계이력
+	, NVL(B1.L04,0) L04_설계이력
+	, NVL(B1.L06,0) L06_설계이력
+	, NVL(B1.L08,0) L08_설계이력
+	, NVL(B1.SAFE,0) SAFE_설계이력
+	, NVL(B1.SS,0) SS_설계이력
+	, NVL(B1.유병자,0) 유병자_설계이력
+
+	, NVL(B1.L11,0) L11_설계이력
+	, NVL(B1.L123,0) L123_설계이력
+	, NVL(B2.L01,0) L01_설계완료
+	, NVL(B2.L03,0) L03_설계완료
+	, NVL(B2.L04,0) L04_설계완료
+	, NVL(B2.L06,0) L06_설계완료
+	, NVL(B2.L08,0) L08_설계완료
+	, NVL(B2.SAFE,0) SAFE_설계완료
+	, NVL(B2.SS,0) SS_설계완료
+	, NVL(B2.유병자,0) 유병자_설계완료
+	, NVL(B2.L11,0) L11_설계완료
+	, NVL(B2.L123,0) L123_설계완료
+	
+	, GD_TYPE AS 최근가입설계상품
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+LEFT JOIN GDREC_ORIGIN_PL_ALL_PRED B1
+ON 0=0
+	AND A.CLS_YYMM = B1.CLS_YYMM
+	AND A.CRT_CTMNO = B1.CRT_CTMNO
+	AND A.MN_NRDPS_CTMNO = B1.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_PL_CL_PRED B2
+ON 0=0
+	AND A.CLS_YYMM = B2.CLS_YYMM
+	AND A.CRT_CTMNO = B2.CRT_CTMNO
+	AND A.MN_NRDPS_CTMNO = B2.MN_NRDPS_CTMNO
+LEFT JOIN 
+	(SELECT *
+	FROM
+			(SELECT 
+				A.*
+				, B.PLDT
+				, B.PL_STCD
+				, B.GD_TYPE
+				, B.PLNO
+				, RANK() OVER (PARTITION BY A.CRT_CTMNO,A.MN_NRDPS_CTMNO ORDER BY CLS_YYMM DESC) AS RN
+				, ROW_NUMBER() OVER (PARTITION BY A.CRT_CTMNO,A.MN_NRDPS_CTMNO ORDER BY CLS_YYMM DESC, PLDT DESC ) AS RN2
+			FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+			LEFT JOIN GDREC_ORIGIN_PL_PRED B
+			ON 0=0
+				AND A.CRT_CTMNO = B.CRT_CTMNO
+				AND A.MN_NRDPS_CTMNO = B.MN_NRDPS_CTMNO
+				AND F_LAST_DAY(A.CLS_YYMM) >= B.PLDT)
+		WHERE RN =1 AND RN2  = 1) B3
+ON 0=0
+	AND A.CLS_YYMM = B3.CLS_YYMM
+	AND A.CRT_CTMNO = B3.CRT_CTMNO
+	AND A.MN_NRDPS_CTMNO = B3.MN_NRDPS_CTMNO
+	)
+	
+;
+-- 사고 및 지급 보험금 당사(무사고 판별용)
+DROP TABLE GDREC_ORIGIN_CLM_ALL_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_ALL_PRED AS (
+  SELECT 
+    A.CLS_YYMM
+    , A.CLMPS_CTMNO
+    , A.clmps_ctm_dscno
+    , SUM(A.WONCR_CV_PYAMT) 지급보험금
+    , MAX(A.PRVDT) 최근사고일자
+  FROM (
+        SELECT
+          BB.CLS_YYMM 
+          ,AA.* 
+        FROM M_CMP_GN_CVRCL_PY_IBNF_LIST AA
+        INNER JOIN GDREC_ORIGIN_INS_PRMCNT_PRED BB
+        ON 0=0
+          AND AA.CLMPS_CTMNO = BB.CRT_CTMNO 
+          AND F_LAST_DAY(BB.CLS_YYMM) >= AA.PRVDT
+        ) 	A 		 /* TBL : 일반담보별지급보험금명세 */
+  LEFT OUTER JOIN  LSE_CLMPS  		B       /*사고조사*/			
+  ON A.RCP_YYMM = B.RCP_YYMM                 	/*접수년월*/			
+  AND A.RCP_NV_SEQNO = B.RCP_NV_SEQNO        	/*접수조사순번*/			
+  AND A.CLMPS_SEQNO = B.CLMPS_SEQNO          	/*사고자순번*/			
+  AND B.CLMPS_FLGCD  = '01'      			 	/*사고자구분코드 : 피보험자*/  
+  
+  LEFT OUTER JOIN LSE_DGN 			C		/* TBL : 진단 (RCP_YYMM,RCP_NV_SEQNO,CLMPS_SEQNO,CLM_NV_SEQNO,DGNCD) */
+  ON 1=1
+  AND A.RCP_YYMM = C.RCP_YYMM					/*접수년월*/
+  AND A.RCP_NV_SEQNO = C.RCP_NV_SEQNO			/*접수조사순번*/
+  AND A.CLMPS_SEQNO = C.CLMPS_SEQNO			/*사고자순번*/
+  AND A.CLM_NV_SEQNO = C.CLM_NV_SEQNO			/*사고조사순번*/
+  
+  LEFT JOIN M_LCR_LTINS_CR  D
+  ON 0=0
+  AND A.PLYNO = D.PLYNO
+  LEFT OUTER JOIN SUS_DSACD E
+  ON REPLACE(C.DGNCD,'*','') = E.SUS_DSACD
+  WHERE 1=1
+  AND A.PLYNO IS NOT NULL
+  AND A.IKD_GRPCD = 'LA'
+  AND A.CCL_YN='0'
+  AND COALESCE(A.UDRTK_TYCD,'01')<>'03' 				/* 타사간사 제외 */
+  AND A.XI_PY_FLGCD IN ('02','03')					/* 추산지급,환입 */
+  AND A.CLM_NV_CSFCD = '11'							/* 인보장 */
+  GROUP BY A.CLS_YYMM, A.CLMPS_CTMNO,A.clmps_ctm_dscno
+  )
+;
+-- 중대질환 청구 여부
+DROP TABLE GDREC_ORIGIN_CLM_CSF_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_CSF_PRED AS (
+
+SELECT 
+   A.CLS_YYMM
+	, A.CLMPS_CTMNO AS CTMNO
+	, MAX(A.CLMDT) AS DT
+  FROM (
+        SELECT
+          BB.CLS_YYMM 
+          ,AA.* 
+        FROM M_CMP_GN_CVRCL_PY_IBNF_LIST AA
+        INNER JOIN GDREC_ORIGIN_INS_PRMCNT_PRED BB
+        ON 0=0
+          AND AA.CLMPS_CTMNO = BB.CRT_CTMNO 
+          AND F_LAST_DAY(BB.CLS_YYMM) >= AA.PRVDT
+        ) 	A 		 /* TBL : 일반담보별지급보험금명세 */
+INNER JOIN LSE_DGN 			C		/* TBL : 진단 (RCP_YYMM,RCP_NV_SEQNO,CLMPS_SEQNO,CLM_NV_SEQNO,DGNCD) */
+ON 1=1
+AND A.RCP_YYMM = C.RCP_YYMM					/*접수년월*/
+AND A.RCP_NV_SEQNO = C.RCP_NV_SEQNO			/*접수조사순번*/
+AND A.CLMPS_SEQNO = C.CLMPS_SEQNO			/*사고자순번*/
+AND A.CLM_NV_SEQNO = C.CLM_NV_SEQNO			/*사고조사순번*/
+
+INNER JOIN ( -- 중대질환(암, 협심증, 심근경색, 뇌졸중증(뇌출혈, 뇌경색), 간경화증, 심장판막증)
+	SELECT DISTINCT
+		DSACD
+	FROM INS_UD_DSAS_CSF_REL
+	WHERE 1=1
+		AND AP_NDDT= F_LAST_DAY('999912')
+		AND DSAS_CSFCD IN (
+				'UW02010','UW02020','UW02030','UW02040','UW02050','UW02060','UW02070','UW02080','UW02090' --암
+				,'UW02100','UW02110','UW02120','UW02130','UW02140','UW02150','UW02160','UW02170','UW02180' --암
+				,'UW03010','UW03020','UW03030','UW03040','UW03050','UW03060' --암
+				,'UW04010','UW04020','UW04030','UW04040','UW02150' --암
+				,'UW09070','UW09090','UW09250','UW09260' -- 뇌졸중/뇌혈관질환
+				,'UW12220','UW12210','UW12290','UW12300' --심근경색/심장판막증
+				,'UW12110','UW16120' -- 간경화증
+		)
+) Z
+ON 0=0
+	AND C.DGNCD = Z.DSACD
+
+WHERE 1=1
+	-- AND A.PLYNO IS NOT NULL
+	-- AND A.IKD_GRPCD = 'LA'
+	-- -- AND A.CCL_YN='0'
+	-- -- AND COALESCE(A.UDRTK_TYCD,'01') != '03' 			/* 타사간사 제외 */
+	-- -- AND A.XI_PY_FLGCD IN ('02','03')					/* 추산지급,환입 */
+	-- AND A.CLM_NV_CSFCD = '11'							/* 인보장 */
+	-- -- AND A.CLMDT >= SYSDATE - INTERVAL '5' YEAR			/* 사고일자 */
+GROUP BY
+	 A.CLS_YYMM, A.CLMPS_CTMNO
+);
+-- 중대질환 고지여부
+DROP TABLE GDREC_ORIGIN_CLM_MTT_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_MTT_PRED AS (
+
+  SELECT 
+    AA.*
+    ,BB.DGNDT
+  FROM GDREC_ORIGIN_INS_PRMCNT_PRED AA
+  INNER JOIN 
+  (
+    SELECT 
+    	NVL(B.CTMNO, A.CTMNO) AS CTMNO
+    	, MAX(A.DGNDT) AS DGNDT
+    FROM INS_BFPL_DSAS_NC_MTT A
+    LEFT JOIN INS_PL_RELPC B
+    ON 0=0 
+    	AND A.PLNO = B.PLNO
+    	AND A.CGAF_CH_SEQNO = B.CGAF_CH_SEQNO
+    	AND A.RELPC_SEQNO = B.RELPC_SEQNO
+    WHERE 1=1
+    	-- AND A.DGNDT >= (SELECT SYSDATE - INTERVAL '5' YEAR FROM DUAL)
+    	AND A.DSACD IN (
+    				'UW02010','UW02020','UW02030','UW02040','UW02050','UW02060','UW02070','UW02080','UW02090' --암
+    				,'UW02100','UW02110','UW02120','UW02130','UW02140','UW02150','UW02160','UW02170','UW02180' --암
+    				,'UW03010','UW03020','UW03030','UW03040','UW03050','UW03060' --암
+    				,'UW04010','UW04020','UW04030','UW04040','UW02150' --암
+    				,'UW09070','UW09090','UW09250','UW09260' -- 뇌졸중/뇌혈관질환
+    				,'UW12220','UW12210','UW12290','UW12300' --심근경색/심장판막증
+    				,'UW12110','UW16120' -- 간경화증
+    	)
+    GROUP BY 
+    	NVL(B.CTMNO, A.CTMNO)
+  	) BB
+  ON 0=0
+    AND AA.MN_NRDPS_CTMNO = BB.CTMNO
+    AND F_LAST_DAY(AA.CLS_YYMM) >= BB.DGNDT
+); 
+
+-- 입원수술 고지 여부
+DROP TABLE GDREC_ORIGIN_CLM_HSP_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_HSP_PRED AS (
+  SELECT 
+    AA.*
+    ,BB.DGNDT
+  FROM GDREC_ORIGIN_INS_PRMCNT_PRED AA
+  INNER JOIN 
+  (
+  SELECT 
+  	NVL(B.CTMNO, A.CTMNO) AS CTMNO
+  	, MAX(A.DGNDT) AS DGNDT
+  FROM INS_BFPL_DSAS_NC_MTT A
+  LEFT JOIN INS_PL_RELPC B
+  ON 0=0 
+  	AND A.PLNO = B.PLNO
+  	AND A.CGAF_CH_SEQNO = B.CGAF_CH_SEQNO
+  	AND A.RELPC_SEQNO = B.RELPC_SEQNO
+  WHERE 1=1
+  	AND NVL(A.OP_RMDY_YN, 0) + NVL(A.RL_HSP_YN, 0) >= 1 --입원/수술
+  GROUP BY 
+  	NVL(B.CTMNO, A.CTMNO)
+  	) BB
+  ON 0=0
+    AND AA.MN_NRDPS_CTMNO = BB.CTMNO
+    AND F_LAST_DAY(AA.CLS_YYMM) >= BB.DGNDT
+);
+-- 최근입원청구
+DROP TABLE GDREC_ORIGIN_CLM_G_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_CLM_G_PRED AS (
+
+
+  SELECT 
+    A.CLS_YYMM
+    , A.CLMPS_CTMNO
+    , A.clmps_ctm_dscno
+    , SUM(A.WONCR_CV_PYAMT) 지급보험금
+    , MAX(A.PRVDT) 최근사고일자
+  FROM (
+        SELECT
+          BB.CLS_YYMM 
+          ,AA.* 
+        FROM M_CMP_GN_CVRCL_PY_IBNF_LIST AA
+        INNER JOIN GDREC_ORIGIN_INS_PRMCNT_PRED BB
+        ON 0=0
+          AND AA.CLMPS_CTMNO = BB.CRT_CTMNO 
+          AND F_LAST_DAY(BB.CLS_YYMM) >= AA.PRVDT
+        ) 	A 		 /* TBL : 일반담보별지급보험금명세 */
+  LEFT OUTER JOIN LSE_DGN 			C		/* TBL : 진단 (RCP_YYMM,RCP_NV_SEQNO,CLMPS_SEQNO,CLM_NV_SEQNO,DGNCD) */
+  ON 1=1
+  AND A.RCP_YYMM = C.RCP_YYMM					/*접수년월*/
+  AND A.RCP_NV_SEQNO = C.RCP_NV_SEQNO			/*접수조사순번*/
+  AND A.CLMPS_SEQNO = C.CLMPS_SEQNO			/*사고자순번*/
+  AND A.CLM_NV_SEQNO = C.CLM_NV_SEQNO			/*사고조사순번*/
+  
+  LEFT OUTER JOIN SUS_DSACD E
+  ON REPLACE(C.DGNCD,'*','') = E.SUS_DSACD
+  
+  WHERE 1=1
+  	AND A.PLYNO IS NOT NULL
+  	AND A.IKD_GRPCD = 'LA'
+  	AND A.CCL_YN='0'
+  	AND COALESCE(A.UDRTK_TYCD,'01') != '03' 				/* 타사간사 제외 */
+  	AND A.XI_PY_FLGCD IN ('02','03')					/* 추산지급,환입 */
+  	AND A.CLM_NV_CSFCD = '11'							/* 인보장 */
+  	AND A.CLM_CVR_LCLCD IN ('G001') -- 사망/후유장해/입원/수술
+  GROUP BY A.CLS_YYMM, A.CLMPS_CTMNO,A.clmps_ctm_dscno
+  )
+;
+
+-- 
+DROP TABLE GDREC_TMGD_CLM_INFO_PRED;
+CREATE TABLE GDREC_TMGD_CLM_INFO_PRED  AS (	
+SELECT 
+	A.CLS_YYMM
+	, A.CRT_CTMNO
+	, A.MN_NRDPS_CTMNO
+	, TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM) , B1.최근사고일자)/12,0) AS 입원청구
+	, TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM) , B2.DGNDT)/12,0) AS 입원고지
+	, TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM) , B3.DGNDT)/12,0) AS 중대질환고지
+	, TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM) , B4.DT)/12,0) AS 중대질환청구
+	, TRUNC(MONTHS_BETWEEN(F_LAST_DAY(A.CLS_YYMM) , B5.최근사고일자)/12,0) AS 무사고
+FROM GDREC_ORIGIN_INS_PRMCNT_PRED A
+LEFT JOIN GDREC_ORIGIN_CLM_G_PRED B1
+ON 0=0
+	AND A.CLS_YYMM = B1.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B1.CLMPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_HSP_PRED B2
+ON 0=0
+	AND A.CLS_YYMM = B2.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B2.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_MTT_PRED B3
+ON 0=0
+	AND A.CLS_YYMM = B3.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B3.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_CSF_PRED B4
+ON 0=0
+	AND A.CLS_YYMM = B4.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B4.CTMNO
+LEFT JOIN GDREC_ORIGIN_CLM_ALL_PRED B5
+ON 0=0
+	AND A.CLS_YYMM = B5.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B5.CLMPS_CTMNO
+	);
+	
+-- 최종 데이터 취합
+DROP TABLE GDREC_ORIGIN_MAIN_FIN_PRED PURGE;
+CREATE TABLE GDREC_ORIGIN_MAIN_FIN_PRED  AS (	
+SELECT 
+	A.*
+	, B1.L01_설계이력
+	, B1.L03_설계이력
+	, B1.L04_설계이력
+	, B1.L06_설계이력
+	, B1.L08_설계이력
+	, B1.SAFE_설계이력
+	, B1.SS_설계이력
+	, B1.유병자_설계이력
+	, B1.L11_설계이력
+	, B1.L123_설계이력
+	, B1.L01_설계완료
+	, B1.L03_설계완료
+	, B1.L04_설계완료
+	, B1.L06_설계완료
+	, B1.L08_설계완료
+	, B1.SAFE_설계완료
+	, B1.SS_설계완료
+	, B1.유병자_설계완료
+	, B1.L11_설계완료
+	, B1.L123_설계완료
+	, B1.최근가입설계상품
+	, CASE WHEN B2.입원청구 > 10 THEN '10'
+		WHEN B2.입원청구 IS NULL THEN 'X'
+		ELSE TO_CHAR(B2.입원청구) END AS 입원청구
+	, CASE WHEN B2.입원고지 > 10 THEN '10'
+		WHEN B2.입원고지 IS NULL THEN 'X'
+		ELSE TO_CHAR(B2.입원고지) END AS 입원고지
+	, CASE WHEN B2.중대질환고지 > 10 THEN '10'
+		WHEN B2.중대질환고지 IS NULL THEN 'X'
+		ELSE TO_CHAR(B2.중대질환고지) END AS 중대질환고지
+	, CASE WHEN B2.중대질환청구 > 10 THEN '10'
+		WHEN B2.중대질환청구 IS NULL THEN 'X'
+		ELSE TO_CHAR(B2.중대질환청구) END AS 중대질환청구
+	, CASE WHEN B2.무사고 > 10 THEN '10'
+		WHEN B2.무사고 IS NULL THEN 'X'
+		ELSE TO_CHAR(B2.무사고) END AS 무사고
+FROM GDREC_ORIGIN_MAIN9_PRED A
+LEFT JOIN GDREC_TMGD_PL_INFO_PRED B1
+ON 0=0
+	AND A.CRT_CTMNO = B1.CRT_CTMNO
+	AND A.CLS_YYMM = B1.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B1.MN_NRDPS_CTMNO
+LEFT JOIN GDREC_TMGD_CLM_INFO_PRED B2
+ON 0=0
+	AND A.CRT_CTMNO = B2.CRT_CTMNO
+	AND A.CLS_YYMM = B2.CLS_YYMM
+	AND A.MN_NRDPS_CTMNO = B2.MN_NRDPS_CTMNO);	
+	

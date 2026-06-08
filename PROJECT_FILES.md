@@ -1,7 +1,7 @@
 # 프로젝트 파일 구조
 
-> 각 파일의 역할과 의존 관계 정리. 코딩 시작 전 참고.
-> ✅ 완성 | 🔲 미작성
+> 각 파일의 역할과 의존 관계 정리.
+> ✅ 완성 | 🔧 리팩토링됨 | 📋 계획됨
 
 ---
 
@@ -9,14 +9,47 @@
 
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `CLAUDE.md` | ✅ | 프로젝트 전체 스펙 (기술스택, 아키텍처, 확정 결정사항) |
+| `CLAUDE.md` | ✅ | 프로젝트 전체 스펙. Key Decisions 포함. 경진대회 고도화 결정사항 추가됨 |
 | `DESIGN.md` | ✅ | 디렉토리 구조, 테이블 스키마, 플로우 상세 |
-| `PROJECT_FILES.md` | ✅ | 이 문서 — 파일별 역할 설명 |
-| `colab_bundle_download.py` | ✅ | Colab에서 실행. 폐쇄망 반입용 pip 패키지 번들 다운로드 |
-| `colab_model_download.py` | ✅ | Colab에서 실행. Qwen3.6 GGUF 모델 다운로드 + tar.gz 분할 |
-| `server_env.txt` | ✅ | 폐쇄망 서버 기설치 패키지 목록 (번들 다운로드 중복 제외용) |
-| `상품추천쿼리.txt` | ✅ | 레거시 Oracle 쿼리 (학습 데이터 생성용, 참고만) |
-| `상품추천py.txt` | ✅ | 레거시 Python 코드 (gd_filter_func 등 포팅 참고용) |
+| `PROJECT_FILES.md` | ✅ | 이 문서 — 파일별 역할/상태 |
+| `competition_guide.md` | ✅ | **경진대회 발표자료 콘텐츠 기준 문서.** PPT/기술레포트 구성·디자인·WOW포인트·금지표현 정의 |
+| `sample_scripts.md` | ✅ | **한화손해보험 상품 기반 샘플 스크립트 3종.** 신규/이력/미연결 시나리오. 데모·발표용 |
+
+---
+
+## Inputs/ (참고·레거시·반입 파일)
+
+| 파일 | 설명 |
+|------|------|
+| `colab_bundle_download.py` | Colab에서 실행. 폐쇄망 반입용 pip 번들 다운로드 |
+| `colab_model_download.py` | Colab에서 실행. Qwen3.6 GGUF 다운로드 + tar.gz 분할 |
+| `server_env.txt` | 폐쇄망 서버 기설치 패키지 목록 |
+| `sql.txt` | 레거시 Oracle SQL 원본 (참고용) |
+| `상품추천py.txt` | 레거시 Python 코드 (gd_filter_func 등 참고용) |
+| `상품추천쿼리.txt` | 레거시 Oracle 쿼리 (학습 데이터 생성용, 참고만) |
+
+---
+
+## outputs/ (경진대회 제출·발표 결과물)
+
+| 파일 | 상태 | 설명 |
+|------|------|------|
+| `technical_report.html` | 🔧 | 기술 레포트. LangGraph CoT·HyDE·Dynamic Few-Shot 반영 필요 |
+| `ai_consultation_agent_interim_report_v2.html` | ✅ | 중간 발표용 HTML. **디자인 토큰 기준 파일** (주황 #f37321, Urbanist/Noto Sans KR) |
+| `ui_demo.html` | 🔧 | HTML 데모. 해시태그 키워드·샘플 스크립트 반영 필요 |
+| `summary.html` | ✅ | 초기 요약 HTML |
+
+---
+
+## recommendation/ (레거시 ML 추천 시스템)
+
+| 파일 | 설명 |
+|------|------|
+| `recommendation/config.py` | 레거시 추천 시스템 설정 |
+| `recommendation/db.py` | 레거시 DB 연결 |
+| `recommendation/gd_filter.py` | 가입 가능 여부 필터 (gd_filter_func). 현재 프로젝트는 tbl_ds_ineligible로 대체 |
+| `recommendation/main.py` | 레거시 추천 메인 실행 |
+| `recommendation/model.py` | AutoGluon 기반 ML 모델 |
 
 ---
 
@@ -24,8 +57,7 @@
 
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `config/settings.py` | ✅ | **전체 설정 중앙 관리.** 경로(DuckDB/Chroma/WAV/docs), Ollama 모델명, Oracle 접속정보, 테이블명 상수. 모든 파일이 이것을 import함 |
-| `config/allowed_ips.txt` | — | 불필요 — 접근 제어는 네트워크 레벨(정보보호 파트). middleware.py 제거됨 |
+| `config/settings.py` | ✅ | **전체 설정 중앙 관리.** 경로·모델·Oracle접속·테이블명 상수. 모든 파일이 import |
 
 ---
 
@@ -33,62 +65,66 @@
 
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `db/schema.sql` | ✅ | **DuckDB DDL.** 9개 테이블 정의 (`tbl_ds_*`). db/manager.py가 서비스 시작 시 자동 실행 |
-| `db/manager.py` | ✅ | **DuckDB 연결 헬퍼.** `query_df()` `query_one()` `atomic_replace()` 제공. 에이전트/파이프라인 전 범위에서 import해서 사용 |
-| `db/oracle_queries.py` | ✅ | **DuckDB 테이블명 ↔ Oracle AI_* 매핑.** `QUERIES` dict만 관리. 복잡한 ETL 로직은 oracle_queries.sql에서 처리 |
-| `db/oracle_queries.sql` | ✅ | **Oracle AI_* 추출 테이블 생성 스크립트.** SQL Developer에서 실행. 10개 AI_* 테이블 CTAS (PARALLEL(8), NOLOGGING). AI_INELIGIBLE/AI_CALL_DETAIL/AI_CAMPAIGN 포함 |
-| `db/TABLE_SPEC.md` | ✅ | DuckDB 테이블 명세 (컬럼/타입/Oracle 소스). Oracle 쿼리 작성 참고용 |
-| `db/DUCKDB_LOADING_GUIDE.md` | ✅ | DuckDB 적재 절차 가이드 (Jupyter 검증 → LLM 컨테이너 실행) |
+| `db/schema.sql` | ✅ | **DuckDB DDL.** `tbl_ds_*` 테이블 정의 |
+| `db/manager.py` | ✅ | **DuckDB 연결 헬퍼.** `query_df()` `query_one()` `atomic_replace()`. 전 범위에서 import |
+| `db/oracle_queries.py` | ✅ | **DuckDB 테이블명 ↔ Oracle AI_* 매핑.** `QUERIES` dict. tbl_ds_msg_history None(TODO) |
 
 ---
 
 ## pipelines/
 
-배치 파이프라인. 서비스와 별개로 1회 또는 cron으로 실행.
-
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `pipelines/pipeline_a_stt.py` | 🔲 | **STT 인덱싱 (1회성).** WAV → faster-whisper → 마스킹+분석(Qwen3.6) → nomic-embed-text → Chroma `calls`. CALL_ID 단위 resume 지원. Day 3 시작, 약 41~83시간 소요 |
-| `pipelines/pipeline_b_docs.py` | 🔲 | **문서 인덱싱 (1회성).** DOCX/PPTX/PDF → 마크다운 → nomic-embed-text → Chroma `products`. 문서명 단위 resume 지원 |
-| `pipelines/pipeline_c_duckdb.py` | ✅ | **DuckDB 마트 갱신 (매일 cron).** cx_Oracle → AI_* SELECT * → mart_new.db 청크 적재(50,000행) → atomic rename. 장애 복구: mart_new.db 존재 시 삭제 후 재시작 |
+| `pipelines/pipeline_a_stt.py` | ✅ | **STT 인덱싱 (1회성).** WAV → faster-whisper → Regex마스킹 → Qwen3.6(마스킹+분석 JSON) → Chroma `calls`. Chroma embedded_text: `[고객: {age}세 {sex}, {campaign}] {summary}` |
+| `pipelines/pipeline_b_docs.py` | ✅ | **문서 인덱싱 (1회성).** DOCX/PPTX/PDF → 마크다운 → Chroma `products`. 문서명 단위 resume |
+| `pipelines/pipeline_c_duckdb.py` | ✅ | **DuckDB 마트 갱신 (매일 cron).** Oracle AI_* → mart_new.db 청크 적재(50k행) → atomic rename |
 
 ---
 
 ## agent/
 
-LangGraph 에이전트. Tab1/Tab2 모든 대화 처리.
+Tab1 LangGraph 파이프라인 + Tab2 캠페인 추출.
 
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `agent/state.py` | 🔲 | **LangGraph AgentState.** `messages` `active_tab` `ctmno` `db_tier` `customer_data` `rag_results` `campaign_conditions` 등 정의 |
-| `agent/graph.py` | 🔲 | **LangGraph 그래프 조립.** 노드 연결, 조건 엣지, 체크포인트(SQLite) 설정 |
-| `agent/nodes/router.py` | 🔲 | **탭 라우팅 + Tab1 3분기 분기.** tbl_ds_call_detail 조회 → 신규/미연결/이력 결정. Tab2 의도 분류 (query/script/list) |
-| `agent/nodes/tab1.py` | 🔲 | **콜 전 준비 노드.** 신규/미연결/이력 3개 서브플로우. DuckDB 조회 즉시 표시 + Qwen3.6 스크립트 스트리밍 |
-| `agent/nodes/tab2.py` | 🔲 | **영업지원 Agent 노드.** 모드A(자유질의) / 모드B(스크립트생성) / 모드C(캠페인리스트) |
-| `agent/tools/duckdb_tools.py` | 🔲 | **DuckDB LangGraph Tool 등록.** 테이블별 조회 함수를 Tool로 래핑. LLM이 description 보고 선택 |
-| `agent/tools/chroma_tools.py` | 🔲 | **Chroma RAG Tool 등록.** `calls` / `products` 컬렉션 검색. 채널/캠페인/체결여부 메타데이터 필터 포함 |
+| `agent/state.py` | ✅ | **LangGraph Tab1State TypedDict.** ctmno/tier/data/db_markdown/hyde_query/rag_cases/rag_products/customer_insight/approach_angle/needs_product_search/product_query/final_prompt |
+| `agent/graph.py` | ✅ | **LangGraph 8노드 파이프라인.** classify → fetch_data → format_db → hyde(HyDE) → rag(Dynamic Few-Shot) → analyze(ReAct lite) → [fetch_extra_products] → prepare_prompt. `TAB1_GRAPH` 컴파일본 모듈 레벨 노출 |
+| `agent/tab1_handler.py` | 🔧 | **스트리밍 래퍼 (50줄).** `stream_tab1(ctmno)` → TAB1_GRAPH.invoke() → LLM.stream(final_prompt). Gradio generator 인터페이스 유지 |
+| `agent/campaign.py` | ✅ | **Tab2 캠페인 추출.** `get_campaign_list()` `get_prev_campaign_stats()` `build_campaign_query(conditions)` `extract_campaign_list()` `to_excel_tempfile()`. 3종 전략: past_performance/activity_based/rule_based |
+
+**삭제/미생성 (구버전 계획과 다름)**:
+- `agent/nodes/` — graph.py에 통합됨
+- `agent/tools/` — graph.py 내 노드 함수로 구현됨
 
 ---
 
 ## ui/
 
-Gradio 앱. 사내망 IP 접근.
-
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `ui/app.py` | 🔲 | **Gradio 메인 앱.** Tab1(콜 전 준비) + Tab2(영업지원 Agent) 2탭. Tab1: gr.Markdown 즉시 + gr.Textbox 스트리밍. DuckDB 수동 갱신 버튼 + 마지막 갱신 시각 표시 |
-| `ui/middleware.py` | — | 불필요 — 접근 제어 네트워크 레벨 위임. demo.launch(server_name="0.0.0.0") 직접 실행 |
+| `ui/app.py` | ✅ | **Gradio 2탭 메인 앱.** Tab1(상담사): ctmno → stream_tab1() 스트리밍. Tab2(기획자): 캠페인선택 → 폼Q&A → 추출 → Excel. DuckDB 갱신 확인 버튼 포함 |
+
+**삭제**: `ui/middleware.py` — 네트워크 레벨 접근제어로 대체
 
 ---
 
 ## utils/
 
-공통 유틸리티.
+| 파일 | 상태 | 설명 |
+|------|------|------|
+| `utils/masking.py` | ✅ | **개인정보 마스킹 1단계 (Regex).** 카드번호→주민번호→전화번호→계좌번호 순 치환. Pipeline A에서 STT 직후 호출 |
+
+**삭제**: `utils/eligibility.py` — tbl_ds_ineligible(레거시 배치 결과)로 대체
+
+---
+
+## 경진대회 관련 HTML (발표용)
 
 | 파일 | 상태 | 설명 |
 |------|------|------|
-| `utils/masking.py` | 🔲 | **개인정보 마스킹 1단계 (Regex).** 전화번호/주민번호/계좌번호/카드번호 패턴 치환. STT 원문에 먼저 적용 후 Qwen3.6 전달 |
-| `utils/eligibility.py` | — | 불필요 — tbl_ds_ineligible(레거시 FILTER_1/2 결과)로 대체. 쿼리 타임 gd_filter_func 실행 없음 |
+| `technical_report.html` | 🔧 | 기술 레포트. 현재 버전은 업데이트 필요 (LangGraph CoT·HyDE·Dynamic Few-Shot 미반영) |
+| `ai_consultation_agent_interim_report_v2.html` | ✅ | 중간 발표용 HTML. 디자인 토큰 기준 파일 |
+| `ui_demo.html` | 🔧 | HTML 데모. 해시태그 키워드·샘플 스크립트 반영 필요 |
 
 ---
 
@@ -96,30 +132,34 @@ Gradio 앱. 사내망 IP 접근.
 
 | 경로 | 설명 |
 |------|------|
-| `data/duckdb/mart.db` | DuckDB 메인 DB (서비스 중 읽기) |
-| `data/duckdb/mart_new.db` | 갱신 시 임시 파일 (완료 후 mart.db로 교체) |
-| `data/duckdb/checkpoints.sqlite` | LangGraph 세션 체크포인트 (자동 생성) |
-| `data/chroma/` | Chroma 벡터DB 저장소 |
-| `data/wav/` | WAV 녹취 파일 (CALL_ID.wav) |
+| `data/duckdb/mart.db` | DuckDB 메인 DB |
+| `data/duckdb/mart_new.db` | 갱신 임시 파일 |
+| `data/chroma/` | Chroma 벡터DB (calls + products 컬렉션) |
+| `data/wav/` | WAV 녹취 (CALL_ID.wav) |
 | `data/docs/` | 내부 문서 (DOCX/PPTX/PDF) |
 
 ---
 
-## 실행 순서 (폐쇄망 서버 최초 배포)
+## 실행 순서
 
-```
-1. pip 번들 설치 (install.sh)
-2. ollama serve 백그라운드 시작
-3. python pipelines/pipeline_c_duckdb.py   # DuckDB 마트 초기 적재
-4. python pipelines/pipeline_b_docs.py     # 상품 문서 인덱싱
-5. python pipelines/pipeline_a_stt.py      # STT 인덱싱 (백그라운드, 41~83시간)
-6. python ui/app.py                        # Gradio 서비스 시작
+```bash
+# 최초 배포
+1. ./install.sh                          # pip 번들
+2. ollama serve &                        # Ollama 백그라운드
+3. python pipelines/pipeline_c_duckdb.py # DuckDB 적재
+4. python pipelines/pipeline_b_docs.py   # 상품 문서 인덱싱
+5. python pipelines/pipeline_a_stt.py    # STT 인덱싱 (백그라운드, 41~83시간)
+6. python ui/app.py                      # Gradio 서비스
 ```
 
 ---
 
-## 개발 환경 주의
+## 남은 작업
 
-- **LLM 컨테이너 (VS Code)**: 모든 Python 코드 실행, DuckDB 생성·운영
-- **Jupyter 컨테이너**: Oracle 쿼리 검증 전용 — DuckDB 생성 금지
-- 두 컨테이너는 파일시스템 분리됨 (shared volume 없음)
+| 작업 | 우선순위 | 설명 |
+|------|---------|------|
+| Tab2 DB 직접 생성 | 중 | Excel 외 DuckDB 타겟 리스트 테이블 직접 생성 → 전사관리시스템 연동 |
+| ui_demo.html 업데이트 | 높음 | 해시태그 키워드 + 샘플 스크립트 3종 반영 |
+| technical_report.html 업데이트 | 높음 | LangGraph CoT·HyDE·Dynamic Few-Shot·경진대회 스코프 반영 |
+| PPT 제작 | 높음 | competition_guide.md 기준 9슬라이드 |
+| 데모 URL 확정 | 높음 | Gradio 서비스 주소 competition_guide.md에 삽입 |

@@ -447,6 +447,23 @@ DuckDB 도메인 테이블로 저장 (로컬, 인프로세스)
 - **Pipeline C 장애 복구**: 시작 시 mart_new.db 존재하면 무조건 삭제 후 재시작. 부분 복구 없음(Oracle 전체 재적재)
 - **campaign_nm None 처리**: Chroma embedded_text 구성 시 campaign_nm이 None이면 `"캠페인미확인"` fallback. Pipeline A + Tab1 RAG 쿼리 모두 동일 적용
 
+--- 아래는 경진대회 준비 + 고도화 과정에서 추가된 결정사항 ---
+
+- **LangGraph StateGraph 실제 구현**: agent/state.py(Tab1State TypedDict) + agent/graph.py(8노드 그래프). 기존 계획의 agent/nodes/, agent/tools/ 디렉토리 없음 — 단일 graph.py에 통합. tab1_handler.py는 스트리밍 래퍼만 담당(~50줄)
+- **Tab1 파이프라인 아키텍처**: classify → fetch_data → format_db → hyde → rag → analyze → [fetch_extra_products] → prepare_prompt → LLM 스트리밍. 데이터 수집 결정론적 워크플로 + 스크립트 생성 LangGraph CoT 에이전트로 자율성 경계 명확히 분리
+- **HyDE (Hypothetical Document Embedding)**: Chroma 검색 전 LLM이 가상 성공 요약 생성(hyde_node) → 해당 텍스트로 검색 → 고객 프로필↔성공 콜 요약 간 언어 공간 미스매치 해소. 실패 시 기본 텍스트로 폴백
+- **Dynamic Few-Shot**: rag_node에서 검색된 성공 콜 케이스의 MASKED_TEXT(실제 상담 원문 마스킹본)를 prepare_prompt_node에서 few-shot 예시로 활용 — 고능률 상담사 어투를 LLM이 참고하여 스크립트 생성. In-Context Learning으로 파인튜닝 없이 노하우 주입
+- **성공 콜 3단계 폴백**: 신규/미연결 RAG: ①연결성공+우호적 → ②연결성공만 → ③필터없음. 이력 고객: col.get()으로 직접 조회 후 우호적 콜 앞 정렬. Chroma 결과 없어도 DuckDB+products로 정상 동작
+- **ReAct lite**: analyze_node에서 LLM(format="json")이 고객 분석 후 `needs_product_search: bool` 판단 → True면 fetch_extra_products_node 조건부 실행. 전체 파이프라인을 LLM이 제어하는 것이 아닌 필요한 곳에만 자율성 부여
+- **CoT 2단계 체인**: analyze_node(고객 분석 → approach_angle/key_points/insight/needs_product_search JSON) → prepare_prompt_node(분석결과+few-shot+커버리지 통합) → LLM 스트리밍(최종 스크립트). 단일 LLM 호출 대비 품질 향상
+- **해시태그 키워드**: 스크립트 출력 하단에 `고능률 상담사 접근 키워드: #담보gap공략 #재통화전략 ...` 자동 생성 — analyze_node의 key_points를 LLM이 해시태그로 변환
+- **경진대회 프로젝트 범위**: 레거시 ML 파이프라인(AutoGluon 기반 상품추천 + 자동 UW) 포함 — "이미 운영 중인 ML 위에 AI Agent를 얹은 것"으로 프레이밍. ML 배치 대체 아님, INPUT으로 활용
+- **채널 표현 기준**: TM 중심 서술. CM 언급 최소화 (자동차 갱신 등 구체 사례에서만 부수적 언급). "TM/CM 채널" 병기 지양
+- **Tab2 DB 직접 생성 방식 추가 예정**: 현재 Excel(CTMNO)만 — 향후 DuckDB에 타겟 리스트 테이블 직접 생성 → 전사DB통합관리시스템 조회 → 캠페인 배정까지 원스톱 연동
+- **이노스 연동 확장 예정**: 상품 추천 스크립트를 Gradio API로 이노스(장기TM 상담사 화면) 상품추천란에 직접 적재 가능 — 현재 Gradio API 구조로 준비됨
+- **캠페인 추출 3종 전략**: 과거실적기반(성공세그먼트 재현) / 활성도기반(6개월 연결성공+배정이력) / 룰베이스(담당자 직접 조건 설정). 기존 2종에서 3종으로 확장 — "AI가 전부 결정하는 것이 아닌, 담당자 판단과 AI 추천이 함께 작동하는 구조"
+- **경진대회 제출물**: 데모 URL + 기술 레포트(HTML) + PPT. competition_guide.md가 콘텐츠 기준 문서. sample_scripts.md에 한화손해보험 상품 기반 샘플 스크립트 3종 수록
+
 ## 개발 타임라인 (마감: 2026-06-09, 10일)
 
 ### MVP 범위 (10일 내 완성)
