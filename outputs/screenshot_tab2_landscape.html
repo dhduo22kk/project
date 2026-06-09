@@ -94,7 +94,7 @@
       </div>
     </div>
 
-    <div class="panel" style="flex:1;">
+    <div class="panel" style="flex:1;display:flex;flex-direction:column;gap:8px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <div class="ptitle" style="margin-bottom:0;">이달 영업 포커스</div>
         <button style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:#fff;font-weight:600;font-family:inherit;">편집</button>
@@ -103,6 +103,45 @@
         <strong>주력상품:</strong> 시그니처 여성 건강보험 4.0 (무배당) — 30~50대 여성 타겟<br>
         <strong>이슈:</strong> 5세대 실손보험 출시(2026.05) — 4세대 대비 보험료 약 30%↓<br>
         <strong>주목:</strong> 무배당 뇌심혈관 진단비 — 50대 남성 연결성공률 유지 중
+      </div>
+      <div style="background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:10px 12px;flex:1;">
+        <div class="ptitle" style="margin-bottom:8px;">이번 분기 캠페인 실적</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg);border-radius:5px;">
+            <span style="color:var(--text-sm);">보장분석TM_2026Q1</span>
+            <span style="font-weight:700;color:var(--green);">22.1%</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--accent-light);border-radius:5px;border:1px solid #fed7aa;">
+            <span style="color:var(--text-sm);">뇌심혈관TM_2026Q1 <span style="color:var(--accent);font-weight:700;">진행중</span></span>
+            <span style="font-weight:700;color:var(--accent);">— %</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg);border-radius:5px;">
+            <span style="color:var(--text-sm);">암보험_TM_2025Q4</span>
+            <span style="font-weight:700;color:var(--green);">19.7%</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg);border-radius:5px;">
+            <span style="color:var(--text-sm);">POM_2025Q3</span>
+            <span style="font-weight:700;color:var(--text-sm);">14.3%</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--gray);">※ 배정일 기준 +90일 체결율 · ML 예측 아님</div>
+        <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+          <div class="ptitle" style="margin-bottom:6px;">추출 방식 안내</div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div style="background:var(--accent-light);border:1px solid #fed7aa;border-radius:5px;padding:6px 9px;">
+              <div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:2px;">📊 과거 실적 기반</div>
+              <div style="font-size:10px;color:var(--text-sm);line-height:1.45;">동일 캠페인 성공 세그먼트(연령 10~90분위) 조건 재현 → 유사 프로파일 고객 추출</div>
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 9px;">
+              <div style="font-size:10px;font-weight:700;color:var(--gray);margin-bottom:2px;">⚡ 활성도 기반</div>
+              <div style="font-size:10px;color:var(--text-sm);line-height:1.45;">최근 6개월 연결성공 또는 캠페인 배정이력 보유 고객 우선 추출</div>
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 9px;">
+              <div style="font-size:10px;font-weight:700;color:var(--gray);margin-bottom:2px;">🎯 룰베이스</div>
+              <div style="font-size:10px;color:var(--text-sm);line-height:1.45;">담당자가 직접 성별·연령·보장공백 조건 조합 → Step 0 칩 선택으로 구성</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -172,6 +211,24 @@
               <tr><td style="color:var(--gray);font-style:italic;">… 2,997건 더</td></tr>
             </table>
             <button class="btn-green">📥 Excel 다운로드 (3,000명)</button>
+
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+              <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px;">다음 단계</div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-sm);">
+                  <span style="width:18px;height:18px;background:var(--accent);border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</span>
+                  Excel 파일을 콜링 시스템에 업로드 → TM 배정 처리
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-sm);">
+                  <span style="width:18px;height:18px;background:var(--accent);border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</span>
+                  상담사 Tab1에서 고객번호 조회 → 맞춤 스크립트 즉시 생성
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-sm);">
+                  <span style="width:18px;height:18px;background:var(--accent);border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</span>
+                  배정일 +90일 후 체결율 자동 집계 → 다음 캠페인 실적 참고치로 반영
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
