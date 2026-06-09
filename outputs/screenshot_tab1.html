@@ -15,109 +15,109 @@
     --red: #dc2626; --red-bg: #fef2f2;
     --yellow: #d97706; --yellow-bg: #fffbeb;
     --gray: #64748b; --text: #1e293b; --text-sm: #475569;
-    --radius: 10px; --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    --radius: 12px; --shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Noto Sans KR','Segoe UI',sans-serif; background: var(--bg); color: var(--text); font-size: 14px; width: 1380px; }
+  body { font-family: 'Noto Sans KR','Segoe UI',sans-serif; background: var(--bg); color: var(--text); font-size: 16px; width: 1632px; height: 918px; overflow: hidden; }
 
-  .header { background: var(--accent); color:#fff; padding:12px 24px; display:flex; align-items:center; gap:12px; font-weight:700; font-size:16px; font-family:'Urbanist','Noto Sans KR',sans-serif; box-shadow:0 2px 8px rgba(243,115,33,.35); }
-  .tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); padding:0 24px; }
-  .tab { padding:13px 22px; font-weight:500; color:var(--gray); border-bottom:3px solid transparent; margin-bottom:-2px; font-size:14px; }
+  .header { background: var(--accent); color:#fff; padding:14px 28px; display:flex; align-items:center; gap:14px; font-weight:700; font-size:19px; font-family:'Urbanist','Noto Sans KR',sans-serif; box-shadow:0 2px 8px rgba(243,115,33,.35); }
+  .tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); padding:0 28px; }
+  .tab { padding:15px 26px; font-weight:500; color:var(--gray); border-bottom:3px solid transparent; margin-bottom:-2px; font-size:16px; }
   .tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:700; }
 
-  .t1-layout { display:grid; grid-template-columns:300px 1fr; gap:16px; padding:20px 24px; }
-  .panel { background:var(--card); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow); border:1px solid var(--border); }
-  .panel-title { font-weight:700; font-size:12px; color:var(--gray); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
-  label { display:block; font-size:12px; font-weight:600; color:var(--gray); margin-bottom:5px; }
-  input[type="text"] { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:7px; font-size:14px; font-family:inherit; }
-  .btn { padding:10px; border:none; border-radius:7px; font-size:14px; font-weight:700; font-family:inherit; }
+  .t1-layout { display:grid; grid-template-columns:355px 1fr; gap:19px; padding:24px 28px; height:calc(918px - 93px); overflow:hidden; }
+  .panel { background:var(--card); border-radius:var(--radius); padding:21px; box-shadow:var(--shadow); border:1px solid var(--border); }
+  .panel-title { font-weight:700; font-size:14px; color:var(--gray); text-transform:uppercase; letter-spacing:.5px; margin-bottom:17px; }
+  label { display:block; font-size:14px; font-weight:600; color:var(--gray); margin-bottom:6px; }
+  input[type="text"] { width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:16px; font-family:inherit; }
+  .btn { padding:12px; border:none; border-radius:8px; font-size:16px; font-weight:700; font-family:inherit; }
   .btn-primary { background:var(--accent); color:#fff; width:100%; }
 
-  .kv-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-  .kv { background:var(--bg); border-radius:6px; padding:8px 10px; }
-  .kv .k { font-size:11px; color:var(--gray); margin-bottom:2px; }
-  .kv .v { font-size:14px; font-weight:700; color:var(--text); }
+  .kv-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .kv { background:var(--bg); border-radius:7px; padding:9px 12px; }
+  .kv .k { font-size:13px; color:var(--gray); margin-bottom:2px; }
+  .kv .v { font-size:16px; font-weight:700; color:var(--text); }
   .kv .v.em { color:var(--accent); }
   .kv .v.ok { color:var(--green); }
-  .tier-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:99px; font-size:12px; font-weight:700; }
+  .tier-badge { display:inline-flex; align-items:center; gap:7px; padding:6px 14px; border-radius:99px; font-size:14px; font-weight:700; }
   .tier-hist { background:var(--green-bg); color:var(--green); }
-  .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--gray); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .section-label { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--gray); margin-bottom:9px; display:flex; align-items:center; gap:7px; }
   .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
 
-  .coverage-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .coverage-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--border); font-size:15px; }
   .coverage-row:last-child { border-bottom:none; }
   .coverage-row .cname { color:var(--text-sm); }
   .has { color:var(--green); font-weight:700; }
   .none { color:#cbd5e1; font-weight:700; }
-  .badge-gap { background:#fef9c3; color:#92400e; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:4px; }
-  .badge-new { background:#fee2e2; color:var(--red); font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:4px; }
+  .badge-gap { background:#fef9c3; color:#92400e; font-size:12px; font-weight:700; padding:1px 7px; border-radius:5px; margin-left:5px; }
+  .badge-new { background:#fee2e2; color:var(--red); font-size:12px; font-weight:700; padding:1px 7px; border-radius:5px; margin-left:5px; }
 
-  .rec-card { border:1.5px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
-  .rec-card-header { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
-  .rec-rank { font-size:22px; font-weight:900; color:var(--accent); min-width:24px; font-family:'Urbanist',sans-serif; }
-  .rec-pname { font-weight:700; font-size:15px; color:var(--text); margin-bottom:3px; }
-  .rec-type { font-size:11px; color:var(--gray); }
-  .rec-reasons { background:var(--bg); border-radius:7px; padding:10px 12px; }
-  .rec-reasons-title { font-size:11px; font-weight:700; color:var(--gray); margin-bottom:6px; text-transform:uppercase; letter-spacing:.3px; }
-  .rec-reason-item { display:flex; align-items:flex-start; gap:7px; font-size:13px; color:var(--text-sm); margin-bottom:5px; line-height:1.5; }
+  .rec-card { border:1.5px solid var(--border); border-radius:12px; padding:17px 19px; margin-bottom:12px; }
+  .rec-card-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; }
+  .rec-rank { font-size:26px; font-weight:900; color:var(--accent); min-width:28px; font-family:'Urbanist',sans-serif; }
+  .rec-pname { font-weight:700; font-size:18px; color:var(--text); margin-bottom:4px; }
+  .rec-type { font-size:13px; color:var(--gray); }
+  .rec-reasons { background:var(--bg); border-radius:8px; padding:12px 14px; }
+  .rec-reasons-title { font-size:13px; font-weight:700; color:var(--gray); margin-bottom:7px; text-transform:uppercase; letter-spacing:.3px; }
+  .rec-reason-item { display:flex; align-items:flex-start; gap:8px; font-size:15px; color:var(--text-sm); margin-bottom:6px; line-height:1.5; }
   .rec-reason-item:last-child { margin-bottom:0; }
-  .rec-reason-item .icon { color:var(--accent); font-size:14px; flex-shrink:0; margin-top:1px; }
+  .rec-reason-item .icon { color:var(--accent); font-size:16px; flex-shrink:0; margin-top:1px; }
 
-  .timeline { list-style:none; position:relative; padding-left:16px; }
-  .timeline::before { content:''; position:absolute; left:4px; top:6px; bottom:6px; width:2px; background:var(--border); }
-  .timeline li { position:relative; margin-bottom:10px; padding-left:16px; font-size:13px; }
-  .timeline li::before { content:''; position:absolute; left:-12px; top:5px; width:8px; height:8px; border-radius:50%; border:2px solid #fff; }
+  .timeline { list-style:none; position:relative; padding-left:19px; }
+  .timeline::before { content:''; position:absolute; left:5px; top:7px; bottom:7px; width:2px; background:var(--border); }
+  .timeline li { position:relative; margin-bottom:12px; padding-left:19px; font-size:15px; }
+  .timeline li::before { content:''; position:absolute; left:-14px; top:6px; width:10px; height:10px; border-radius:50%; border:2px solid #fff; }
   .timeline li.success::before { background:var(--green); box-shadow:0 0 0 1px var(--green); }
   .timeline li.miss::before { background:var(--yellow); box-shadow:0 0 0 1px var(--yellow); }
   .timeline li.fail::before { background:#cbd5e1; box-shadow:0 0 0 1px #cbd5e1; }
-  .tl-date { font-size:11px; color:var(--gray); margin-bottom:1px; }
+  .tl-date { font-size:13px; color:var(--gray); margin-bottom:1px; }
   .tl-content { font-weight:600; }
-  .tl-meta { font-size:11px; color:var(--gray); margin-top:1px; }
+  .tl-meta { font-size:13px; color:var(--gray); margin-top:1px; }
 
-  .script-box { background:#fafafa; border:1.5px solid var(--border); border-radius:8px; padding:16px; font-size:14px; line-height:1.85; white-space:pre-wrap; font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
-  .hashtag-section { background:linear-gradient(135deg,#fff5ee,#fff); border:1.5px solid #fed7aa; border-radius:8px; padding:12px 14px; margin-top:10px; }
-  .hashtag-title { font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
-  .hashtag-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px; }
-  .hashtag { background:var(--accent-light); color:var(--accent); border:1px solid #fed7aa; border-radius:99px; padding:4px 11px; font-size:12px; font-weight:600; }
-  .hashtag-note { font-size:11px; color:var(--gray); line-height:1.5; }
+  .script-box { background:#fafafa; border:1.5px solid var(--border); border-radius:9px; padding:19px; font-size:16px; line-height:1.85; white-space:pre-wrap; font-family:'Noto Sans KR','Malgun Gothic',sans-serif; }
+  .hashtag-section { background:linear-gradient(135deg,#fff5ee,#fff); border:1.5px solid #fed7aa; border-radius:9px; padding:14px 17px; margin-top:12px; }
+  .hashtag-title { font-size:13px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin-bottom:9px; display:flex; align-items:center; gap:6px; }
+  .hashtag-list { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:8px; }
+  .hashtag { background:var(--accent-light); color:var(--accent); border:1px solid #fed7aa; border-radius:99px; padding:5px 13px; font-size:14px; font-weight:600; }
+  .hashtag-note { font-size:13px; color:var(--gray); line-height:1.5; }
 
-  .pipeline-badge { display:inline-flex; align-items:center; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; margin-left:5px; vertical-align:middle; }
+  .pipeline-badge { display:inline-flex; align-items:center; font-size:12px; font-weight:700; padding:2px 8px; border-radius:5px; margin-left:6px; vertical-align:middle; }
   .pb-hyde { background:#fce7f3; color:#9d174d; }
   .pb-fewshot { background:#ede9fe; color:#5b21b6; }
   .pb-cot { background:#dbeafe; color:#1e40af; }
   .pb-react { background:#d1fae5; color:#064e3b; }
 
-  .scenario-btn { padding:5px 12px; border-radius:6px; border:1.5px solid var(--border); background:#fff; font-size:12px; font-weight:600; color:var(--text); font-family:inherit; }
+  .scenario-btn { padding:6px 14px; border-radius:7px; border:1.5px solid var(--border); background:#fff; font-size:14px; font-weight:600; color:var(--text); font-family:inherit; }
   .scenario-btn.active { border-color:var(--accent); background:var(--accent-light); color:var(--accent); }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
   멀티모달 기반 영업 상담·마케팅 에이전트
-  <span style="margin-left:8px;font-size:11px;opacity:.75;font-weight:400;">한화손보 DB 영업 최적화를 위한 영업 데이터 지능화 시스템</span>
+  <span style="margin-left:10px;font-size:13px;opacity:.75;font-weight:400;">한화손보 DB 영업 최적화를 위한 영업 데이터 지능화 시스템</span>
 </div>
 
 <div class="tabs">
-  <div class="tab active">📞 맞춤 상담 스크립트 AI <span style="font-size:11px;color:var(--gray)">(상담사)</span></div>
-  <div class="tab">📊 최적 마케팅 대상 선별 AI <span style="font-size:11px;color:var(--gray)">(본사 스태프)</span></div>
+  <div class="tab active">📞 맞춤 상담 스크립트 AI <span style="font-size:13px;color:var(--gray)">(상담사)</span></div>
+  <div class="tab">📊 최적 마케팅 대상 선별 AI <span style="font-size:13px;color:var(--gray)">(본사 스태프)</span></div>
 </div>
 
 <div class="t1-layout">
 
   <!-- 좌측 패널 -->
-  <div style="display:flex;flex-direction:column;gap:14px;">
+  <div style="display:flex;flex-direction:column;gap:17px;overflow:hidden;">
 
     <div class="panel">
       <div class="panel-title">고객 조회</div>
-      <div style="margin-bottom:10px;">
+      <div style="margin-bottom:12px;">
         <label>고객번호 (CTMNO)</label>
         <input type="text" value="CTM7842310" readonly />
       </div>
-      <div style="margin-bottom:10px;">
-        <div style="font-size:11px;color:var(--gray);margin-bottom:6px;font-weight:600;">▸ 데모 시나리오</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <div style="margin-bottom:12px;">
+        <div style="font-size:13px;color:var(--gray);margin-bottom:7px;font-weight:600;">▸ 데모 시나리오</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
           <button class="scenario-btn">신규 고객</button>
           <button class="scenario-btn">미연결 고객</button>
           <button class="scenario-btn active">이력 고객</button>
@@ -131,20 +131,20 @@
       <div class="kv-grid">
         <div class="kv"><div class="k">고객번호</div><div class="v em">CTM7842310</div></div>
         <div class="kv"><div class="k">나이/성별</div><div class="v">52세 / 남</div></div>
-        <div class="kv"><div class="k">유입 캠페인</div><div class="v" style="font-size:12px;">보장분석TM_2026Q1</div></div>
+        <div class="kv"><div class="k">유입 캠페인</div><div class="v" style="font-size:14px;">보장분석TM_2026Q1</div></div>
         <div class="kv"><div class="k">분기</div><div><span class="tier-badge tier-hist">📋 이력 고객</span></div></div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-title">① 계약 현황 <span style="font-size:10px;font-weight:400;color:var(--green)">즉시 표시</span></div>
-      <div class="kv-grid" style="margin-bottom:10px;">
+      <div class="panel-title">① 계약 현황 <span style="font-size:12px;font-weight:400;color:var(--green)">즉시 표시</span></div>
+      <div class="kv-grid" style="margin-bottom:12px;">
         <div class="kv"><div class="k">가입 상품 수</div><div class="v em">4건</div></div>
         <div class="kv"><div class="k">월 납입 보험료</div><div class="v">287,000원</div></div>
         <div class="kv"><div class="k">최근 가입</div><div class="v">2025-11</div></div>
         <div class="kv"><div class="k">신규 담보</div><div class="v em">암진단비 <span class="badge-new">NEW</span></div></div>
       </div>
-      <div style="background:var(--green-bg);border:1px solid #bbf7d0;border-radius:7px;padding:9px 12px;font-size:12px;color:#166534;">
+      <div style="background:var(--green-bg);border:1px solid #bbf7d0;border-radius:8px;padding:11px 14px;font-size:14px;color:#166534;">
         📞 <strong>오전 11시 전후 응답률 높음</strong> — 오후 2시 이후 조기 종료 패턴 (통화 이력 분석)
       </div>
     </div>
@@ -162,22 +162,22 @@
   </div>
 
   <!-- 우측 패널 -->
-  <div>
-    <div class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+  <div style="overflow:hidden;">
+    <div class="panel" style="height:100%;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:17px;flex-wrap:wrap;gap:9px;">
         <div class="panel-title" style="margin-bottom:0;">
           ③ 추천 상품 + 맞춤 스크립트
           <span class="pipeline-badge pb-hyde">HyDE</span>
           <span class="pipeline-badge pb-fewshot">Few-Shot</span>
           <span class="pipeline-badge pb-cot">CoT</span>
           <span class="pipeline-badge pb-react">ReAct</span>
-          <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--accent);margin-left:4px;">LLM 스트리밍</span>
+          <span style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--accent);margin-left:5px;">LLM 스트리밍</span>
         </div>
-        <span style="font-size:11px;padding:2px 9px;border-radius:5px;font-weight:700;background:var(--accent-light);color:var(--accent);">담보 gap 보완</span>
+        <span style="font-size:13px;padding:2px 11px;border-radius:6px;font-weight:700;background:var(--accent-light);color:var(--accent);">담보 gap 보완</span>
       </div>
 
       <!-- 추천 상품 -->
-      <div style="margin-bottom:18px;">
+      <div style="margin-bottom:21px;">
         <div class="section-label">추천 상품</div>
 
         <div class="rec-card">
@@ -213,7 +213,7 @@
       </div>
 
       <!-- 맞춤 스크립트 -->
-      <div style="margin-bottom:12px;">
+      <div style="margin-bottom:14px;">
         <div class="section-label">맞춤 스크립트</div>
         <div class="script-box">안녕하세요, 고객님. 한화손해보험 김○○입니다.
 3월에 한 번 통화드렸던 거 기억하시나요?
@@ -231,7 +231,7 @@
 
         <div class="hashtag-section">
           <div class="hashtag-title">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>
             고능률 상담사 접근 키워드
           </div>
           <div class="hashtag-list">
