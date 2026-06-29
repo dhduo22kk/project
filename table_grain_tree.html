@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>보험사 테이블 — Grain 기반 분류</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: #f0f4f8; color: #1a1a2e; }
+
+.header { background: #1a1a2e; color: white; padding: 20px 28px; display: flex; align-items: center; gap: 16px; }
+.header h1 { font-size: 18px; font-weight: 700; }
+.header-sub { font-size: 11px; color: #94a3b8; margin-bottom: 3px; }
+.stats { font-size: 13px; color: #94a3b8; margin-left: auto; text-align:right; line-height:1.6; }
+
+.toolbar { background: white; border-bottom: 1px solid #e5e7eb; padding: 12px 20px; display: flex; gap: 10px; align-items: center; position: sticky; top: 0; z-index: 10; }
+.search { flex: 1; max-width: 380px; padding: 8px 14px 8px 36px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none; background: #f9fafb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.868-3.834zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") no-repeat 10px center; }
+.search:focus { border-color: #f37321; box-shadow: 0 0 0 3px rgba(243,115,33,.12); }
+.btn { padding: 7px 14px; border-radius: 7px; border: 1px solid #e5e7eb; background: white; font-size: 13px; cursor: pointer; color: #374151; }
+.btn:hover { background: #f3f4f6; }
+
+.container { padding: 16px 20px; max-width: 1100px; }
+
+.domain-block { background: white; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.domain-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; user-select: none; transition: background .15s; }
+.domain-header:hover { background: #fafafa; }
+.domain-icon { width: 32px; height: 32px; border-radius: 8px; background: #fff7f2; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.domain-info { flex: 1; }
+.domain-name { font-size: 14px; font-weight: 700; }
+.domain-meta { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+.domain-meta .key-pill { display:inline-block; background:#f1f5f9; border-radius:4px; padding:1px 6px; font-family:'JetBrains Mono','Courier New',monospace; color:#475569; margin-right:4px; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: #f37321; color: white; }
+.badge-gray { background: #e5e7eb; color: #6b7280; margin-left:4px; }
+.chevron { font-size: 11px; color: #9ca3af; transition: transform .2s; }
+.chevron.open { transform: rotate(90deg); }
+
+.domain-body { border-top: 1px solid #f3f4f6; }
+
+.group-block { border-bottom: 1px solid #f9fafb; }
+.group-block:last-child { border-bottom: none; }
+.group-header { display: flex; align-items: center; gap: 8px; padding: 9px 16px 9px 52px; cursor: pointer; user-select: none; }
+.group-header:hover { background: #f9fafb; }
+.group-dot { width: 6px; height: 6px; border-radius: 50%; background: #f37321; flex-shrink: 0; }
+.group-name { font-size: 12px; font-weight: 600; color: #374151; flex: 1; }
+.badge-sm { font-size: 10px; padding: 1px 6px; border-radius: 20px; background: #f3f4f6; color: #6b7280; font-weight: 600; }
+.chevron-sm { font-size: 10px; color: #9ca3af; transition: transform .2s; }
+.chevron-sm.open { transform: rotate(90deg); }
+
+.table-list { padding: 4px 16px 8px 68px; }
+.table-row { display: flex; align-items: baseline; gap: 10px; padding: 4px 8px; border-radius: 6px; transition: background .1s; }
+.table-row:hover { background: #fff7f2; }
+.tbl-en { font-size: 11.5px; font-family: 'JetBrains Mono','Courier New',monospace; color: #1a1a2e; font-weight: 500; }
+.tbl-ko { font-size: 10.5px; color: #9ca3af; }
+
+.no-result { text-align:center; color:#9ca3af; padding:40px; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="header-sub">보험사 통합 웨어하우스 설계 — Grain 기반 분류</div>
+    <h1>테이블 분류 트리 <span style="font-weight:400;font-size:13px;color:#94a3b8">(대분류: Grain · 중분류: 업무 컨텍스트)</span></h1>
+  </div>
+  <div class="stats" id="statsBar">총 572개 테이블 · 15개 Grain<br><span style="font-size:11px">N/A(CMS 등) 69개 제외</span></div>
+</div>
+<div class="toolbar">
+  <input class="search" type="text" id="searchBox" placeholder="테이블명 검색 (영문/한글)..." oninput="onSearch(this.value)">
+  <button class="btn" onclick="expandAll()">전체 펼치기</button>
+  <button class="btn" onclick="collapseAll()">전체 접기</button>
+</div>
+<div class="container" id="treeContainer"></div>
+<script>
+const META = {"고객단위": {"icon": "👤", "key": "CTMNO", "desc": "고객 1명 = 1 row"}, "TM고객단위": {"icon": "📞", "key": "CUSTID", "desc": "TM 이노스 고객 기준"}, "영업가족고객단위": {"icon": "📊", "key": "STFNO×BZ_FML or CTMNO", "desc": "SFA 설계사 화면 기준 고객"}, "계약단위": {"icon": "📋", "key": "PLYNO", "desc": "계약(증권) 1건 = 1 row"}, "설계단위": {"icon": "📝", "key": "JSNO/설계번호", "desc": "가입설계 1건 = 1 row"}, "사고/지급단위": {"icon": "⚠️", "key": "사고번호/지급번호", "desc": "사고접수·지급 1건 = 1 row"}, "TM통화단위": {"icon": "☎️", "key": "CALLID/LISTID", "desc": "TM 통화·배정 이력"}, "월별집계": {"icon": "📅", "key": "CLS_YYMM + X", "desc": "마감연월 기준 스냅샷"}, "이력/SCD2": {"icon": "🕐", "key": "X + AP_STR_DTHMS + AP_ND_DTHMS", "desc": "시작일~종료일 이력 (SCD Type 2)"}, "캠페인단위": {"icon": "📣", "key": "캠페인번호/리스트ID", "desc": "캠페인·마케팅 관리"}, "SFP채널단위": {"icon": "🤝", "key": "SFP_CTMNO", "desc": "SFP 파트너 채널"}, "조직/직원단위": {"icon": "🏢", "key": "STFNO/ORGNNO", "desc": "직원·조직·기관"}, "재무/원장단위": {"icon": "💰", "key": "원장번호/전표번호", "desc": "수납·지급·원장 트랜잭션"}, "마스터/코드": {"icon": "⚙️", "key": "코드값", "desc": "참조 마스터 (변경 드묾)"}, "기타": {"icon": "📦", "key": "-", "desc": "분류 보류 / 레거시 / 외부 데이터"}};
+const DATA = {"고객단위": {"고객기본": [{"en": "CUS_CRDIS_DEADR_INFO", "ko": "신용정보회사만자정보"}, {"en": "CUS_CTM", "ko": "고객"}, {"en": "CUS_CTM_CNO_INFO_ADM", "ko": "고객접속정보관리"}, {"en": "CUS_CTM_REL", "ko": "고객관계"}, {"en": "CUS_FN_CLM_ATPS", "ko": "금융사고의자"}, {"en": "CUS_RGS_DL_RST", "ko": "등기처리결과"}, {"en": "M_CRM_XLCL_CTM_ADM", "ko": "우수영업가족고객관리"}, {"en": "M_CUS_CTM_RSO_CSF", "ko": "고객주분류"}, {"en": "WB_CTM", "ko": "고객"}, {"en": "WB_LGIN_LOG", "ko": "로그인로그"}], "동의/신용정보": [{"en": "CUS_CR_NCTLT_MAIL_RCV_AGRE", "ko": "계약안내문매일수신동의"}], "연락처": [{"en": "CUS_CTM_CNTAD", "ko": "고객연락처"}, {"en": "CUS_CTM_CNTAD_ER_DJ", "ko": "고객연락처유류대상"}, {"en": "M_CUS_CTM_CNTAD", "ko": "고객연락처"}], "웹/모바일": [{"en": "T_PUSH_USER_INFO", "ko": "푸쉬서비스 유저"}, {"en": "WB_BSU_EVENT_PT", "ko": "업무지원URL이벤트참여"}], "주소": [{"en": "INS_CR_RELPC_ADR_CRR", "ko": "계약관계자주소이력"}]}, "TM고객단위": {"TM고객기본": [{"en": "TB_COOP", "ko": "기관연계고객정보"}, {"en": "TB_CUSTOMER", "ko": "CRS_고객관리_고마스터"}, {"en": "TB_INFLOW", "ko": "DBM-정보관리(공통) 정보유입마스터"}, {"en": "TB_INFDAGREE", "ko": "DBM-정보관리(공통) 정보동의"}, {"en": "TB_SCHEDULER", "ko": "CRS_고객관리리 스케쥴러"}]}, "영업가족고객단위": {"SFA기타": [{"en": "E_SFA_CORE_CTM_CRST", "ko": "핵심고객현황"}, {"en": "E_SFA_CORE_CTM_PLY_LIST", "ko": "핵심고객리스트"}, {"en": "E_SFA_CR_INR_LTRM_SNG_CR", "ko": "자동차통합장기단독계약"}, {"en": "E_SFA_CR_INR_TRGT_CTM", "ko": "자동차통합타겟고객"}, {"en": "E_SFA_CR_INR_TRGT_CTM_WRK", "ko": "자동차통합타겟고객"}, {"en": "E_SFA_CR_INR_TRGT_RNW_PRDN", "ko": "자동차통합타겟갱신사전예측"}, {"en": "E_SFA_CR_LEVE_CR", "ko": "자동차이탈계약"}, {"en": "E_SFA_CR_TRGT_CTM", "ko": "자동차타겟고객"}, {"en": "E_SFA_CRM_LTRM_NRDPS", "ko": "CRM장기피보험자"}, {"en": "E_SFA_CRM_TRGT_CTM_ANAL", "ko": "CRM타겟고객분석"}, {"en": "E_SFA_CTM_ACM_CVR", "ko": "고객누적담보"}, {"en": "E_SFA_CTM_INS_CR", "ko": "고객계약예약"}, {"en": "E_SFA_DALY_ESSN_TOU_CTM", "ko": "데일리필수터치고객"}, {"en": "E_SFA_IC_INV_MTHY_AV", "ko": "소득면담별월실적"}, {"en": "E_SFA_REC_TRGT_CTM", "ko": "추천타겟고객"}, {"en": "E_SFA_TOU_TRGT_CTM", "ko": "터치타겟고객"}, {"en": "E_SFA_VIS_TOU_CMOTG_CTM", "ko": "방문터치회사제공타겟고객"}, {"en": "E_SFA_VIS_TRGT_CTM", "ko": "방문터치타겟고객"}, {"en": "SFA_BDL_BEFO_RQ_LIST", "ko": "일괄사전신청리스트"}, {"en": "SFA_BDL_BJ_CTM_LIST", "ko": "일괄대상고객리스트"}, {"en": "SFA_BDL_BJ_DM_SND_YN", "ko": "일괄대상DM발송여부"}, {"en": "SFA_CR_ND_LIST", "ko": "자동자가명세"}, {"en": "SFA_CR_OTCM_ND", "ko": "자동자사만기"}, {"en": "SFA_CR_TA_CRST", "ko": "계약이관현황"}, {"en": "SFA_HHDCL_TRGT_CTM", "ko": "세대별타겟고객"}, {"en": "SFA_INC_NWFAC_CTM", "ko": "재직신인고객"}, {"en": "SFA_INCPL_SL_OWN_DGNIT", "ko": "불완전판매자가진단항목"}, {"en": "SFA_MENU_CNO_CRR_ADM", "ko": "메뉴접속이력관리"}, {"en": "SFA_NWFAC_SND_GNAMT_MODL", "ko": "최전본정갱신대모델"}, {"en": "SFA_ORGN_BFDY_INFO", "ko": "조직전일정보"}, {"en": "SFA_OPTM_IS_CT", "ko": "타사가입대수"}, {"en": "SFA_OTCM_IS_CT", "ko": "완전판매유계약"}, {"en": "SFA_PECT_SL_ATND_CR", "ko": "보유고객조회로그"}, {"en": "SFA_PSCTM_INQ_LOG", "ko": "보유고객조회로그"}, {"en": "SFA_REACT_INFO_LOG", "ko": "반응정보로그"}, {"en": "SFA_REC_TRGT", "ko": "추천타겟"}, {"en": "SFA_RLTN_TRGT_ONL_INP", "ko": "연계타겟온라인입력"}, {"en": "SFA_SCR_US_LOG", "ko": "화면사용로그"}, {"en": "SFA_SCRP_CTM_BA", "ko": "스크래핑고객기본"}, {"en": "SFA_SELF_ACT_BJ_CTM", "ko": "본인활동대상고객"}, {"en": "SFA_SMNR_INFO", "ko": "세미나정보"}, {"en": "SFA_SP_STACT_CRR_STS", "ko": "SP표준활동이력통계"}, {"en": "SFA_TA_MENO", "ko": ""}, {"en": "SFA_THCP_CVR_GN_CND", "ko": "담사담보보장조건"}, {"en": "SFA_VIS_TOU_TRGT_CTM", "ko": "유량고객관리"}, {"en": "T_CRM_SFA_BFDY_ORGN_STF_INFO", "ko": "전일조직직원정보"}], "가망고객": [{"en": "SFA_PSS_CTM_ACT", "ko": "가망고객활동"}, {"en": "SFA_PSS_CTM_ACT_BJ", "ko": "가망고객활동대상"}, {"en": "SFA_PSS_CTM_ACT_CSF", "ko": "가망고객활동분류"}], "보장분석": [{"en": "SFA_GNANL_BA", "ko": "보장분석기본"}, {"en": "SFA_GNANL_CCAMT_OUT", "ko": "보장분석산출금액출력"}, {"en": "SFA_GNANL_CTM", "ko": "보장분석고객"}, {"en": "SFA_GNANL_CVR", "ko": "보장분석담보"}, {"en": "SFA_GNANL_GD_CVR_CC", "ko": "보장분석상품담보보산출"}, {"en": "SFA_GNANL_GD_CVR_PL", "ko": "보장분석상품담보보설계"}, {"en": "SFA_GNANL_GD_PL", "ko": "보장분석상품설계"}, {"en": "SFA_GNANL_PL", "ko": "보장분석설계"}, {"en": "SFA_GNANL_SND_SRV_LOG", "ko": "보장분석발송서비스로그"}, {"en": "SFA_SMRT_GN_ANAL_OUT_LOG", "ko": "스마트보장분석출력로그"}], "여정관리": [{"en": "SFA_ITIN_ADM_SND_RQ", "ko": "여정관리발송신청관리"}, {"en": "SFA_ITIN_ADM_SND_RQ_RSV", "ko": "여정관리발송신청예약"}, {"en": "T_CRM_SFA_ITIN_ADM_CTM", "ko": "여정관리고객"}, {"en": "T_CRM_SFA_ITIN_ADM_SND_RQ_RSV", "ko": "여정관리발송신청예약"}], "영업가족고객": [{"en": "CUS_BZ_FML_CTM", "ko": "영업가족고객"}, {"en": "CUS_BZ_FML_CTM_AD_INFO", "ko": "영업가족고객추가정보"}, {"en": "CUS_BZ_FML_CTM_ADR", "ko": "영업가족고객주소"}, {"en": "CUS_BZ_FML_CTM_CNTAD", "ko": "영업가족고객연락처"}, {"en": "CUS_BZ_FML_CTM_CNTAD_DB", "ko": "영업가족고객연락처복본"}, {"en": "CUS_BZ_FML_CTM_HHD", "ko": "영업가족고객세대"}, {"en": "CUS_BZ_FML_CTM_WST_PR", "ko": "영업가족고객이력계정"}, {"en": "CUS_BZ_FML_HHDMB_COP", "ko": "영업가족세대원구성"}, {"en": "CUS_ELEC_MDM_SS_AGRE", "ko": "전자매체발동동의"}, {"en": "E_SFA_BZ_FML_CTM_AGR", "ko": "영업가족고객정보동의"}], "우수고객관리": [{"en": "E_SFA_LTCR_RLTN_TRGT_CTM", "ko": "장기자동차연계타겟고객"}, {"en": "E_SFA_LTCR_XLCL_CTM", "ko": "장기우량고객"}, {"en": "SFA_XLCL_CTM_ADM", "ko": "유량고객리스트관리"}, {"en": "SFA_XLCL_CTM_UST_ADM", "ko": "유수고객리스트관리"}, {"en": "SFA_XLCL_CTM_QTR_ADM", "ko": "유량고객분기관리"}, {"en": "SFA_XLCL_CTM_VIS_TOU_ADM", "ko": "유량방문고객관리"}, {"en": "SFA_XLCL_CTM_VIS_TOU_ADM", "ko": "유량방문터치관리"}]}, "계약단위": {"계약관계자": [{"en": "INS_CR_RELPC_REL", "ko": "계약관계자관계"}, {"en": "INS_WHPY_BJ", "ko": "정산통지관계자"}, {"en": "INS_XC_NT_RELPC", "ko": "정산통지관계자"}], "계약기본": [{"en": "CUS_CNN_PLY", "ko": "관련증권"}, {"en": "INS_CR_AD_ATRVL", "ko": "계약속성조건값"}, {"en": "INS_CR_ATND_RDCH_DT", "ko": "계약의승한채세"}, {"en": "INS_CR_MILXC_RST_INFO", "ko": "계약하다리자청산관련정보"}, {"en": "INS_CR_OI", "ko": "승인"}, {"en": "INS_CR_PY_LMIT", "ko": "계약지급제한"}, {"en": "INS_CR_SCP_RT", "ko": "계약상담이력"}, {"en": "INS_CR_UD4TK_ATPS", "ko": "계약전달알림사항"}, {"en": "INS_HGRK_GRP_BJ_CR", "ko": "건강보험대상계약"}, {"en": "INS_INS_CR", "ko": "보험계약"}, {"en": "INS_INS_CR_BLD", "ko": "보험계약건물"}, {"en": "INS_INS_CR_BLD_STR", "ko": "보험계약건물구조"}, {"en": "INS_MW_WLAMT_SPY_RQ", "ko": "중도인출금분할지급신청"}, {"en": "INS_OI_LCTN", "ko": "목적물소재지"}, {"en": "INS_OI_RELPC", "ko": "목적물관계자"}, {"en": "INS_PRM_PYM_PR", "ko": "보험보험료납입예정"}, {"en": "INS_PY", "ko": "지급"}, {"en": "INS_RP_ADM", "ko": "연수관리"}, {"en": "INS_RVL_ADM", "ko": "부활관리"}, {"en": "INS_SPC_ADM_BJ", "ko": "특별관리대상"}, {"en": "INS_UDRTK_XLCL_CTM_GRD", "ko": "인수우량고객등급"}, {"en": "LSE_XI_CC_CRR_INFO", "ko": "주산지급계약정보"}, {"en": "LSE_XI_PY_SPC", "ko": "주산지급내역"}, {"en": "M_CRM_CTM_INFO_CR_LIST", "ko": "CRM고객계약리스트"}, {"en": "TB_DHER_TA_RQ", "ko": "하자자여신청"}, {"en": "INS_HP_SMAMT_STM_RQ", "ko": "휴대폰소액결제신청"}], "계약담보": [{"en": "INS_CVR_AD_ATRVL", "ko": "담보주기속성값"}, {"en": "INS_GD_CVRCL_CMN_INFO", "ko": "상품담보공통정보"}, {"en": "INS_MDCS_TRT_CR_INQ", "ko": "의료비특약계약조회"}, {"en": "INS_MDCS_TRT_CVR_INFO", "ko": "의료비특약담보정보"}, {"en": "INS_RMIMC_CR_AV_CVR", "ko": "실손의료비전환가능담보"}], "계약상태이력": [{"en": "INS_CR_ST_CRR", "ko": "계약상태이력"}], "담보수입보험료": [{"en": "INS_CVR_INCM_PRM", "ko": "담보수입보험료"}, {"en": "INS_CVR_INCM_PRM_DISS", "ko": "담보수입보험료분배"}, {"en": "INS_CVR_INCM_PRM_PYM_PR", "ko": "담보수입보험납입예정"}], "배서/갱신": [{"en": "INS_CR_NDS_DT", "ko": "계약배서마감"}, {"en": "INS_CR_NDS_MSTR", "ko": "계약배서마스터"}], "보험료": [{"en": "INS_INCM_PRM", "ko": "수입보험료"}], "약관대출": [{"en": "INS_CLA_LN_AVAMT_CLC", "ko": "약관대출가능금액산정"}], "인수": [{"en": "INS_CONDT", "ko": "공동인수"}], "자동이체": [{"en": "INS_AUTO_TF_RQ", "ko": "자동이체신청"}, {"en": "INS_AUTO_TF_SCHD", "ko": "자동이체일정"}, {"en": "INS_AUTO_TF_SPC", "ko": "자동이체파회"}, {"en": "INS_AUTO_TRFRQ", "ko": "배치관련업무"}], "자동차계약": [{"en": "M_CCR_CR_RNW_CT", "ko": "자동차갱신건수"}, {"en": "M_CCR_FR_CR_INS_CR", "ko": "일별자동차보험통계자료"}, {"en": "M_CCR_FR_CRINS_STS_DA", "ko": "통별자동차보험통계자료"}, {"en": "M_CMP_CR_CMP_CR", "ko": "자동차발생생활"}, {"en": "M_CMP_CR_CMP_MSTR", "ko": "자동차발생마스터"}], "장기계약": [{"en": "INS_LTRM_LBTRS_ADM_ATR", "ko": "장기대상적관리속성"}, {"en": "INS_LTRM_RDCH_CR", "ko": "장기수령결과"}, {"en": "M_LCR_LTRM_UD_CRDIS_PY_DT", "ko": "장기사사신청지급금세"}, {"en": "INS_LTRM_XCPT_DL_BJ", "ko": "장기예외처리대상"}], "장기계약(TM)": [{"en": "TB_LIST_INS_CR", "ko": "장기보험계약"}, {"en": "TB_LNG_INS_CR", "ko": "장기설계계약"}, {"en": "TB_LNG_INS_PL", "ko": "장기설계계약"}]}, "설계단위": {"설계관계자": [{"en": "INS_PL_RELPC", "ko": "설계관계자"}, {"en": "TB_ISPL_RELPC", "ko": "가입설계관계자"}], "설계정보": [{"en": "INS_PL", "ko": "보험설계"}, {"en": "INS_PL_CR_INFO", "ko": "설계자동차정보"}, {"en": "INS_PL_CVR", "ko": "설계정보"}, {"en": "INS_PL_DH_STF", "ko": "설계자금직원"}, {"en": "INS_PL_NRDPS_TISRD_ATR", "ko": "설계피보험자부자속성"}, {"en": "INS_PL_OI_AD_ATRVL", "ko": "설계목적물후가속성값"}, {"en": "INS_PL_PRM_PYM_PR", "ko": "설계보험료납입예정"}, {"en": "INS_PL_UDRTK_BLTGU_CN", "ko": "설계인수지위해내용"}]}, "사고/지급단위": {"IBNR/준비금": [{"en": "INS_DMCY_IBNF_MMCLS", "ko": "표면보험금마감"}, {"en": "INS_HLT_INFO_DT_RST", "ko": "IBN R"}, {"en": "INS_IBNR", "ko": "IBNR"}, {"en": "INS_LTRM_DMCY_IBNF", "ko": "장기표면보험금"}], "사고이력": [{"en": "CCM_PLN_RYLT_MSTR", "ko": "자금결의서마스터"}, {"en": "LSE_XI_PY", "ko": "주산지급"}, {"en": "M_CMP_CR_CMP_IMU", "ko": "자동차발생적적"}], "사고접수/조사": [{"en": "CCM_CLM_CVR", "ko": "사고담보"}, {"en": "CCM_CLM_RCP_NV", "ko": "사고접수조사"}, {"en": "CCM_FLT", "ko": "과실"}, {"en": "CCM_PLN_MVO", "ko": "현장물동"}, {"en": "INS_BSCRL_CLM_DA", "ko": "업계사고자료"}, {"en": "LSE_CLM_NV", "ko": "사고조사"}, {"en": "LSE_CLM_RCP", "ko": "사고접수"}, {"en": "LSE_CLMPS", "ko": "사고지"}, {"en": "LSE_CLM_DGN", "ko": "진단"}, {"en": "LSE_HSP_PT_ADM", "ko": "입원환자관리"}, {"en": "LSE_OP", "ko": "승인"}, {"en": "LSE_OTCM_CR", "ko": "사고계약"}, {"en": "LSE_RD_TP_DM_RDE", "ko": "감소유형별손해절감"}, {"en": "LSE_STD_DSAS_DERS_CSF", "ko": "표준활동사례분류"}, {"en": "LSE_SUM_QBSRT", "ko": "환산장류을"}], "심사": [{"en": "INS_UD", "ko": "심사"}], "재보험": [{"en": "INS_RINS_RK_NDX_CC", "ko": "재보험자위험수산출"}], "지급": [{"en": "FIN_PY_CR", "ko": "지급발생"}, {"en": "FIN_PY_ST", "ko": "지급정지"}, {"en": "LSE_CVRCL_DM_RDE", "ko": "담보별손해감정"}, {"en": "LSE_RMDY_SPC", "ko": "자료내역"}]}, "TM통화단위": {"배정이력": [{"en": "TB_CALL_LOG", "ko": "콜로그"}, {"en": "TB_CONTACT", "ko": "CRS_고객관리_고객접촉이력"}], "시스템/설계": [{"en": "TB_CALC_AMT", "ko": "CAR_자동설계_보험료산출테이블/계약_마스터_관리"}, {"en": "TB_EASYSAVE_CRINFO", "ko": "이지세이브차량정보"}], "통화이력": [{"en": "TB_CNSLT_DTHIST", "ko": "상담이력"}, {"en": "TB_CNSLT_HIST", "ko": "콜이력"}, {"en": "TB_CNSLT_TYPE", "ko": "상담유형"}, {"en": "TB_COMMENT", "ko": "CRS_고객관리_고객접촉이력"}]}, "월별집계": {"CRM집계": [{"en": "M_CRM_CR_INR_NRDPS_DMGRT_CR", "ko": "자동차피보험자손해율계약"}, {"en": "M_CRM_CR_NRDPS_DMGRT_CR", "ko": "자동차피보험자손해율계약"}, {"en": "M_CRM_CR_RNWRT_NW_CR", "ko": "자동차갱신관리계약"}, {"en": "M_CRM_HWRT_MBR_GRDCL_PS_CTM_CR", "ko": "HWRT등급별보유실적고객현황"}, {"en": "M_CRM_IC_GRD_AMSVG_ST_STS", "ko": "소득신용등급기준통계"}, {"en": "M_CRM_IC_CRD_GRID_ST_STS", "ko": "소득신용등급기준통계"}, {"en": "M_CRM_IC_CRD_PSTNO_ST_STS", "ko": "소득신용등급우편번호기준통계"}, {"en": "M_CRM_LEVE_PRDN_MODL", "ko": "CRM이탈예측"}, {"en": "M_CRM_LTRM_SEQCL_MNRT_CR", "ko": "장기회사별물지물계약"}, {"en": "M_CRM_MMTCL_PS_CTM_CLS", "ko": "자사별보유고객마감"}, {"en": "M_CRM_ORNCL_INFLW_CTM", "ko": "조직별유입고객"}, {"en": "M_CRM_ORNCL_LEVE_CTM", "ko": "조직별이탈고객"}, {"en": "M_CRM_ORNCL_LEVE_AD_IS_CTM", "ko": "조직별이탈추가입고객"}, {"en": "M_CRM_ORNCL_PS_CTM", "ko": "조직별보유고객"}, {"en": "M_CRM_PRIO_ACES_CTM_PNT_BJ", "ko": "우선접근고객포인트대상"}, {"en": "M_CRM_PS_CR_CTM", "ko": "보유약관고객"}, {"en": "M_CRM_REACT_INFO_ANAL_ACT_CRST", "ko": "반응정보분석활동현황"}, {"en": "M_CRM_REACT_INFO_ANAL_CRST", "ko": "반응정보분석현황"}, {"en": "M_CRM_REACT_INFO_ANAL_LIST", "ko": "반응정보분석리스트"}, {"en": "M_CRM_SCTCL_CTM_ACT", "ko": "가망고객활동"}], "계약×월": [{"en": "CLS_CR_CR_DMAMT_CLS", "ko": "자동차발생손해액마감"}, {"en": "CLS_CR_CR_PL", "ko": "자동차약관설계"}, {"en": "CLS_CR_PRM_DISS", "ko": "자동차보험료분배"}, {"en": "CLS_CR_RND_PRM_MMCLS", "ko": "자동차경과보험료마감"}, {"en": "CLS_CR_RNNWRT_CR", "ko": "자동차갱신율계약"}, {"en": "CLS_NP_CR_NT", "ko": "미지급발생이자"}, {"en": "INS_DCN_PRM", "ko": "확정보험료"}, {"en": "M_CCR_MTHY_CR_INS_CR", "ko": "월별자동차보험계약"}, {"en": "M_CRM_MTHY_LEVE_CR_GRD_LIST", "ko": "월별이탈계약등급목록세"}, {"en": "M_CRM_MTHY_LEVE_CR_PRDN_LIST", "ko": "월별이탈계약예측목록세"}, {"en": "M_FCR_MTHY_GN_INS_CR", "ko": "월별일반보험계약"}, {"en": "M_LCR_MTHY_LTRM_CR_CVR", "ko": "월별장기계약담보"}, {"en": "M_LCR_MTHY_PS_CR_CRST", "ko": "월별보유고객현황"}], "고객×월": [{"en": "M_CRM_BDL_BJ_CTM_ACT_LIST", "ko": "일괄담당고객활동리스트"}, {"en": "M_CRM_BDL_BJ_CTM_LIST", "ko": "일괄담당고객리스트"}, {"en": "M_CRM_CMPG_TRGT_CTM_CRST", "ko": "캠페인타겟고객현황"}, {"en": "M_CRM_CTM_INFO_CVR_LIST", "ko": "CRM고객계약담보리스트"}, {"en": "M_CRM_CTM_INFO_PS_CTM", "ko": "CRM고객정보부리스트"}, {"en": "M_CRM_CTM_MCLI_HLPRM_JS_AVYN_LIST", "ko": "고객별건강보험가입가능여부리스트"}, {"en": "M_CRM_DALY_ESSN_TOU_CTM_CRST", "ko": "데일리필수터치고객현황"}, {"en": "M_CRM_IC_SCTCL_PS_CTM_CRST", "ko": "소득구간별보유고객현황"}, {"en": "M_CRM_MTHY_ATND_CTM", "ko": "월별유지고객"}, {"en": "M_CRM_MTHY_CTM_ACT_SPC", "ko": "월별고객활동내역"}, {"en": "M_CRM_MTHY_CTM_CMP_CRST", "ko": "월별고객보상현황"}, {"en": "M_CRM_MTHY_CTM_CNTRT_CRST", "ko": "월별계약현황"}, {"en": "M_CRM_MTHY_CTM_PRSN_CRST_WRK", "ko": "월별고객인원현황"}, {"en": "M_CRM_MTHY_CTM_PS_CR", "ko": "월별계약파직원현황"}, {"en": "M_CRM_MTHY_PSN_CTM_INFO", "ko": "월별인고객정보"}, {"en": "M_CRM_ORNCL_PS_CTM_CRST", "ko": "조직별보유고객현황"}, {"en": "M_CRM_PRIO_ACES_CTM_CRST", "ko": "우선접근고객현황"}, {"en": "M_CRM_PSS_CTM_ACT_CRST", "ko": "가망고객현황"}, {"en": "M_CRM_PSS_CTM_TRGT_LIST", "ko": "가망고객타겟리스트"}, {"en": "M_CRM_REC_TRGT_CTM_CRST", "ko": "추천타겟고객현황"}, {"en": "M_CRM_SFA_PSS_CTM_ADM", "ko": "CRM가망고객관리"}], "기타×월": [{"en": "CAP_INS_CR_LN_CLS", "ko": "보험계약대출마감"}, {"en": "M_BIZ_MTHY_PS_CR", "ko": "Biz월별보유고객"}, {"en": "M_CMP_GN_CVRCL_PY_JBNF_LIST", "ko": "일반담보지급보험금목록세"}, {"en": "M_CMP_GN_PY_IBNF_LIST", "ko": "일반지급보험금목록세"}, {"en": "M_CRM_MTHY_FP_INFO", "ko": "월별정보"}, {"en": "M_CRM_MTHY_HHD_RGT_CRST", "ko": "월별세대타겟현황"}, {"en": "M_CRM_MTHY_HHD_TRGT_LIST", "ko": "월별세대타겟리스트"}, {"en": "M_CRM_MTHY_HHDMB_LIST", "ko": "월별세대원리스트"}, {"en": "M_CRM_MTHY_JSPL_LIST", "ko": "월별가입설계리스트"}, {"en": "M_CRM_MTHY_LEVE_CR", "ko": "월별이탈계약"}, {"en": "M_CRM_MTHY_PS_CR", "ko": "월별보유계약"}, {"en": "M_LWT_DM_RD_RPTG_LIST", "ko": "손해감소보고서명세"}], "사고×월": [{"en": "M_CMP_CR_CLM_CRST", "ko": "자동차사고현황"}, {"en": "M_CMP_CR_CLM_CR", "ko": "자동차사고상담생활"}, {"en": "M_CMP_CR_CMPG_CLM", "ko": "자동차사고맵발생고건수"}], "일반계약×월": [{"en": "INS_CMINS_CLM_CVR_CLS", "ko": "일반보험계약담보마감"}, {"en": "INS_CMINS_INS_CR_CLG", "ko": "일반보험계약담보산출"}, {"en": "INS_CMINS_INS_RE_CLS", "ko": "일반보험재사고계약마감"}, {"en": "INS_CMINS_PTNTI_PF_DA", "ko": "일반보험장재수익기조자료"}, {"en": "M_FCR_CMINS_CR", "ko": "일반보험계약"}, {"en": "M_FCR_GN_INCM_PRM", "ko": "일반수입보험료"}, {"en": "M_FCR_GN_CVRCL_PFT_INDEX", "ko": "일반상품담보별수익성지표"}], "자동차계약×월": [{"en": "CLS_LTRM_MNRT", "ko": "장기유사율"}, {"en": "M_CCR_CR_CR_CVR", "ko": "자동차계약담보"}, {"en": "M_CCR_CR_CRCL_IRAMT_CR", "ko": "자동차담당자부담부자동"}, {"en": "M_CCR_CR_CVR_INCM_PRM", "ko": "자동차담보수입보험료"}, {"en": "M_CCR_CR_DMGRT_CRST", "ko": "자동차손해율현황"}, {"en": "M_CCR_CR_INCM_PRM", "ko": "자동차수입보험료"}, {"en": "M_CCR_CR_PY_IBNF", "ko": "자동차지급보험금"}, {"en": "M_CCR_CR_RNWRT_ND_CR", "ko": "자동차갱신대상미계약"}, {"en": "M_CCR_CR_RNWRT_RNW_CR", "ko": "자동차갱신대상계약"}, {"en": "M_CCR_MTHY_CR_INFO", "ko": "월별자인수정보"}, {"en": "M_CCR_MTHY_ONL_INS_CR", "ko": "월별인수전자계약"}, {"en": "M_CCR_MTHY_CRINS_STS_DA", "ko": "월별자동차보험통계자료"}], "장기계약×월": [{"en": "INS_LTRM_CLG", "ko": "장기산출"}, {"en": "M_CMP_LTRM_INIT_DM_PRVTN_CRST", "ko": "장기부당보험방지현황"}, {"en": "M_ERL_LTRM_CLM_MTT", "ko": "장기사고명세"}, {"en": "M_ERL_LTRM_CR_MTT", "ko": "장기계약명세"}, {"en": "M_LCR_IBNR_LTRM_DMGRT_RND", "ko": "IBNR기손해율라운드"}, {"en": "M_LCR_LTINS_CR", "ko": "장기계약관리"}, {"en": "M_LCR_LTRM_ADM_ATRCL_LIST", "ko": "장기보험관리속성별리스트"}, {"en": "M_LCR_LTRM_CCL_WDR_CR", "ko": "장기계좌해약계약"}, {"en": "M_LCR_LTRM_CR_CVR", "ko": "장기계약담보"}, {"en": "M_LCR_LTRM_CR_UDRTK_JG_LIST", "ko": "장기계약인수정역명세"}, {"en": "M_LCR_LTRM_CRDIS_RLPMI_MD_JS_INI", "ko": "장기신용정보원발실손의보가입정보"}, {"en": "M_LCR_LTRM_DMGRT_CR", "ko": "장기담당보발생"}, {"en": "M_LCR_LTRM_DMGRT_RND", "ko": "장기손해율라운드"}, {"en": "M_LCR_LTRM_INCM_PRM", "ko": "장기수입보험료"}, {"en": "M_LCR_LTRM_RNWS_CVR_INPRM", "ko": "장기갱신담보보수입보험료"}, {"en": "M_LCR_LTRM_NWCR_LIST", "ko": "장기신계약명세"}, {"en": "M_LCR_LTRM_RDCH_CR_LIST", "ko": "장기수령결과명세"}, {"en": "M_LCR_LTRM_CVR_INPRM", "ko": "장기담보수입보험료"}, {"en": "M_LCR_LTRM_STS_BA_DA", "ko": "장기심사통계기초자료"}, {"en": "M_LCR_LTRM_LTINS_CR", "ko": "월별장기보험계약"}, {"en": "M_LCR_RDCH_CR", "ko": "승환계약"}, {"en": "M_LCR_RV_CR_CRST", "ko": "부활계약현황"}, {"en": "M_TM_LTRM_POM_CTM_LIST", "ko": "자동POM고객리스트"}], "조직×월": [{"en": "M_BIZ_MTHY_MKTG_CHN_ORGN", "ko": "Biz월별마케팅채널조직"}, {"en": "M_CRM_MTHY_MKTG_CHN_ORGN", "ko": "월별마케팅채널조직"}, {"en": "M_OLP_BZFML_DYB_PRSN_CRST", "ko": "영업가족일별인원현황"}, {"en": "M_OLP_BZFML_MTHY_PRSN_CRST", "ko": "영업가족월별인원현황"}, {"en": "M_OLP_OFFC_MTHY_BZFML_PRSN_CRST", "ko": "점포활동별영업가족직원현황"}, {"en": "M_SFA_ANAL_STS_ANAL_CRST", "ko": "활동통계분석현황"}, {"en": "M_SAM_BZ_FML_IC_CRST", "ko": "영업가족수당현황"}, {"en": "M_SAM_BZFML_LIST", "ko": "영업가족명세"}, {"en": "M_SAM_BZFML_PRDT_GRD_CRST", "ko": "영업가족생산성등급현황"}, {"en": "M_SAM_CORE_CTM_LIST", "ko": "CRM핵심고객리스트"}, {"en": "M_SAM_DYB_BZFML_PRSN_CRST", "ko": "일별영업가족인원현황"}, {"en": "M_SAM_FP_STD_ACT_CRST", "ko": "FP표준활동현황"}, {"en": "M_SAM_GA_LNWCR_LIST", "ko": "GA장기신계약명세"}, {"en": "M_SAM_INT_PSS_CTM_LIST", "ko": "소개가망고객명세"}, {"en": "M_SAM_INT_PRG_PRSN_CRST", "ko": "도입진행원인원현황"}, {"en": "M_SAM_LNWCR_LIST", "ko": "장기신계약명세"}, {"en": "M_SAM_LTRM_DMGRT_CRST", "ko": "장기손해율현황"}, {"en": "M_SAM_LTRM_NTOU_CTM_LIST", "ko": "장기미터치고객리스트"}, {"en": "M_SAM_PLZ_BZ_AV_CRST", "ko": "트라지영업실적현황"}, {"en": "M_SAM_RPBL_APD_ADM_LIST", "ko": "책임일확관리명세"}, {"en": "M_SAM_SFP_CR_CTM_CRCC_CRST", "ko": "SFP DB고객계약제결현황"}, {"en": "M_SAM_SFP_DB_CTM_CRCC_CRST", "ko": "SFP DB고객계약제결현황"}, {"en": "M_SAM_STYRT_RNMSY_CRST", "ko": "정착률실명세현황"}, {"en": "M_SAM_USR_AV_CRST", "ko": "사용인실현황"}, {"en": "M_SFA_DALY_ESSN_TOU_TRGT_CRST", "ko": "데일리필수터치타겟현황"}]}, "이력/SCD2": {"계약이력": [{"en": "INS_CR_AD", "ko": "보험계약보험자"}, {"en": "INS_CR_CR_INFO", "ko": "계약자동처지정보"}, {"en": "INS_CR_DH_STF_CRR", "ko": "계약담당직원이력"}, {"en": "INS_CR_RNW_ADM", "ko": "자동이체자사용료"}], "고객이력": [{"en": "CAP_LN_CTM", "ko": "대출고객"}, {"en": "CUS_CTM_ADR_CRR", "ko": "고객주소이력"}, {"en": "CUS_CTM_INAGR_ADM_CRR", "ko": "고객정보동의이력관리"}, {"en": "CUS_CTM_INFO_INQ_LMIT_CRR", "ko": "고객정보조회제한이력"}, {"en": "CUS_PSN_CRDIF_UTAGR_CRR", "ko": "개인신용정보활동동의이력"}, {"en": "CUS_PSS_CTM_CRDIF_AGRE_CRR", "ko": "가망고객신용정보동의이력"}, {"en": "SFA_SCRP_CTM_AGRE_CRR", "ko": "스크래핑고객동의이력"}, {"en": "SFA_SFP_CTM_CNTRT_CRR", "ko": "SFP고객접촉이력"}], "기타이력": [{"en": "INS_PL_ST_CRR", "ko": "설계상태이력"}, {"en": "INS_UD_AS_CRR", "ko": "심사물결이력"}, {"en": "INS_UD_WRK_CRR", "ko": "심사작업이력"}, {"en": "TB_CTM_CRDIU_AGRE", "ko": "CRS_고객관리_고객신용정보활동동의"}, {"en": "TB_LIST_ALLCT_CRR", "ko": "CMP_캠페인관리(공통) 리스트목록"}, {"en": "COM_NTTLK_SND_CRR", "ko": "알림톡발송이력"}], "영업이력": [{"en": "CNT_SFA_SP_STACT_CRR", "ko": "SP표준활동이력"}, {"en": "SFA_SP_STACT_CRR", "ko": "SP표준활동이력"}], "직원이력": [{"en": "SAM_ORG_ADR_CRR", "ko": "기관주소이력"}, {"en": "SAM_ORG_ADR_CRR", "ko": "기관주소이력"}, {"en": "SAM_ORG_ATR_CH_CRR", "ko": "기관속성변경이력"}, {"en": "SAM_ORG_STR_CRR", "ko": "기관구조이력"}, {"en": "SAM_STF_PAFF_CRR", "ko": "직원사이력"}]}, "캠페인단위": {"CMP공통리스트": [{"en": "TB_LIST", "ko": "CMP_캠페인관리(공통) 리스트"}, {"en": "TB_LIST_GROUP", "ko": "CMP_캠페인관리(공통) 리스트그룹"}, {"en": "TB_LIST_GROUP", "ko": "CMP_캠페인관리(공통) 리스트그룹"}, {"en": "TB_TASK", "ko": "CMP_캠페인관리(공통) TASK"}, {"en": "TB_TGT_CR", "ko": "대상계약"}], "CRM캠페인": [{"en": "CAM_CMPG_REACT", "ko": "캠페인반응"}, {"en": "CM_CMPG", "ko": "CM캠페인"}, {"en": "CM_EVENT_PT", "ko": "CM이벤트점수"}, {"en": "CM_WEB_CNO_LOG", "ko": "CM웹접속로그"}, {"en": "CM_WEB_CNO_STS", "ko": "CM웹접속통계"}, {"en": "INS_CMPG_CR_INFO", "ko": "캠페인계약정보"}, {"en": "INS_CMPG_CTM_BJ", "ko": "캠페인고객대상"}, {"en": "INS_CMPG_RST", "ko": "캠페인결과"}, {"en": "M_CRM_CMPG_TRGT_ORNCL_LTRM_CC_CRST", "ko": "캠페인타겟기반장기계결현황"}], "DM/알림발송": [{"en": "SFA_DALY_ESSN_TOU_NTTLK", "ko": "Daily필수터치알림톡"}, {"en": "SFA_DALY_ESSN_TOU_TP", "ko": "Daily필수터치유형"}, {"en": "SFA_DM_SND_ENTP_TS", "ko": "DM발송업무전송"}, {"en": "SFA_DM_SND_LMIT_ADM", "ko": "DM발송제한관리"}, {"en": "SFA_DM_SNDER_ER_ADR", "ko": "DM발송오류주소"}, {"en": "SFA_DM_SNDER_ER_DT", "ko": "DM발송오류상세"}, {"en": "SFA_MOBI_DM_SND_TLM", "ko": "모바일DM발송전문"}, {"en": "SFA_NTTLK_SND_BJ", "ko": "알림특별발송대상"}], "SFA캠페인": [{"en": "E_SFA_CMPG_CMP_OF_TRGT_CTM", "ko": "캠페인사제공타겟고객"}, {"en": "E_SFA_CMPG_TRGT_CND", "ko": "캠페인타겟조건"}, {"en": "E_SFA_CMPG_TRGT_CTM", "ko": "캠페인타겟고객"}, {"en": "E_SFA_CMPG_TRGT_GD", "ko": "캠페인타겟상품"}, {"en": "E_SFA_CMPG_TRGT_LTRM_PL_LIST", "ko": "캠페인타겟장기설계명세"}, {"en": "SFA_CMPG_ACT", "ko": "캠페인활동"}, {"en": "SFA_CMPG_BZ_TR_CTM", "ko": "캠페인고객타겟고객"}, {"en": "SFA_CMPG_CNTTS_COP_CN", "ko": "캠페인 컨텐츠 구성 내용"}, {"en": "SFA_CMPG_CNTTS_SCORE_ST", "ko": "캠페인 컨텐츠 스코어 기준"}, {"en": "SFA_CMPG_DM_SND_GD", "ko": "캠페인DM발송상품"}, {"en": "SFA_CMPG_INFO", "ko": "캠페인정보"}, {"en": "SFA_CMPG_PRIO_TRGT_CTM", "ko": "캠페인우선타겟고객"}, {"en": "SFA_CMPG_SELF_TRGT_CTM", "ko": "캠페인본인타겟고객"}, {"en": "SFA_CMPG_TRGT_CND", "ko": "캠페인타겟조건"}, {"en": "SFA_CMPG_TRGT_CTM", "ko": "캠페인타겟고객"}, {"en": "SFA_CMPG_CTM_XCPT", "ko": "캠페인타겟고객"}, {"en": "SFA_CMPG_ONL_INP_CTM", "ko": "캠페인온라인입력고객"}, {"en": "SFA_CMPG_PS_CR", "ko": "캠페인보유계약"}, {"en": "SFA_CMPG_VIS_ACT", "ko": "캠페인방문활동"}, {"en": "SFA_CMPG_VIS_ACT_INT_CTM", "ko": "캠페인방문활동소개고객"}], "TM캠페인성과": [{"en": "M_CMP_LSETM_DM_RD_XCPT_BJ", "ko": "장기소손해액손해절감대상"}, {"en": "M_CUS_CTM_BZPS", "ko": "고객자사"}, {"en": "M_SUS_ITIN_ADM_CTM_DMGRT", "ko": "기기보유고객손해율"}, {"en": "M_TM_CR_POM_CTM_LIST", "ko": "자동POM고객리스트"}]}, "SFP채널단위": {"SFP활동": [{"en": "SFA_SFP_COOP_PLAC", "ko": "SFP제휴"}, {"en": "SFA_SFP_CTM", "ko": "SFP고객"}, {"en": "SFA_SFP_CTM_CALL_LOG", "ko": "SFP고객콜로그"}, {"en": "SFA_SFP_CTM_CNTRT", "ko": "SFP고객접촉"}, {"en": "SFA_SFP_CTM_CRDIU_AGRE", "ko": "SFP고객신용정보활동동의"}, {"en": "SFA_SFP_INFLW", "ko": "SFP유입"}, {"en": "SFA_SFP_LGIN_CRST", "ko": "SFP관련도고인현황"}, {"en": "SFA_SFP_LIST", "ko": "SFP리스트"}, {"en": "SFA_SFP_LIST_ALLCT", "ko": "SFP리스트할당"}, {"en": "SFA_SFP_LIST_GP", "ko": "SFP리스트그룹"}, {"en": "SFA_SFP_LIST_META", "ko": "SFP리스트메타"}, {"en": "SFA_SFP_ORGN_ACT_STS", "ko": "SFP조직활동통계"}, {"en": "SFA_SFP_SCHD", "ko": "SFP일정"}, {"en": "SFA_SFP_TASK", "ko": "SFP태스크"}, {"en": "SFA_SFP_XLCL_CALL", "ko": "SFP우수콜"}]}, "조직/직원단위": {"TM사용자": [{"en": "TB_USERMAST_CMT", "ko": "사용자마스터"}], "교육/자격": [{"en": "SAM_EDU_NTD", "ko": "교육이력"}, {"en": "SAM_QUF_MTT", "ko": "자격사항"}], "그룹사직원": [{"en": "TB_HW_GROUP", "ko": "그룹사 직원정보"}], "수당/급여": [{"en": "SAM_AW_CC_ACHV", "ko": "수당산출실적"}, {"en": "SAM_AW_CC_ACHV_STF", "ko": "수당산출실적직원"}, {"en": "SAM_CSCL_AW_PY_BJ_STF", "ko": "최수당지급대상직원"}, {"en": "SAM_CSCL_AW_PY_BJ_STF", "ko": "건물비비례수수납지급내역"}, {"en": "SAM_CSCL_NPRPN_AW_PY_SPC", "ko": "건물비비례수수납지급내역"}], "영업실적": [{"en": "M_SAM_BZ_FML_ACHV", "ko": "영업가족실적"}, {"en": "M_SAM_BZ_FML_AW", "ko": "영업가족수당"}, {"en": "M_SAM_CRM_CTM_ADM_INDEX", "ko": "CRM고객관리지표"}, {"en": "M_SAM_CRM_CTM_ADM_INDEX_DT", "ko": "CRM고객관리지표상세"}, {"en": "M_SAM_FP_GNRZ_ADM", "ko": "FP홈합관리"}, {"en": "M_SAM_GA_STF_SRTR_ORGN", "ko": "GA직원구조직"}, {"en": "M_SAM_GN_RV", "ko": "일반수납"}, {"en": "M_SAM_MKTG_CHN_ORGN", "ko": "마케팅채널조직"}, {"en": "M_SAM_NW_ACT_ADM_VL_GD_CSF", "ko": "신인활동통계관리평가상품분류"}, {"en": "M_SAM_ORNNMA", "ko": "기관명"}, {"en": "M_SAM_PSN_BZ_ORGN_INDEX", "ko": "개인영업조직지표"}, {"en": "M_SAM_STF_CNTAD", "ko": "직원연락처"}, {"en": "M_SAM_STF_SRTR_ORGN", "ko": "직원구조직"}, {"en": "M_SAM_STF_SRTR_ORGN", "ko": "작원구조"}, {"en": "M_SAM_VL_WKDGR_ADM", "ko": "W관리주자관리"}], "영업조직기타": [{"en": "DCL_LTINS_FIME_GOC", "ko": "장기보험청조직정보봉계약그룹"}, {"en": "INS_INPRM_DH_STF", "ko": "수입보험료담당직원"}, {"en": "LTRM_PRDT_GRD", "ko": "장기생산성등급"}, {"en": "SAM_ASSO_INQ_REPLY_MTT", "ko": "협회조회답보사항"}, {"en": "SAM_BZ_CLS_DT", "ko": "영업마감일자"}, {"en": "SAM_INCM_PRM_BZ_AV", "ko": "수입보험료영업실적"}, {"en": "SAM_NTP_BZ_GDS_PFTRT", "ko": "기관영업상품별이익률"}, {"en": "SAM_NTP_BZ_GDS_PFTRT", "ko": "기관영업상품별이익율"}, {"en": "SAM_PF_CV_ACHV_CC_BSC", "ko": "우대활성실적산출근거"}, {"en": "SAM_RWPN_SPC", "ko": "상벌내역"}, {"en": "SAM_STY_SUPT_CM", "ko": "정착지원수수료"}], "조직/기관": [{"en": "ORGN_LVL", "ko": "조직레벨"}, {"en": "SAM_ORG_TLNO", "ko": "기관전화번호"}], "조직마스터": [{"en": "M_ORG_BZ_ORGN", "ko": "영업조직"}, {"en": "M_ORG_MTHY_BZ_ORGN", "ko": "월별영업조직"}, {"en": "M_ORG_ORG_LVL", "ko": "기관레벨"}, {"en": "M_ORG_ORG_ORDR", "ko": "기관순서"}, {"en": "M_ORG_STGY_BZ_ORGN", "ko": "전략영업조직"}], "직원": [{"en": "COM_FR_LGIN_HMS_ADM", "ko": "최초로그인시간관리"}, {"en": "SAM_STF", "ko": "직원"}, {"en": "SAM_STF_ADDR", "ko": "직원주소"}, {"en": "SAM_STF_CNTAD", "ko": "직원연락처"}], "채용/대리점": [{"en": "SAM_ADP_ATPS", "ko": "채용대상"}, {"en": "SAM_ADP_BJPS", "ko": "채용대상"}, {"en": "SAM_AGY_CHRPS_ADM", "ko": "대리점채용인사관리"}]}, "재무/원장단위": {"수입보험료/정산": [{"en": "INS_UTATP", "ko": "제지급대상"}], "원장": [{"en": "CAP_LN_LDG", "ko": "대출원장"}, {"en": "CAP_RV_LDG", "ko": "수납원장"}, {"en": "FIN_ACC_LDG", "ko": "계정원장"}, {"en": "FIN_BNC_DP_LDG", "ko": "방카예금플랜"}, {"en": "FIN_CRD_LDG", "ko": "카드원장"}, {"en": "FIN_DP_LDG", "ko": "예금원장"}, {"en": "FIN_NP_ACC_LDG", "ko": "미지금계정원장"}, {"en": "FIN_PRM_RV_SB", "ko": "보험료수납대기"}], "전표": [{"en": "FIN_SLP", "ko": "전표"}, {"en": "FIN_SLP_SPC", "ko": "전표내역"}]}, "마스터/코드": {"VOC": [{"en": "TBS_VOC_CNTRCT_INFO", "ko": "계약관련전자"}, {"en": "TBS_VOC_MASTER", "ko": "VOC마스터"}, {"en": "TBS_VOC_MASTER_INFO", "ko": "VOC담당직원"}, {"en": "TBS_VOC_PROCESS", "ko": "VOC처리"}], "고객관련코드": [{"en": "CUS_JB", "ko": "직업"}, {"en": "CUS_PRNOT_IS", "ko": "출력물발급"}], "담보마스터": [{"en": "IGD_CLM_CVR", "ko": "사고담보"}, {"en": "IGD_CLMCV_DSAS", "ko": "사고담보장채명"}, {"en": "IGD_CRDIS_CVR_MPP", "ko": "신용정보원담보매핑"}, {"en": "IGD_CVR", "ko": "담보"}, {"en": "IGD_GD_CLM_CVR", "ko": "상품사고담보"}, {"en": "IGD_GD_CLM_CVR_CCBSC", "ko": "상품사고담보생산출관거"}, {"en": "IGD_GD_CVR", "ko": "상품담보"}, {"en": "IGD_GD_CVR_ACM_RK", "ko": "상품담보누적위험"}, {"en": "IGD_LTRM_CVR_RISK_CSF", "ko": "장기담보리스크분류"}, {"en": "IGD_LTRM_MAIN_CVR_ATR", "ko": "장기주요담보속성"}, {"en": "IGD_NC_NLISR_ASSO_CVR_CN", "ko": "손보협회담보내용"}], "상품마스터": [{"en": "GEA_ITM", "ko": "품목"}, {"en": "IGD_ACM_RK", "ko": "누적위험"}, {"en": "IGD_CLM_TP", "ko": "사고유형"}, {"en": "IGD_CR_ATR_META", "ko": "계약속성정보메타"}, {"en": "IGD_GD", "ko": "상품"}, {"en": "IGD_GD_AP_NC_MTT", "ko": "상품적용앞일사항"}, {"en": "IGD_GD_CSF", "ko": "상품분류"}, {"en": "IGD_GD_SI_CHN_REL", "ko": "상품판매채널관계"}, {"en": "IGD_GD_SI_TRM", "ko": "상품판매기간"}, {"en": "IGD_GD_US_ATR", "ko": "상품사용속성"}, {"en": "IGD_INS_ITM_PST_CSF", "ko": "보험종목소속분류"}, {"en": "IGD_INS_ITM_USE_CSF", "ko": "보험종목사용도분류"}, {"en": "IGD_LTRM_CHC_RATIO", "ko": "장기변동이율"}, {"en": "IGD_LTRM_FX_RATIO", "ko": "장기고정이율"}, {"en": "IGD_LTRM_GD_RATIO_ADM", "ko": "장기상품이율관리"}, {"en": "IGD_NC_MTT_QUSDC_IT", "ko": "알림사항질문문서항목"}, {"en": "IGD_NC_MTT_QUIST_IT", "ko": "알림사항질문항목"}, {"en": "IGD_RIS_GD_MPP", "ko": "재가입상품샘플관리"}, {"en": "IGD_SIIS_TPCL_GD_ADM", "ko": "간판고지유형별상품관리"}, {"en": "INS_BN", "ko": "업종"}, {"en": "INS_CM_MTD", "ko": "수금방법"}, {"en": "INS_GD_CE_PL", "ko": "상품조건금"}, {"en": "INS_GD_CE_PL_CVR", "ko": "상품조건담보"}, {"en": "INS_UD_GD_TPCL", "ko": "심사상품유형"}, {"en": "INS_UD_GD_TPCL_REL", "ko": "심사상품유형관계"}], "상품분류": [{"en": "M_BIZ_GD_CSF_INFO", "ko": "Biz상품분류정보"}, {"en": "M_GD_CSF_INFO", "ko": "상품분류정보"}, {"en": "M_GD_CSFCL_JS_CTM_CRST", "ko": "상품분류별가입고객현황"}], "시스템코드": [{"en": "COM_CR_DCUNO", "ko": "계약문서번호"}, {"en": "COM_PRNOT_ADM", "ko": "출력물관리"}], "심사분류": [{"en": "INS_UD_CVR_CSF", "ko": "심사담보분류"}, {"en": "INS_UD_CVR_CSF_REL", "ko": "심사담보분류관계"}, {"en": "INS_UD_DSAS_CSF", "ko": "심사담보분류"}, {"en": "INS_UD_DSAS_CSF_REL", "ko": "심사방생보험분류관계"}], "주소마스터": [{"en": "CUS_PSTNO_BA_ADR", "ko": "우편번호기본주소"}, {"en": "CUS_PSTNO_BAADR_SCT_ID", "ko": "우편번호기본주소구구ZID"}, {"en": "CUS_PSTNO_RODNM_BA_ADR", "ko": "우편번호도로명기본주소"}], "차량마스터": [{"en": "INS_CARNM_INFO", "ko": "자동정보"}], "코드마스터": [{"en": "M_COD_YYMM", "ko": "년월"}, {"en": "TB_CODEBOOK", "ko": "DBM-정보관리(공통) 코드북"}]}, "기타": {"기타": [{"en": "CM_CTMCL_WEB_INFLW_STS", "ko": "CM고객별웹유입통계"}, {"en": "CUS_CNS_SPC", "ko": "상담내역"}, {"en": "FIN_DT_ADM", "ko": "연말일관리"}, {"en": "INS_BATCH_BZDY", "ko": "설계전달발생알림사항"}, {"en": "INS_BFPL_DSAS_NC_MTT", "ko": "설계전달발생알림사항"}, {"en": "INS_BFPL_NC_MTT", "ko": "설계전달알림사항"}, {"en": "INS_CRBE_NC_MTT", "ko": "계약전달알림사항"}, {"en": "INS_EMEG_MVO_SRV", "ko": "긴급동원서비스"}, {"en": "INS_ICPS_CRINS_CLM", "ko": "ICPS자동차사고"}, {"en": "INS_ICPS_DT_INQ", "ko": "ICPS사고조회"}, {"en": "INS_ICPS_PY_DAT_INQ", "ko": "ICPS자금데이터조회"}, {"en": "INS_IDM_BND", "ko": "구상재권"}, {"en": "INS_NRDPS_TISRD_ATR", "ko": "피보험자보호자부자속성"}, {"en": "INS_TR_ARE", "ko": "문송지역"}, {"en": "INS_CM_CN_CR_ATTF_RQ", "ko": "당월 해지계약 자동이체 신청"}], "기타집계": [{"en": "U_CRM_CGI_CR_INS_CR", "ko": "캐롯자동차보험계약"}, {"en": "U_FCR_NTPBZ_INSTM_XP_DMGRT", "ko": "기업업무별종목별예상손해률"}, {"en": "U_SAM_INS_CRNTC_CHR_SND_LIST", "ko": "보험계약대출안내문자발송대상"}], "신용/외부연동": [{"en": "INS_CRDIF_INQ_AGR_ADM", "ko": "신용정보조회동의관리"}, {"en": "INS_CRDIS_CRDIF_DT", "ko": "신용정보사신용정보발생세"}, {"en": "INS_CRDIS_OTCM_CRINF", "ko": "신용정보원이자정보"}, {"en": "INS_DVPNS_CR_RGT_ADM", "ko": "개발원자동등록관리"}, {"en": "INS_DVPNS_RNWRT_DA", "ko": "개발원갱신자동자료"}, {"en": "INS_DVPNS_TLM_INQ_ADM", "ko": "개발원문의조회관리"}, {"en": "INS_DVPNS_US_OI_LOG", "ko": "개발원이용문의적로그"}, {"en": "INS_NLISR_ASSO_TLM_INQ", "ko": "손보협회전문상담문의"}]}};
+let expandedDomains = {}, expandedGroups = {};
+
+function buildTree(data) {
+  const container = document.getElementById('treeContainer');
+  container.innerHTML = '';
+  Object.entries(data).forEach(([domain, groups]) => {
+    const totalTables = Object.values(groups).reduce((s,t) => s+t.length, 0);
+    const meta = META[domain] || {};
+    const isOpen = expandedDomains[domain] !== false;
+    const enc = btoa(encodeURIComponent(domain)).replace(/=/g,'');
+    
+    const block = document.createElement('div');
+    block.className = 'domain-block';
+    block.dataset.domain = domain;
+    
+    const hdr = document.createElement('div');
+    hdr.className = 'domain-header';
+    hdr.innerHTML = `
+      <div class="domain-icon">${meta.icon || '📁'}</div>
+      <div class="domain-info">
+        <div class="domain-name">${domain}</div>
+        <div class="domain-meta">
+          <span class="key-pill">${meta.key || '-'}</span>
+          ${meta.desc || ''}
+        </div>
+      </div>
+      <span class="badge">${totalTables}</span>
+      <span class="badge badge-gray">${Object.keys(groups).length}그룹</span>
+      <span class="chevron ${isOpen?'open':''}" id="chev-${enc}">▶</span>`;
+    hdr.onclick = () => toggleDomain(domain);
+    
+    const body = document.createElement('div');
+    body.className = 'domain-body';
+    body.id = 'dom-' + enc;
+    if (!isOpen) body.style.display = 'none';
+    
+    Object.entries(groups).forEach(([group, tables]) => {
+      const grpKey = domain + '::' + group;
+      const isGrpOpen = expandedGroups[grpKey] !== false;
+      const genc = btoa(encodeURIComponent(grpKey)).replace(/=/g,'');
+      
+      const gb = document.createElement('div');
+      gb.className = 'group-block';
+      gb.dataset.group = group;
+      
+      const gh = document.createElement('div');
+      gh.className = 'group-header';
+      gh.innerHTML = `
+        <div class="group-dot"></div>
+        <div class="group-name">${group}</div>
+        <span class="badge-sm">${tables.length}</span>
+        <span class="chevron-sm ${isGrpOpen?'open':''}" id="gchev-${genc}">▶</span>`;
+      gh.onclick = (e) => { e.stopPropagation(); toggleGroup(grpKey); };
+      
+      const tl = document.createElement('div');
+      tl.className = 'table-list';
+      tl.id = 'grp-' + genc;
+      if (!isGrpOpen) tl.style.display = 'none';
+      
+      tables.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'table-row';
+        row.dataset.en = t.en.toLowerCase();
+        row.dataset.ko = t.ko;
+        row.innerHTML = `<span class="tbl-en">${t.en}</span><span class="tbl-ko">${t.ko}</span>`;
+        tl.appendChild(row);
+      });
+      
+      gb.appendChild(gh); gb.appendChild(tl);
+      body.appendChild(gb);
+    });
+    block.appendChild(hdr); block.appendChild(body);
+    container.appendChild(block);
+  });
+}
+
+function toggleDomain(key) {
+  const enc = btoa(encodeURIComponent(key)).replace(/=/g,'');
+  const body = document.getElementById('dom-'+enc);
+  const chev = document.getElementById('chev-'+enc);
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  chev.classList.toggle('open', !isOpen);
+  expandedDomains[key] = !isOpen;
+}
+function toggleGroup(key) {
+  const enc = btoa(encodeURIComponent(key)).replace(/=/g,'');
+  const body = document.getElementById('grp-'+enc);
+  const chev = document.getElementById('gchev-'+enc);
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  chev.classList.toggle('open', !isOpen);
+  expandedGroups[key] = !isOpen;
+}
+function expandAll() {
+  document.querySelectorAll('.domain-body').forEach(el => el.style.display='');
+  document.querySelectorAll('.table-list').forEach(el => el.style.display='');
+  document.querySelectorAll('.chevron,.chevron-sm').forEach(el => el.classList.add('open'));
+}
+function collapseAll() {
+  document.querySelectorAll('.domain-body').forEach(el => el.style.display='none');
+  document.querySelectorAll('.table-list').forEach(el => el.style.display='none');
+  document.querySelectorAll('.chevron,.chevron-sm').forEach(el => el.classList.remove('open'));
+}
+function onSearch(q) {
+  q = q.toLowerCase().trim();
+  buildTree(DATA);
+  if (!q) { document.getElementById('statsBar').textContent = '총 572개 테이블 · 15개 Grain'; return; }
+  let totalMatch = 0;
+  document.querySelectorAll('.table-row').forEach(row => {
+    const match = (row.dataset.en||'').includes(q) || (row.dataset.ko||'').includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) totalMatch++;
+  });
+  document.querySelectorAll('.group-block').forEach(gb => {
+    const vis = gb.querySelectorAll('.table-row:not([style*="display: none"])').length > 0;
+    gb.style.display = vis ? '' : 'none';
+    if (vis) { gb.querySelector('.table-list').style.display=''; const c=gb.querySelector('.chevron-sm'); if(c) c.classList.add('open'); }
+  });
+  document.querySelectorAll('.domain-block').forEach(db => {
+    const vis = db.querySelectorAll('.group-block:not([style*="display: none"])').length > 0;
+    db.style.display = vis ? '' : 'none';
+    if (vis) { db.querySelector('.domain-body').style.display=''; const c=db.querySelector('.chevron'); if(c) c.classList.add('open'); }
+  });
+  document.getElementById('statsBar').textContent = `검색 결과: ${totalMatch}개 테이블`;
+}
+buildTree(DATA);
+</script>
+</body>
+</html>
